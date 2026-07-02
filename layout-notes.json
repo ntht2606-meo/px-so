@@ -1,0 +1,12 @@
+{
+  "version": "px-web-layout-mobile-update-2026-07-03",
+  "changes": [
+    "Dãy xoá chia 3 cột ngang MN/MT/HN",
+    "Dán kết quả chia 3 cột ngang MN/MT/HN",
+    "Số tách và Số không tách chỉ chia 2 cột, không chia theo miền",
+    "Đưa Ghi/Trúng lên trên Số trúng",
+    "Textarea nhỏ lại, có scroll nội bộ",
+    "Hệ số/Cài đặt có thể thu gọn bằng details/summary"
+  ],
+  "important": "Không đổi logic tính. Đây là patch giao diện/layout."
+}

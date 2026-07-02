@@ -1,27 +1,33 @@
-# PX-SO v0.5.10 — rewrite từ v0.5.9
+# PX-Số Web Layout Update
 
-Viết lại từ bản trước v0.5.9 theo nhiệm vụ mới.
+Bản cập nhật giao diện theo yêu cầu:
 
-Chỉ sửa:
-- Logic dò trúng DA/DV.
-- DA/DV không còn nhân chéo `countA * countB`.
-- Đá 1 đài: `hit = min(countA, countB)`.
-- Đá 2 đài: `hit = min(A đài 1, B đài 2) + min(B đài 1, A đài 2)`.
+## 1. Thứ tự vùng hiển thị
+- Nhập dữ liệu
+- Nút Chạy / Xóa
+- Copy nhanh
+- Ghi / Trúng đưa lên trên
+- Số trúng kéo xuống dưới
+- Hệ số / Cài đặt có thể để thu gọn
 
-Giữ nguyên:
-- Không đổi mẫu/form.
-- Vùng dán kết quả vẫn hiện để nhập kết quả thô MN/MT/HN.
-- Nút `Chuẩn hoá kết quả` vẫn bỏ.
-- `Kết quả đã hiểu` vẫn ẩn.
-- `Bảng trung gian` vẫn ẩn.
-- Ô `Số trúng` báo gọn, không có dòng `Tổng trúng`.
-- Tổng tiền trúng nằm ở ô `Trúng`.
-- Ghi DA/DV 1 đài MN/MT vẫn tính đúng.
+## 2. Các vùng chia 3 cột ngang
+Áp dụng cho:
+- Dãy xoá MN | Dãy xoá MT | Dãy xoá HN
+- Kết quả MN | Kết quả MT | Kết quả HN
 
-Test khóa:
-- Tin gốc đầy đủ = `3340,8k`.
-- Block 3dmn riêng = `3168k`.
-- `Tninh\n93.97.07.29dv1n` = `172,8k`.
-- DA 2 đài basic `01.02da1n` = `550k`.
-- DA 2 đài nhiều lần: hit = min, không nhân chéo.
-- DA 1 đài nhiều lần: hit = min, không nhân chéo.
+Không xếp dọc 3 miền nữa.
+
+## 3. Vùng Số tách / Số không tách
+Chỉ chia 2 khu:
+- Số tách
+- Số không tách
+
+Không chia MN / MT / HN ở vùng này.
+
+## 4. Kích thước vùng dữ liệu
+Các textarea nhỏ lại, chiếm khoảng nửa màn hình hoặc ít hơn.
+Nếu dữ liệu dài thì cuộn trong ô, không kéo dài toàn trang.
+
+## 5. Ghi chú vận hành
+Các vùng dữ liệu theo miền dùng 3 cột.
+Các vùng kết quả tổng hợp dùng 1 vùng lớn hoặc 2 cột tùy loại.

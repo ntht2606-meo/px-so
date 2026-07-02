@@ -1,0 +1,126 @@
+/* PX-Số mobile layout update */
+
+/* Base */
+.px-section {
+  margin: 10px 0;
+}
+
+.px-section-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* 3-column layout: Dãy xoá / Kết quả theo MN-MT-HN */
+.px-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.px-grid-3 .px-field label,
+.px-grid-2 .px-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.px-grid-3 textarea,
+.px-grid-2 textarea,
+.px-wide-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow: auto;
+}
+
+/* Dãy xoá / KQ 3 miền */
+.px-grid-3 textarea {
+  min-height: 86px;
+  max-height: 140px;
+}
+
+/* 2-column layout: Số tách / Số không tách */
+.px-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.px-grid-2 textarea {
+  min-height: 110px;
+  max-height: 180px;
+}
+
+/* Copy nhanh */
+.px-copy-fast textarea,
+.px-wide-textarea {
+  min-height: 110px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+/* Ghi / Trúng compact */
+.px-summary-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.px-summary-card {
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.px-summary-card .label {
+  font-size: 12px;
+  opacity: .75;
+}
+
+.px-summary-card .value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Collapsible config */
+.px-settings details {
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.px-settings summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Mobile safety */
+@media (max-width: 420px) {
+  .px-grid-3 {
+    gap: 6px;
+  }
+
+  .px-grid-3 textarea {
+    min-height: 80px;
+    max-height: 120px;
+    font-size: 13px;
+    padding: 6px;
+  }
+
+  .px-grid-2 textarea {
+    min-height: 100px;
+    max-height: 160px;
+    font-size: 13px;
+    padding: 6px;
+  }
+}

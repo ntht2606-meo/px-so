@@ -1,0 +1,91 @@
+<!-- PX-Số layout snippet -->
+
+<!-- Dãy xoá: 3 cột ngang -->
+<section class="px-section">
+  <div class="px-section-title">Dãy xoá</div>
+  <div class="px-grid-3">
+    <div class="px-field">
+      <label for="deleteMn">Dãy xoá MN</label>
+      <textarea id="deleteMn"></textarea>
+    </div>
+    <div class="px-field">
+      <label for="deleteMt">Dãy xoá MT</label>
+      <textarea id="deleteMt"></textarea>
+    </div>
+    <div class="px-field">
+      <label for="deleteHn">Dãy xoá HN</label>
+      <textarea id="deleteHn"></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- Kết quả: 3 cột ngang -->
+<section class="px-section">
+  <div class="px-section-title">Dán kết quả</div>
+  <div class="px-grid-3">
+    <div class="px-field">
+      <label for="resultMn">KQ MN</label>
+      <textarea id="resultMn"></textarea>
+    </div>
+    <div class="px-field">
+      <label for="resultMt">KQ MT</label>
+      <textarea id="resultMt"></textarea>
+    </div>
+    <div class="px-field">
+      <label for="resultHn">KQ HN</label>
+      <textarea id="resultHn"></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- Copy nhanh -->
+<section class="px-section px-copy-fast">
+  <div class="px-section-title">Copy nhanh</div>
+  <textarea id="copyFast"></textarea>
+  <button type="button" id="copyFastBtn">Copy nhanh</button>
+</section>
+
+<!-- Ghi / Trúng đưa lên trên -->
+<section class="px-section">
+  <div class="px-summary-row">
+    <div class="px-summary-card">
+      <span class="label">Ghi</span>
+      <span class="value" id="totalWrite">0</span>
+    </div>
+    <div class="px-summary-card">
+      <span class="label">Trúng</span>
+      <span class="value" id="totalWin">0</span>
+    </div>
+  </div>
+</section>
+
+<!-- Số trúng kéo xuống dưới -->
+<section class="px-section">
+  <div class="px-section-title">Số trúng</div>
+  <textarea id="winningNumbers" class="px-wide-textarea"></textarea>
+</section>
+
+<!-- Số tách / Số không tách: chỉ 2 cột, không chia MN/MT/HN -->
+<section class="px-section">
+  <div class="px-section-title">Tách / Không tách</div>
+  <div class="px-grid-2">
+    <div class="px-field">
+      <label for="splitNumbers">Số tách</label>
+      <textarea id="splitNumbers"></textarea>
+    </div>
+    <div class="px-field">
+      <label for="notSplitNumbers">Số không tách</label>
+      <textarea id="notSplitNumbers"></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- Hệ số / Cài đặt thu gọn -->
+<section class="px-section px-settings">
+  <details>
+    <summary>Hệ số / Cài đặt</summary>
+    <div id="settingsPanel">
+      <!-- đặt các hệ số hiện tại vào đây -->
+    </div>
+  </details>
+</section>

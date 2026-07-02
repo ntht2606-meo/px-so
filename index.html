@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.4.4</title>
+  <title>PX-SO v0.4.8</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.4.4</h1>
-      <p>Form nhỏ gọn hơn, vùng dữ liệu chia 2 cột khi đủ ngang; giữ công thức đá 2 đài.</p>
+      <h1>PX-SO v0.4.8</h1>
+      <p>Khóa form; tiền hiển thị đúng số lẻ 0,1k, không làm tròn lên.</p>
     </header>
 
     <div class="topGrid">
@@ -37,12 +37,20 @@
       <button onclick="copyText('soTrung')">Copy số trúng</button>
     </section>
 
-    <section class="panel onecol">
-      <h2>Ghi / Thưởng</h2>
-      <label>Ghi:<textarea id="ghi" readonly></textarea></label>
-      <button onclick="copyText('ghi')">Copy ghi</button>
-      <label>Thưởng:<textarea id="thuong" readonly>0</textarea></label>
-      <button onclick="copyText('thuong')">Copy thưởng</button>
+    <section class="panel compact-money">
+      <h2>Ghi / Trúng</h2>
+      <div class="moneyRow">
+        <label>Ghi:
+          <input id="ghi" readonly value="">
+        </label>
+        <label>Trúng:
+          <input id="thuong" readonly value="0">
+        </label>
+      </div>
+      <div class="moneyButtons">
+        <button onclick="copyText('ghi')">Copy ghi</button>
+        <button onclick="copyText('thuong')">Copy trúng</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -118,8 +126,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.4.4 — form nhỏ gọn 2 cột</footer>
+    <footer>PX-SO v0.4.8 — khóa form, copy nhanh không bung</footer>
   </div>
-<script src="app.js?v=44"></script>
+<script src="app.js?v=48"></script>
 </body>
 </html>

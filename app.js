@@ -1,4 +1,4 @@
-// PX-SO v0.4.4 - rebuild sạch
+// PX-SO v0.4.8 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -67,9 +67,12 @@ function fmtN(n){
   return String(x).replace(".",",").replace(/,0$/,"");
 }
 function money(n){
-  // Làm tròn lên theo k như Excel: 3124.8 -> 3125k
-  const x = Math.ceil((Number(n)||0) - 1e-9);
-  return String(x).replace(".",",")+"k";
+  // Hiển thị đúng số lẻ 0,1k, không làm tròn lên.
+  // Ví dụ: 595.2 -> 595,2k; 57.6 -> 57,6k; 16 -> 16k
+  const x = Math.round((Number(n)||0)*10)/10;
+  let s = String(x).replace(".",",");
+  if(s.endsWith(",0")) s = s.slice(0,-2);
+  return s + "k";
 }
 function cleanName(s){
   return (s||"")
@@ -349,16 +352,30 @@ function totalMoney(rows){
   return rows.reduce((s,row)=>s+calcRow(row),0);
 }
 
-// COPY NHANH: gom đồng giá trong mỗi block, tự xuống dòng <= 24 ký tự.
-function splitMaxNums(nums, suffix, maxLen=24){
-  const out=[]; let cur=[];
-  for(const n of nums){
-    const test = cur.concat([n]).join(".") + suffix;
+// COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
+// Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
+function splitCopyLineOriginal(rawLine, maxLen=24){
+  const s = normalizeLine(rawLine);
+  if(!s || s.length <= maxLen) return s ? [s] : [];
+
+  // Chỉ tách các dòng có sẵn danh sách số bằng dấu chấm.
+  // Không bung keo/kéo, không gom dòng, không mở parseNums.
+  const m = s.match(/^(\d+(?:\.\d+)+)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
+  if(!m) return [s];
+
+  const nums = m[1].split(".").filter(Boolean);
+  const suffix = m[2];
+  if(nums.length < 2) return [s];
+
+  const out=[];
+  let cur=[];
+  for(const num of nums){
+    const test = cur.concat([num]).join(".") + suffix;
     if(cur.length && test.length > maxLen){
       out.push(cur.join(".") + suffix);
-      cur=[n];
+      cur=[num];
     }else{
-      cur.push(n);
+      cur.push(num);
     }
   }
   if(cur.length) out.push(cur.join(".") + suffix);
@@ -368,34 +385,9 @@ function buildCopyFast(blocks){
   const out=[];
   for(const block of blocks){
     out.push(block.name);
-    const groups = {};
-    const order = [];
-    const direct = [];
-
     for(const rawLine of block.lines){
-      const parts = parseBetLine(rawLine);
-      if(!parts){
-        direct.push(rawLine);
-        continue;
-      }
-      for(const part of parts){
-        if(part.type==="da" || part.type==="dv"){
-          direct.push(normalizeLine(rawLine));
-          continue;
-        }
-        const suffix = part.type + fmtN(part.n) + "n";
-        if(!groups[suffix]){
-          groups[suffix]=[];
-          order.push(suffix);
-        }
-        groups[suffix].push(...(part.nums||[]));
-      }
+      out.push(...splitCopyLineOriginal(rawLine, 24));
     }
-
-    for(const suffix of order){
-      out.push(...splitMaxNums(groups[suffix], suffix, 24));
-    }
-    out.push(...direct);
     out.push("");
   }
   return out.join("\n").trim();
@@ -532,7 +524,7 @@ function runAll(){
     setVal("copyFast", buildCopyFast(blocks));
 
     const total = totalMoney(rows);
-    setVal("ghi", "Ghi: " + money(total));
+    setVal("ghi", money(total));
 
     const tk = buildTach(blocks);
     setVal("soTach", tk.tach);

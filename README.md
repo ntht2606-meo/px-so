@@ -1,10 +1,14 @@
-# PX-SO v0.4.8
+# PX-SO v0.5.0
 
-Khóa form, chỉ sửa Copy nhanh:
-- Copy nhanh không bung keo/kéo.
-- Copy nhanh không gom các dòng cùng hậu tố.
-- Copy nhanh giữ đúng cấu trúc và thứ tự tin gốc.
-- Chỉ đổi header như `3dmn` thành tên đài thật.
-- Chỉ ngắt dòng khi chính dòng gốc quá dài.
-- Logic tiền giữ từ v0.4.7: tin mẫu lớn có `681xc10n` => `3168k`.
-- index.html dùng app.js?v=48 để tránh cache.
+Bản test riêng phần chuẩn hóa kết quả để kiểm trước:
+- Base từ bản khóa v0.4.8.
+- Không đổi form/layout.
+- Không thêm dò thưởng.
+- Copy nhanh vẫn không bung/gom.
+- Ghi mẫu lớn có `681xc10n` vẫn = `3168k`.
+- Tin Tninh 1 đài vẫn = `595,2k`.
+- Kết quả đã hiểu hiện đủ:
+  - Bao 2 số / Đầu 2 số / Đuôi 2 số
+  - Bao 3 số / Đầu 3 số / Đuôi 3 số
+  - Bao 4 số / Đầu 4 số / Đuôi 4 số
+- index.html dùng app.js?v=50 để tránh cache.

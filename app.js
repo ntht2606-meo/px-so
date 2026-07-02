@@ -1,4 +1,4 @@
-// PX-SO v0.4.8 - rebuild sạch
+// PX-SO v0.5.0 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -462,25 +462,65 @@ function mapDaiName(line){
   }
   return null;
 }
+function findDaiInLine(line){
+  const exact = mapDaiName(line);
+  if(exact) return exact;
+
+  const c = " " + cleanName(line) + " ";
+  const entries = Object.entries(NAME_MAP).sort((a,b)=>cleanName(b[0]).length-cleanName(a[0]).length);
+  for(const [k,v] of entries){
+    const kk = " " + cleanName(k) + " ";
+    if(c.includes(kk)) return v;
+  }
+  return null;
+}
 function parseResultText(text){
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={}; let cur=null;
+
   for(const line of lines){
-    const dai=mapDaiName(line);
-    if(dai){ cur=dai; if(!out[cur]) out[cur]=[]; continue; }
+    const dai=findDaiInLine(line);
+    if(dai){
+      cur=dai;
+      if(!out[cur]) out[cur]=[];
+      const nums=line.match(/\d+/g);
+      if(nums) nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
+      continue;
+    }
+
     const nums=line.match(/\d+/g);
-    if(nums && cur) nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
+    if(nums && cur){
+      nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
+    }
   }
+
   const shaped={};
-  for(const [dai, nums] of Object.entries(out)){
+  for(const [dai, numsRaw] of Object.entries(out)){
+    const nums = numsRaw.filter(Boolean);
+    const first = nums.length ? nums[0] : "";
+    const last = nums.length ? nums[nums.length-1] : "";
+
     shaped[dai]={
-      full:nums,
-      all2:nums.map(n=>n.slice(-2)),
-      all3:nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
-      all4:nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
-      dau2:nums.length?[nums[0].slice(-2)]:[],
-      duoi2:nums.length?[nums[nums.length-1].slice(-2)]:[]
+      full: nums,
+
+      // Bao = toàn bộ giải theo độ dài cần dò.
+      bao2: nums.map(n=>n.slice(-2)),
+      bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
+      bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
+
+      // Đầu/Đuôi = vị trí kết quả, dùng để dò dd/dau/duoi và xc/xcdau/xcduoi.
+      dau2: first ? [first.slice(-2)] : [],
+      duoi2: last ? [last.slice(-2)] : [],
+      dau3: first && first.length>=3 ? [first.slice(-3)] : [],
+      duoi3: last && last.length>=3 ? [last.slice(-3)] : [],
+      dau4: first && first.length>=4 ? [first.slice(-4)] : [],
+      duoi4: last && last.length>=4 ? [last.slice(-4)] : []
     };
+
+    // Alias cũ để không làm gãy các phần đang đúng.
+    shaped[dai].all2 = shaped[dai].bao2;
+    shaped[dai].all3 = shaped[dai].bao3;
+    shaped[dai].all4 = shaped[dai].bao4;
   }
   return shaped;
 }
@@ -499,12 +539,16 @@ function renderParsedResults(obj){
     lines.push(region);
     for(const [dai,r] of Object.entries(data)){
       lines.push(dai);
-      lines.push("full: "+r.full.join("."));
-      lines.push("all2: "+r.all2.join("."));
-      lines.push("all3: "+r.all3.join("."));
-      lines.push("all4: "+r.all4.join("."));
-      lines.push("dau: "+r.dau2.join("."));
-      lines.push("duoi: "+r.duoi2.join("."));
+      lines.push("Full: "+r.full.join("."));
+      lines.push("Bao 2 số: "+r.bao2.join("."));
+      lines.push("Đầu 2 số: "+r.dau2.join("."));
+      lines.push("Đuôi 2 số: "+r.duoi2.join("."));
+      lines.push("Bao 3 số: "+r.bao3.join("."));
+      lines.push("Đầu 3 số: "+r.dau3.join("."));
+      lines.push("Đuôi 3 số: "+r.duoi3.join("."));
+      lines.push("Bao 4 số: "+r.bao4.join("."));
+      lines.push("Đầu 4 số: "+r.dau4.join("."));
+      lines.push("Đuôi 4 số: "+r.duoi4.join("."));
       lines.push("");
     }
   }

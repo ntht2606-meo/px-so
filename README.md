@@ -1,3 +1,3 @@
-# PX-SO v0.3.9
+# PX-SO v0.4.0
 
-Sửa lỗi chạy tới dữ liệu trung gian rồi dừng: Ghi được tính trực tiếp từ entries/dữ liệu trung gian, tách/không tách được bọc an toàn để không làm đứng app.
+Rebuild sạch: giữ form, tính tiền từ bảng trung gian, copy nhanh gom đồng giá và tự xuống dòng không quá 24 ký tự.

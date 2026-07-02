@@ -343,7 +343,7 @@ footer{
 }
 
 
-/* PX-SO v0.5.4 — Ẩn các khối kiểm nội bộ */
+/* PX-SO v0.5.4 — viết lại từ v0.5.3: ẩn kiểm nội bộ */
 .parsed-results-panel,
 .intermediate-panel{
   display:none !important;

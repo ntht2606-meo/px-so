@@ -1,4 +1,4 @@
-// PX-SO v0.3.6.6
+// PX-SO v0.3.7.6
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -441,6 +441,120 @@ function buildTachFromBlocks(blocks){
 }
 
 
+
+// v0.3.7 - Bước gộp cuối cho ô Số tách / Số không tách.
+// Không lấy dữ liệu bung làm output cuối nữa. Dữ liệu bung chỉ dùng để tính/audit.
+function buildTachGopCuoi(blocks){
+  const tach = {};
+  const khong = {};
+  const max2 = getNum("max2",10);
+  const maxDa = getNum("maxDa",1);
+
+  const add = (obj, block, line) => {
+    if(!block || !line) return;
+    if(!obj[block]) obj[block] = [];
+    obj[block].push(line);
+  };
+
+  const addUnique = (obj, block, line) => {
+    if(!block || !line) return;
+    if(!obj[block]) obj[block] = [];
+    if(!obj[block].includes(line)) obj[block].push(line);
+  };
+
+  const render = (obj) => {
+    const out = [];
+    for(const [block, lines] of Object.entries(obj)){
+      if(!lines.length) continue;
+      out.push(block);
+      out.push(...lines);
+      out.push("");
+    }
+    return out.join("\n").trim();
+  };
+
+  const rebuildParts = (parts) => {
+    if(!parts || !parts.length) return "";
+    const base = (parts[0].nums || []).join(".");
+    let s = base + parts[0].type + fmtN(parts[0].n) + "n";
+    for(let i=1;i<parts.length;i++){
+      s += "." + parts[i].type + fmtN(parts[i].n) + "n";
+    }
+    return s;
+  };
+
+  for(const block of blocks){
+    const mainPair = block.mainDais.length >= 2 ? block.mainDais[0] + block.mainDais[1] : "";
+    const hasMainPair = !!mainPair;
+
+    for(const rawLine of block.lines){
+      const parts = parseBetLine(rawLine);
+      if(!parts){
+        add(khong, block.name, rawLine);
+        continue;
+      }
+
+      let tookSomething = false;
+      const remainParts = [];
+
+      for(const part of parts){
+        const t = part.type;
+        const nums = part.nums || [];
+
+        // Bao 2 số: gộp về block 2 đài chính, không tách riêng Vlong/Bduong nữa.
+        if(t === "b" && hasMainPair && nums.every(n => n.length === 2)){
+          addUnique(tach, mainPair, `${nums.join(".")}b${fmtN(Math.min(part.n,max2))}n`);
+          tookSomething = true;
+          continue;
+        }
+
+        // Đá trực tiếp trong block nhiều đài: lấy cặp 2 đài chính vào Số tách.
+        // Nếu block có đài phụ thì phần cặp phụ đưa qua Số không tách để không mất dữ liệu.
+        if(t === "da" && hasMainPair && nums.length >= 2){
+          const line = `${nums[0]}.${nums[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
+          addUnique(tach, mainPair, line);
+          tookSomething = true;
+          if(block.dais.length > 2){
+            for(const dp of pairDais(block.dais)){
+              const pairName = dp[0] + dp[1];
+              if(pairName !== mainPair) addUnique(khong, pairName, line);
+            }
+          }
+          continue;
+        }
+
+        // DV: bung thành cặp đá. Lấy cặp 2 đài chính vào Số tách,
+        // cặp đài phụ còn lại đưa qua Số không tách.
+        if(t === "dv" && hasMainPair && nums.length >= 2){
+          for(const np of pairNumbers(nums)){
+            const line = `${np[0]}.${np[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
+            addUnique(tach, mainPair, line);
+            if(block.dais.length > 2){
+              for(const dp of pairDais(block.dais)){
+                const pairName = dp[0] + dp[1];
+                if(pairName !== mainPair) addUnique(khong, pairName, line);
+              }
+            }
+          }
+          tookSomething = true;
+          continue;
+        }
+
+        // Không đủ điều kiện tách thì giữ lại theo cấu trúc copy nhanh, không bung keo/dd/dau/duoi.
+        remainParts.push(part);
+      }
+
+      if(!tookSomething){
+        add(khong, block.name, rawLine);
+      }else if(remainParts.length){
+        add(khong, block.name, rebuildParts(remainParts) || rawLine);
+      }
+    }
+  }
+
+  return {tach: render(tach), khong: render(khong)};
+}
+
 function runAll(){
   const blocks = splitBlocks(document.getElementById("inputData").value);
   const entries = expandIntermediate(blocks);
@@ -455,7 +569,7 @@ function runAll(){
   // Không dùng vùng trung gian đã bung để tránh quá dài khi copy/in.
   document.getElementById("copyFast").value = renderCopyFastBlocks(blocks);
 
-  const tk = buildTachFromBlocks(blocks);
+  const tk = buildTachGopCuoi(blocks);
   document.getElementById("soTach").value = tk.tach;
   document.getElementById("soKhongTach").value = tk.khong;
 

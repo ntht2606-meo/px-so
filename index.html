@@ -3,40 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.1</title>
+  <title>PX-SO v0.2</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.1</h1>
-      <p>Nhập dữ liệu → Chạy → Ghi / Thưởng / Tách</p>
+      <h1>PX-SO v0.2</h1>
+      <p>Tính ghi đúng công thức gốc + output copy nhanh + vùng dán kết quả</p>
     </header>
 
     <section class="panel">
       <h2>Cài đặt</h2>
       <div class="grid settings">
         <label>Nhân <input id="rate" value="0.8"></label>
-        <label>Đá 2 đài <input id="da2" value="550"></label>
-        <label>Đá 1 đài <input id="da1" value="750"></label>
-        <label>Đá Hà Nội <input id="dahn" value="650"></label>
-        <label>2 số <input id="so2" value="75"></label>
-        <label>3 số <input id="so3" value="650"></label>
-        <label>4 số <input id="so4" value="5500"></label>
         <label>Max 2 số <input id="max2" value="10"></label>
         <label>Max đá <input id="maxDa" value="1"></label>
+      </div>
+      <div class="note">
+        Giá ghi đang dùng công thức gốc: MN/MT b2=18, b3=17, b4=16, đá=36, dd=2, đầu=1, đuôi=1, xc=2. HN dùng hệ riêng.
       </div>
     </section>
 
     <section class="panel">
       <h2>Vùng nhập dữ liệu</h2>
       <textarea id="inputData" placeholder="Ví dụ:
-2dmn
-01.02da1n"></textarea>
+Tninh
+93.97.07.29dv1n
+
+3dmn
+93b5n
+93dau10n.duoi15n"></textarea>
       <div class="buttons">
         <button onclick="runAll()">CHẠY</button>
-        <button onclick="clearAll()" class="gray">XÓA</button>
+        <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>Copy nhanh</h2>
+      <textarea id="copyFast" readonly></textarea>
+      <button onclick="copyText('copyFast')">Copy nhanh</button>
     </section>
 
     <section class="panel result-row">
@@ -53,6 +60,28 @@
     </section>
 
     <section class="panel">
+      <h2>Chi tiết tính</h2>
+      <textarea id="detail" readonly></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Vùng dán kết quả</h2>
+      <div class="grid3">
+        <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN từ Minh Ngọc..."></textarea></label>
+        <label>Kết quả MT<textarea id="kqMt" placeholder="Dán nguyên bảng kết quả MT..."></textarea></label>
+        <label>Kết quả HN<textarea id="kqHn" placeholder="Dán nguyên bảng kết quả HN..."></textarea></label>
+      </div>
+      <div class="buttons">
+        <button onclick="parseResultsOnly()">Chuẩn hoá kết quả</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Kết quả đã hiểu</h2>
+      <textarea id="parsedResults" readonly></textarea>
+    </section>
+
+    <section class="panel">
       <h2>Số trúng</h2>
       <textarea id="soTrung" readonly></textarea>
     </section>
@@ -63,15 +92,6 @@
         <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
         <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
         <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Vùng dán kết quả</h2>
-      <div class="grid3">
-        <label>Kết quả MN<textarea id="kqMn"></textarea></label>
-        <label>Kết quả MT<textarea id="kqMt"></textarea></label>
-        <label>Kết quả HN<textarea id="kqHn"></textarea></label>
       </div>
     </section>
 
@@ -88,7 +108,7 @@
       </div>
     </section>
 
-    <footer>PX-SO v0.1 — bản chạy thử trên Safari / Vercel</footer>
+    <footer>PX-SO v0.2 — bản sửa công thức ghi và output</footer>
   </div>
 <script src="app.js"></script>
 </body>

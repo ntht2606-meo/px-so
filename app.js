@@ -1,4 +1,4 @@
-// PX-SO v0.3.2
+// PX-SO v0.3.5
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -87,29 +87,43 @@ function isHeader(line){
   // Header là dòng chữ không có số và không có hậu tố cách đánh
   return !/\d/.test(line) && /^[a-zA-ZÀ-ỹ]+$/.test(line.trim());
 }
-function resolveHeader(raw){
+function pickDayForGeneric(region, count, hintDais=[]){
+  const map = region === "MT" ? MT_MAP : MN_MAP;
+  const today = dayIndex();
+  const hints = (hintDais||[]).filter(Boolean);
+  if(hints.length){
+    for(const [d, arr] of Object.entries(map)){
+      if(arr.length >= count && hints.some(h => arr.includes(h))){
+        return parseInt(d,10);
+      }
+    }
+  }
+  return today;
+}
+function resolveHeader(raw, hintDais=[]){
   const l = normalizeLine(raw).toLowerCase();
-  const d = dayIndex();
   let dais;
   if(l==="hn" || l==="mb") dais = ["HN"];
-  else if(l==="2dmn") dais = MN_MAP[d].slice(0,2);
-  else if(l==="3dmn") dais = MN_MAP[d].slice(0,3);
-  else if(l==="4dmn") dais = MN_MAP[d].slice(0,4);
-  else if(l==="2dmt") dais = MT_MAP[d].slice(0,2);
-  else if(l==="3dmt") dais = MT_MAP[d].slice(0,3);
+  else if(l==="2dmn") dais = MN_MAP[pickDayForGeneric("MN",2,hintDais)].slice(0,2);
+  else if(l==="3dmn") dais = MN_MAP[pickDayForGeneric("MN",3,hintDais)].slice(0,3);
+  else if(l==="4dmn") dais = MN_MAP[pickDayForGeneric("MN",4,hintDais)].slice(0,4);
+  else if(l==="2dmt") dais = MT_MAP[pickDayForGeneric("MT",2,hintDais)].slice(0,2);
+  else if(l==="3dmt") dais = MT_MAP[pickDayForGeneric("MT",3,hintDais)].slice(0,3);
   else dais = getDaisFromName(raw.trim());
-  return { raw: raw.trim(), name: dais.join(""), dais, region: detectRegionByDais(dais), mainDais: dais.slice(0,2), lines: [] };
+  const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
+  return { raw: raw.trim(), name: dais.join(""), dais, region: detectRegionByDais(dais), mainDais: dais.slice(0,2), lines: [], generic };
 }
 function splitBlocks(text){
   const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
-  const blocks=[]; let cur=null;
+  const blocks=[]; let cur=null; let lastExplicitDais=[];
   for(const raw of lines){
     if(isHeader(raw)){
-      cur = resolveHeader(raw);
+      cur = resolveHeader(raw, lastExplicitDais);
       blocks.push(cur);
+      if(!cur.generic) lastExplicitDais = cur.dais;
     }else{
       if(!cur){
-        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], lines:[]};
+        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], lines:[], generic:false};
         blocks.push(cur);
       }
       cur.lines.push(normalizeLine(raw));
@@ -267,14 +281,15 @@ function renderEntries(entries){
 }
 
 
-const COPY_MAX = 24;
+const COPY_MAX = 22; // chừa biên an toàn, luôn dưới 24 ký tự
 
 function wrapCopyLine(line, maxLen=COPY_MAX){
   const s = normalizeLine(line);
   if(!s || s.length <= maxLen) return [s];
 
-  // Chỉ ngắt những kiểu nhiều số độc lập. Không ngắt da/dv vì tách ra sẽ đổi nghĩa đá.
-  const m = s.match(/^([0-9.]+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)$/i);
+  // Copy nhanh chỉ xuống hàng, không bung đài, không bung keo, không tách tiền.
+  // Không cắt da/dv vì sẽ làm mất nghĩa đá giữa nhiều số.
+  const m = s.match(/^([0-9.]+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:duoi|dau|dd|b|xc)[\d,.]+n)*)$/i);
   if(!m) return [s];
 
   const nums = m[1].split(".").filter(Boolean);
@@ -284,8 +299,7 @@ function wrapCopyLine(line, maxLen=COPY_MAX){
   const out = [];
   let cur = [];
   for(const num of nums){
-    const testNums = cur.concat([num]).join(".");
-    const testLine = testNums + suffix;
+    const testLine = cur.concat([num]).join(".") + suffix;
     if(cur.length && testLine.length > maxLen){
       out.push(cur.join(".") + suffix);
       cur = [num];
@@ -300,102 +314,11 @@ function wrapCopyLine(line, maxLen=COPY_MAX){
 function renderCopyFastBlocks(blocks){
   const out = [];
   for(const block of blocks){
-    out.push(block.name);
+    // Copy nhanh chỉ chuẩn hoá tên đài ra rõ: 3dmn -> TninhAgiangBthuan, còn dữ liệu giữ nguyên.
+    out.push(block.name || block.raw);
     for(const line of block.lines){
-      const parts = parseBetLine(line);
-      // Nếu dòng ghép nhiều cách, tách từng cách trước để copy dễ đọc.
-      // Riêng da/dv vẫn giữ nghĩa của dòng đá, không cắt giữa danh sách số.
-      if(parts && parts.length > 1 && !["da","dv"].includes(parts[0].type)){
-        for(const p of parts){
-          const baseNums = p.nums.join(".");
-          const oneLine = baseNums + p.type + fmtN(p.n) + "n";
-          out.push(...wrapCopyLine(oneLine, COPY_MAX));
-        }
-      }else{
-        out.push(...wrapCopyLine(line, COPY_MAX));
-      }
+      out.push(...wrapCopyLine(line, COPY_MAX));
     }
-    out.push("");
-  }
-  return out.join("\n").trim();
-}
-
-
-function permCount(s){
-  const arr = String(s).split("");
-  const fact = n => n<=1?1:n*fact(n-1);
-  const counts={}; arr.forEach(c=>counts[c]=(counts[c]||0)+1);
-  let den=1; Object.values(counts).forEach(c=>den*=fact(c));
-  return fact(arr.length)/den;
-}
-function daiCountForCalc(blockName, region, type){
-  if(region === "HN") return 1;
-  if(type === "da") return Math.max(1, getDaisFromName(blockName).length);
-  return 1; // đã bung bao/xc/dd/dau/duoi về từng đài riêng
-}
-function calcEntry(e){
-  if(!e.calc) return 0;
-  const r = getRate();
-  const region = e.region || "MN";
-  const t = e.type;
-  const dai = daiCountForCalc(e.block, region, t);
-  let base=0, qty=1;
-  const num = e.nums && e.nums[0] ? e.nums[0] : "";
-
-  if(t==="da") { base = region==="HN" ? 54 : 36; qty = 1; }
-  else if(t==="b") {
-    const len = num.length;
-    base = region==="HN" ? (len===2?27:len===3?23:0) : (len===2?18:len===3?17:16);
-  }
-  else if(t==="bdao") {
-    const len = num.length;
-    base = region==="HN" ? (len===3?23:0) : (len===3?17:16);
-    qty = permCount(num);
-  }
-  else if(t==="xc" || t==="xcdau" || t==="xcduoi") { base = region==="HN" ? 4 : 2; }
-  else if(t==="xcdao") { base = region==="HN" ? 4 : 2; qty = permCount(num); }
-  else if(t==="dau") { base = region==="HN" ? 4 : 1; }
-  else if(t==="duoi") { base = 1; }
-  else if(t==="dd") { base = region==="HN" ? 5 : 2; }
-  else return 0;
-  return base * qty * e.n * dai * r;
-}
-function totalMoney(entries){
-  return entries.reduce((s,e)=>s+calcEntry(e),0);
-}
-
-function buildTach(entries){
-  const tach = {};
-  const khong = {};
-  const max2 = getNum("max2",10);
-  const maxDa = getNum("maxDa",1);
-
-  function add(obj, block, line){
-    if(!obj[block]) obj[block] = [];
-    obj[block].push(line);
-  }
-
-  for(const e of entries){
-    if(e.tachEligible){
-      if(e.type==="b" && e.nums[0].length===2){
-        add(tach, e.block, `${e.nums[0]}b${fmtN(Math.min(e.n,max2))}n`);
-      }else if(e.type==="da"){
-        add(tach, e.block, `${e.nums[0]}.${e.nums[1]}da${fmtN(Math.min(e.n,maxDa))}n`);
-      }else{
-        add(khong, e.block, e.line);
-      }
-    }else{
-      add(khong, e.block, e.line);
-    }
-  }
-  return {tach:renderObj(tach), khong:renderObj(khong)};
-}
-function renderObj(obj){
-  const out=[];
-  for(const [block, lines] of Object.entries(obj)){
-    if(!lines.length) continue;
-    out.push(block);
-    out.push(...lines);
     out.push("");
   }
   return out.join("\n").trim();
@@ -415,7 +338,7 @@ function runAll(){
   // Không dùng vùng trung gian đã bung để tránh quá dài khi copy/in.
   document.getElementById("copyFast").value = renderCopyFastBlocks(blocks);
 
-  const tk = buildTach(entries);
+  const tk = buildTachFromBlocks(blocks);
   document.getElementById("soTach").value = tk.tach;
   document.getElementById("soKhongTach").value = tk.khong;
 

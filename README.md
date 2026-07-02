@@ -1,3 +1,3 @@
-# PX-SO v0.3.2
+# PX-SO v0.3.5
 
-Copy nhanh tự ngắt dòng tối đa 24 ký tự, đặt ngay sau Vùng nhập dữ liệu theo form Excel mới.
+Sửa vai trò vùng: dữ liệu trung gian để cuối; copy nhanh giữ cấu trúc; tin tách gom theo block 2 đài chính, không tách bao riêng từng đài; tin không tách lấy copy nhanh trừ phần đã tách.

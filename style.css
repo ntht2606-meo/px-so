@@ -110,3 +110,5 @@ footer{
   .grid,.grid3{grid-template-columns:1fr}
   .buttons{grid-template-columns:1fr}
 }
+
+/* PX-SO v0.4.1: fixed DA/DV double-count in calcRow */

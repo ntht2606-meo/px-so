@@ -1,4 +1,4 @@
-// PX-SO v0.4.0 - rebuild sạch
+// PX-SO v0.4.1 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -274,17 +274,22 @@ function calcRow(row){
   const num = row.nums && row.nums[0] ? row.nums[0] : "";
   let base=0, qty=1;
 
+  // QUAN TRỌNG:
+  // Bảng trung gian đã bung:
+  // - Bao/DD/Đầu/Đuôi/XC/BDAO đã bung về từng đài.
+  // - Đá/DV đã bung về từng cặp đài.
+  // Vì vậy khi tính Ghi KHÔNG được nhân thêm số đài lần nữa.
   if(t==="da"){
     base = region==="HN" ? 54 : 36;
   }else if(t==="b"){
     const len = num.length;
     if(len===2) base = region==="HN" ? 27 : 18;
     else if(len===3) base = region==="HN" ? 23 : 17;
-    else if(len===4) base = 16;
+    else if(len===4) base = region==="HN" ? 0 : 16;
   }else if(t==="bdao"){
     const len = num.length;
     if(len===3) base = region==="HN" ? 23 : 17;
-    else if(len===4) base = 16;
+    else if(len===4) base = region==="HN" ? 0 : 16;
     qty = permCount(num);
   }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
     base = region==="HN" ? 4 : 2;

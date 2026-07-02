@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>PX-SO v0.1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>PX-SO v0.1</h1>
+      <p>Nhập dữ liệu → Chạy → Ghi / Thưởng / Tách</p>
+    </header>
+
+    <section class="panel">
+      <h2>Cài đặt</h2>
+      <div class="grid settings">
+        <label>Nhân <input id="rate" value="0.8"></label>
+        <label>Đá 2 đài <input id="da2" value="550"></label>
+        <label>Đá 1 đài <input id="da1" value="750"></label>
+        <label>Đá Hà Nội <input id="dahn" value="650"></label>
+        <label>2 số <input id="so2" value="75"></label>
+        <label>3 số <input id="so3" value="650"></label>
+        <label>4 số <input id="so4" value="5500"></label>
+        <label>Max 2 số <input id="max2" value="10"></label>
+        <label>Max đá <input id="maxDa" value="1"></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Vùng nhập dữ liệu</h2>
+      <textarea id="inputData" placeholder="Ví dụ:
+2dmn
+01.02da1n"></textarea>
+      <div class="buttons">
+        <button onclick="runAll()">CHẠY</button>
+        <button onclick="clearAll()" class="gray">XÓA</button>
+      </div>
+    </section>
+
+    <section class="panel result-row">
+      <div>
+        <h2>Ghi</h2>
+        <textarea id="ghi" readonly></textarea>
+        <button onclick="copyText('ghi')">Copy ghi</button>
+      </div>
+      <div>
+        <h2>Thưởng</h2>
+        <textarea id="thuong" readonly>0</textarea>
+        <button onclick="copyText('thuong')">Copy thưởng</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Số trúng</h2>
+      <textarea id="soTrung" readonly></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Dãy xoá</h2>
+      <div class="grid3">
+        <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
+        <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
+        <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Vùng dán kết quả</h2>
+      <div class="grid3">
+        <label>Kết quả MN<textarea id="kqMn"></textarea></label>
+        <label>Kết quả MT<textarea id="kqMt"></textarea></label>
+        <label>Kết quả HN<textarea id="kqHn"></textarea></label>
+      </div>
+    </section>
+
+    <section class="panel result-row">
+      <div>
+        <h2>Số tách</h2>
+        <textarea id="soTach" readonly></textarea>
+        <button onclick="copyText('soTach')">Copy số tách</button>
+      </div>
+      <div>
+        <h2>Số không tách</h2>
+        <textarea id="soKhongTach" readonly></textarea>
+        <button onclick="copyText('soKhongTach')">Copy không tách</button>
+      </div>
+    </section>
+
+    <footer>PX-SO v0.1 — bản chạy thử trên Safari / Vercel</footer>
+  </div>
+<script src="app.js"></script>
+</body>
+</html>

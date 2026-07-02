@@ -1,4 +1,4 @@
-// PX-SO v0.5.7 - rebuild sạch
+// PX-SO v0.5.10 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -304,10 +304,9 @@ function calcRow(row){
 
   if(t==="da"){
     // Lấy số đài từ bảng trung gian đã bung, không đoán lại bằng tên block.
+    // MN/MT đá 1 đài: 36 x 1 x n x 0.8 = 28,8k cho 1n.
     // MN/MT đá 2 đài: 36 x 2 x n x 0.8 = 57,6k cho 1n.
-    // MN/MT đá 1 đài: không cộng Ghi.
     const daiCount = row.daiCount || 1;
-    if(region !== "HN" && daiCount < 2) return 0;
     base = region==="HN" ? 54 : 36 * daiCount;
 
   }else if(t==="b"){
@@ -645,15 +644,24 @@ function calcWinRow(row, results){
       const r1 = resultFor(results, region, dais[0]);
       const r2 = resultFor(results, region, dais[1]);
       if(!r1 || !r2) return null;
-      const ab = countExact(r1.bao2, a) * countExact(r2.bao2, b);
-      const ba = (a === b) ? 0 : countExact(r1.bao2, b) * countExact(r2.bao2, a);
+
+      // Đá/DV phải đếm theo cặp A-B: số lần trúng = min(số lần A, số lần B)
+      // Không nhân chéo countA * countB vì sẽ phóng đại x2/x4 khi một số ra nhiều lần.
+      const c1a = countExact(r1.bao2, a);
+      const c2b = countExact(r2.bao2, b);
+      const c1b = countExact(r1.bao2, b);
+      const c2a = countExact(r2.bao2, a);
+      const ab = Math.min(c1a, c2b);
+      const ba = (a === b) ? 0 : Math.min(c1b, c2a);
       hit = ab + ba;
     }else{
       const r = resultFor(results, region, dais[0]);
       if(!r) return null;
       const ca = countExact(r.bao2, a);
       const cb = countExact(r.bao2, b);
-      hit = (a === b) ? Math.max(0, ca - 1) : ca * cb;
+
+      // Đá 1 đài cũng là cặp A-B: lấy min(A,B), không lấy A*B.
+      hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
     }
 
   }else{
@@ -732,7 +740,6 @@ function buildWinReport(pack){
     out.push(...lines);
     out.push("");
   }
-  out.push("Tổng trúng: " + money(pack.total || 0));
   return out.join("\n").trim();
 }
 

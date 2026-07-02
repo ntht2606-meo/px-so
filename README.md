@@ -1,15 +1,16 @@
-# PX-SO v0.5.7
+# PX-SO v0.5.10
 
-Sửa đúng lỗi v0.5.5/v0.5.6:
-- Khôi phục `Vùng dán kết quả` để nạp kết quả thô MN/MT/HN.
-- Bỏ riêng nút `Chuẩn hoá kết quả`.
-- Vẫn ẩn `Kết quả đã hiểu`.
-- Vẫn ẩn `Bảng trung gian`.
-- Giữ logic dò trúng/báo trúng từ v0.5.6:
-  - Có kết quả thô thì CHẠY dò ngầm.
-  - Báo số trúng vào ô `Số trúng`.
-  - Tổng trúng vào ô `Trúng`.
+Chỉ sửa logic đếm số lần trúng cho DA/DV:
+- Trước đó DA/DV dùng nhân chéo `countA * countB`, dễ bị x2/x4 vô lý.
+- Nay tính đúng theo cặp:
+  - 1 đài: `hit = min(countA, countB)`
+  - 2 đài: `hit = min(A ở đài 1, B ở đài 2) + min(B ở đài 1, A ở đài 2)`
+- Bên dò thưởng dùng hitCount này để nhân hệ số.
+- Không đổi form/mẫu.
+- Không đổi hệ số.
 - Giữ khóa:
-  - Ghi mẫu lớn có `681xc10n` = `3168k`.
-  - Copy nhanh không bung/gom.
-- Cache-bust `style.css?v=57` và `app.js?v=57`.
+  - Tin gốc đầy đủ Ghi = 3340,8k.
+  - `Tninh\n93.97.07.29dv1n` Ghi = 172,8k.
+  - Block 3dmn riêng Ghi = 3168k.
+  - Ô Số trúng không còn dòng `Tổng trúng`.
+- Cache-bust `app.js?v=510`.

@@ -33,10 +33,4 @@ footer{text-align:center;color:#777;font-size:12px;margin:18px 0}
 #inputData{min-height:120px}
 #soTrung{min-height:70px}
 
-/* v0.3.3: copy nhanh dùng raw input, không bung dữ liệu */
-
-/* v0.3.4: copy nhanh chuẩn hoá tên đài rõ, dữ liệu giữ nguyên */
-
-/* v0.3.6: fixed tach/khong tach grouping */
-
-/* v0.3.7: final compact step for tach/khong tach */
+/* PX-SO v0.3.8 stable */

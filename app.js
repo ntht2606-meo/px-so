@@ -1,4 +1,4 @@
-// PX-SO v0.3.7.6
+// PX-SO v0.3.8
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -93,9 +93,7 @@ function pickDayForGeneric(region, count, hintDais=[]){
   const hints = (hintDais||[]).filter(Boolean);
   if(hints.length){
     for(const [d, arr] of Object.entries(map)){
-      if(arr.length >= count && hints.some(h => arr.includes(h))){
-        return parseInt(d,10);
-      }
+      if(arr.length >= count && hints.some(h => arr.includes(h))) return parseInt(d,10);
     }
   }
   return today;
@@ -281,14 +279,11 @@ function renderEntries(entries){
 }
 
 
-const COPY_MAX = 22; // chừa biên an toàn, luôn dưới 24 ký tự
-
+const COPY_MAX = 22;
 function wrapCopyLine(line, maxLen=COPY_MAX){
   const s = normalizeLine(line);
   if(!s || s.length <= maxLen) return [s];
 
-  // Copy nhanh chỉ xuống hàng, không bung đài, không bung keo, không tách tiền.
-  // Không cắt da/dv vì sẽ làm mất nghĩa đá giữa nhiều số.
   const m = s.match(/^([0-9.]+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:duoi|dau|dd|b|xc)[\d,.]+n)*)$/i);
   if(!m) return [s];
 
@@ -296,39 +291,70 @@ function wrapCopyLine(line, maxLen=COPY_MAX){
   const suffix = m[2];
   if(nums.length <= 1) return [s];
 
-  const out = [];
-  let cur = [];
+  const out=[]; let cur=[];
   for(const num of nums){
-    const testLine = cur.concat([num]).join(".") + suffix;
-    if(cur.length && testLine.length > maxLen){
+    const test = cur.concat([num]).join(".") + suffix;
+    if(cur.length && test.length > maxLen){
       out.push(cur.join(".") + suffix);
-      cur = [num];
-    }else{
+      cur=[num];
+    } else {
       cur.push(num);
     }
   }
   if(cur.length) out.push(cur.join(".") + suffix);
   return out;
 }
-
 function renderCopyFastBlocks(blocks){
-  const out = [];
+  const out=[];
   for(const block of blocks){
-    // Copy nhanh chỉ chuẩn hoá tên đài ra rõ: 3dmn -> TninhAgiangBthuan, còn dữ liệu giữ nguyên.
     out.push(block.name || block.raw);
-    for(const line of block.lines){
-      out.push(...wrapCopyLine(line, COPY_MAX));
-    }
+    for(const line of block.lines) out.push(...wrapCopyLine(line, COPY_MAX));
     out.push("");
   }
   return out.join("\n").trim();
 }
 
+function permCount(s){
+  const arr = String(s).split("");
+  const fact = n => n<=1?1:n*fact(n-1);
+  const counts={}; arr.forEach(c=>counts[c]=(counts[c]||0)+1);
+  let den=1; Object.values(counts).forEach(c=>den*=fact(c));
+  return fact(arr.length)/den;
+}
+function daiCountForCalc(blockName, region, type){
+  if(region === "HN") return 1;
+  if(type === "da") return Math.max(1, getDaisFromName(blockName).length);
+  return 1; // đã bung bao/xc/dd/dau/duoi về từng đài riêng
+}
+function calcEntry(e){
+  if(!e.calc) return 0;
+  const r = getRate();
+  const region = e.region || "MN";
+  const t = e.type;
+  const dai = daiCountForCalc(e.block, region, t);
+  let base=0, qty=1;
+  const num = e.nums && e.nums[0] ? e.nums[0] : "";
 
-function addLineGroup(obj, block, line){
-  if(!block || !line) return;
-  if(!obj[block]) obj[block] = [];
-  obj[block].push(line);
+  if(t==="da") { base = region==="HN" ? 54 : 36; qty = 1; }
+  else if(t==="b") {
+    const len = num.length;
+    base = region==="HN" ? (len===2?27:len===3?23:0) : (len===2?18:len===3?17:16);
+  }
+  else if(t==="bdao") {
+    const len = num.length;
+    base = region==="HN" ? (len===3?23:0) : (len===3?17:16);
+    qty = permCount(num);
+  }
+  else if(t==="xc" || t==="xcdau" || t==="xcduoi") { base = region==="HN" ? 4 : 2; }
+  else if(t==="xcdao") { base = region==="HN" ? 4 : 2; qty = permCount(num); }
+  else if(t==="dau") { base = region==="HN" ? 4 : 1; }
+  else if(t==="duoi") { base = 1; }
+  else if(t==="dd") { base = region==="HN" ? 5 : 2; }
+  else return 0;
+  return base * qty * e.n * dai * r;
+}
+function totalMoney(entries){
+  return entries.reduce((s,e)=>s+calcEntry(e),0);
 }
 
 function renderObj(obj){
@@ -341,109 +367,6 @@ function renderObj(obj){
   }
   return out.join("\n").trim();
 }
-
-function reconstructParts(nums, parts){
-  if(!parts.length) return "";
-  const base = (nums || []).join(".");
-  let first = parts[0];
-  let s = base + first.type + fmtN(first.n) + "n";
-  for(let i=1;i<parts.length;i++){
-    s += "." + parts[i].type + fmtN(parts[i].n) + "n";
-  }
-  return s;
-}
-
-function buildTachFromBlocks(blocks){
-  const tach = {};
-  const khong = {};
-  const max2 = getNum("max2",10);
-  const maxDa = getNum("maxDa",1);
-
-  for(const block of blocks){
-    const mainPair = block.mainDais.length >= 2 ? block.mainDais[0] + block.mainDais[1] : "";
-    const hasMainPair = !!mainPair;
-
-    for(const rawLine of block.lines){
-      const parts = parseBetLine(rawLine);
-      if(!parts){
-        addLineGroup(khong, block.name, rawLine);
-        continue;
-      }
-
-      let anyTaken = false;
-      const remainingSameStructure = [];
-
-      for(const part of parts){
-        const t = part.type;
-        const nums = part.nums || [];
-
-        // Bao 2 số: lấy nguyên danh sách số theo block 2 đài chính, KHÔNG tách riêng từng đài.
-        if(t === "b" && hasMainPair && nums.every(n => n.length === 2)){
-          addLineGroup(tach, mainPair, `${nums.join(".")}b${fmtN(Math.min(part.n,max2))}n`);
-          anyTaken = true;
-          continue;
-        }
-
-        // Đá trực tiếp trong block nhiều đài: lấy cặp 2 đài chính vào tin tách.
-        // Các cặp đài phụ còn lại phải giữ ở tin không tách để không mất dữ liệu.
-        if(t === "da" && hasMainPair && nums.length >= 2){
-          const line = `${nums[0]}.${nums[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
-          addLineGroup(tach, mainPair, line);
-          anyTaken = true;
-
-          if(block.dais.length > 2){
-            for(const dp of pairDais(block.dais)){
-              const pairName = dp[0] + dp[1];
-              if(pairName !== mainPair) addLineGroup(khong, pairName, line);
-            }
-          }
-          continue;
-        }
-
-        // DV trong block nhiều đài: bung cặp số thành đá, lấy cặp 2 đài chính vào tin tách.
-        // Cặp đài phụ còn lại giữ ở tin không tách.
-        if(t === "dv" && hasMainPair && nums.length >= 2){
-          const numPairs = pairNumbers(nums);
-          for(const np of numPairs){
-            const line = `${np[0]}.${np[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
-            addLineGroup(tach, mainPair, line);
-
-            if(block.dais.length > 2){
-              for(const dp of pairDais(block.dais)){
-                const pairName = dp[0] + dp[1];
-                if(pairName !== mainPair) addLineGroup(khong, pairName, line);
-              }
-            }
-          }
-          anyTaken = true;
-          continue;
-        }
-
-        // Những phần không đủ điều kiện tách thì giữ nguyên cấu trúc dòng gốc/copy nhanh.
-        remainingSameStructure.push(part);
-      }
-
-      // Nếu không tách được phần nào: giữ nguyên rawLine theo block copy nhanh.
-      if(!anyTaken){
-        addLineGroup(khong, block.name, rawLine);
-      }else if(remainingSameStructure.length){
-        // Nếu dòng ghép có phần tách + phần không tách, chỉ giữ phần còn lại.
-        addLineGroup(
-          khong,
-          block.name,
-          reconstructParts(remainingSameStructure[0].nums, remainingSameStructure) || rawLine
-        );
-      }
-    }
-  }
-
-  return { tach: renderObj(tach), khong: renderObj(khong) };
-}
-
-
-
-// v0.3.7 - Bước gộp cuối cho ô Số tách / Số không tách.
-// Không lấy dữ liệu bung làm output cuối nữa. Dữ liệu bung chỉ dùng để tính/audit.
 function buildTachGopCuoi(blocks){
   const tach = {};
   const khong = {};
@@ -452,25 +375,8 @@ function buildTachGopCuoi(blocks){
 
   const add = (obj, block, line) => {
     if(!block || !line) return;
-    if(!obj[block]) obj[block] = [];
+    if(!obj[block]) obj[block]=[];
     obj[block].push(line);
-  };
-
-  const addUnique = (obj, block, line) => {
-    if(!block || !line) return;
-    if(!obj[block]) obj[block] = [];
-    if(!obj[block].includes(line)) obj[block].push(line);
-  };
-
-  const render = (obj) => {
-    const out = [];
-    for(const [block, lines] of Object.entries(obj)){
-      if(!lines.length) continue;
-      out.push(block);
-      out.push(...lines);
-      out.push("");
-    }
-    return out.join("\n").trim();
   };
 
   const rebuildParts = (parts) => {
@@ -494,65 +400,64 @@ function buildTachGopCuoi(blocks){
         continue;
       }
 
-      let tookSomething = false;
-      const remainParts = [];
+      let took = false;
+      const remain=[];
 
       for(const part of parts){
-        const t = part.type;
-        const nums = part.nums || [];
+        const t=part.type;
+        const nums=part.nums || [];
 
-        // Bao 2 số: gộp về block 2 đài chính, không tách riêng Vlong/Bduong nữa.
-        if(t === "b" && hasMainPair && nums.every(n => n.length === 2)){
-          addUnique(tach, mainPair, `${nums.join(".")}b${fmtN(Math.min(part.n,max2))}n`);
-          tookSomething = true;
+        // Bao 2 số: gộp cuối về block 2 đài chính, không tách riêng từng đài.
+        if(t==="b" && hasMainPair && nums.every(n=>n.length===2)){
+          add(tach, mainPair, `${nums.join(".")}b${fmtN(Math.min(part.n,max2))}n`);
+          took = true;
           continue;
         }
 
-        // Đá trực tiếp trong block nhiều đài: lấy cặp 2 đài chính vào Số tách.
-        // Nếu block có đài phụ thì phần cặp phụ đưa qua Số không tách để không mất dữ liệu.
-        if(t === "da" && hasMainPair && nums.length >= 2){
+        // Đá trong block nhiều đài: lấy cặp 2 đài chính vào tách.
+        // Phần cặp đài phụ giữ ở không tách để không mất dữ liệu.
+        if(t==="da" && hasMainPair && nums.length>=2){
           const line = `${nums[0]}.${nums[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
-          addUnique(tach, mainPair, line);
-          tookSomething = true;
-          if(block.dais.length > 2){
+          add(tach, mainPair, line);
+          if(block.dais.length>2){
             for(const dp of pairDais(block.dais)){
-              const pairName = dp[0] + dp[1];
-              if(pairName !== mainPair) addUnique(khong, pairName, line);
+              const pairName = dp[0]+dp[1];
+              if(pairName !== mainPair) add(khong, pairName, line);
             }
           }
+          took = true;
           continue;
         }
 
-        // DV: bung thành cặp đá. Lấy cặp 2 đài chính vào Số tách,
-        // cặp đài phụ còn lại đưa qua Số không tách.
-        if(t === "dv" && hasMainPair && nums.length >= 2){
+        // DV: bung thành đá, sau đó cũng gộp cuối về cặp 2 đài chính.
+        if(t==="dv" && hasMainPair && nums.length>=2){
           for(const np of pairNumbers(nums)){
             const line = `${np[0]}.${np[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
-            addUnique(tach, mainPair, line);
-            if(block.dais.length > 2){
+            add(tach, mainPair, line);
+            if(block.dais.length>2){
               for(const dp of pairDais(block.dais)){
-                const pairName = dp[0] + dp[1];
-                if(pairName !== mainPair) addUnique(khong, pairName, line);
+                const pairName = dp[0]+dp[1];
+                if(pairName !== mainPair) add(khong, pairName, line);
               }
             }
           }
-          tookSomething = true;
+          took = true;
           continue;
         }
 
-        // Không đủ điều kiện tách thì giữ lại theo cấu trúc copy nhanh, không bung keo/dd/dau/duoi.
-        remainParts.push(part);
+        // Phần không tách được giữ theo cấu trúc copy nhanh, không bung keo/dd/dau/duoi.
+        remain.push(part);
       }
 
-      if(!tookSomething){
+      if(!took){
         add(khong, block.name, rawLine);
-      }else if(remainParts.length){
-        add(khong, block.name, rebuildParts(remainParts) || rawLine);
+      }else if(remain.length){
+        add(khong, block.name, rebuildParts(remain) || rawLine);
       }
     }
   }
 
-  return {tach: render(tach), khong: render(khong)};
+  return {tach: renderObj(tach), khong: renderObj(khong)};
 }
 
 function runAll(){

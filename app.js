@@ -1,4 +1,4 @@
-// PX-SO v0.3.8
+// PX-SO v0.3.9
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -460,28 +460,82 @@ function buildTachGopCuoi(blocks){
   return {tach: renderObj(tach), khong: renderObj(khong)};
 }
 
+
+function safeSetValue(id, value){
+  const el = document.getElementById(id);
+  if(el) el.value = value == null ? "" : String(value);
+}
+
+function calcFromIntermediateEntries(entries){
+  let total = 0;
+  const detailLines = [];
+  const byBlock = {};
+
+  for(const e of entries){
+    if(!byBlock[e.block]) byBlock[e.block] = [];
+    byBlock[e.block].push(e);
+    const m = calcEntry(e);
+    total += m;
+  }
+
+  for(const [block, arr] of Object.entries(byBlock)){
+    detailLines.push(block);
+    let blockTotal = 0;
+    for(const e of arr){
+      const m = calcEntry(e);
+      blockTotal += m;
+      detailLines.push(`${e.line} = ${money(m)}`);
+    }
+    detailLines.push(`Tổng = ${money(blockTotal)}`);
+    detailLines.push("");
+  }
+
+  detailLines.push(`Ghi: ${money(total)}`);
+  return { total, detailText: detailLines.join("\n").trim() };
+}
+
+function safeBuildTach(blocks){
+  try{
+    if(typeof buildTachGopCuoi === "function") return buildTachGopCuoi(blocks);
+  }catch(err){
+    console.error("buildTachGopCuoi error", err);
+  }
+  return {tach:"", khong:""};
+}
+
 function runAll(){
-  const blocks = splitBlocks(document.getElementById("inputData").value);
-  const entries = expandIntermediate(blocks);
+  try{
+    const blocks = splitBlocks(document.getElementById("inputData").value);
+    const entries = expandIntermediate(blocks);
 
-  const intermediateText = renderEntries(entries);
-  document.getElementById("detail").value = intermediateText;
+    // 1. Vùng trung gian là nền sạch để tính.
+    const intermediateText = renderEntries(entries);
+    safeSetValue("detail", intermediateText);
 
-  const total = totalMoney(entries);
-  document.getElementById("ghi").value = "Ghi: " + money(total);
+    // 2. Tính Ghi từ dữ liệu trung gian, không phụ thuộc ô tách/không tách.
+    const calc = calcFromIntermediateEntries(entries);
+    safeSetValue("ghi", "Ghi: " + money(calc.total));
 
-  // Copy nhanh: chỉ làm nhiệm vụ soạn lại tin và tự ngắt dòng <= 24 ký tự.
-  // Không dùng vùng trung gian đã bung để tránh quá dài khi copy/in.
-  document.getElementById("copyFast").value = renderCopyFastBlocks(blocks);
+    // 3. Chi tiết tính hiện tạm để ở Dữ liệu trung gian đã bung kèm ở dưới nếu cần audit.
+    // Giữ detail là dữ liệu trung gian sạch; không ghi đè bằng chi tiết tiền.
 
-  const tk = buildTachGopCuoi(blocks);
-  document.getElementById("soTach").value = tk.tach;
-  document.getElementById("soKhongTach").value = tk.khong;
+    // 4. Copy nhanh đọc từ input/block gốc, không đọc dữ liệu trung gian.
+    safeSetValue("copyFast", renderCopyFastBlocks(blocks));
 
-  const resultObj = parseAllResults();
-  renderParsedResults(resultObj);
-  document.getElementById("thuong").value = "0";
-  document.getElementById("soTrung").value = "";
+    // 5. Tách/không tách là bước phụ, lỗi ở đây không được làm hỏng tính tiền.
+    const tk = safeBuildTach(blocks);
+    safeSetValue("soTach", tk.tach);
+    safeSetValue("soKhongTach", tk.khong);
+
+    // 6. Kết quả dò giữ nguyên logic cũ.
+    const resultObj = parseAllResults();
+    renderParsedResults(resultObj);
+    safeSetValue("thuong", "0");
+    safeSetValue("soTrung", "");
+  }catch(err){
+    console.error("runAll error", err);
+    safeSetValue("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
 }
 
 function parseAllResults(){

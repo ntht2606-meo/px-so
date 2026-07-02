@@ -1,3 +1,3 @@
-# PX-SO v0.3.5
+# PX-SO v0.3.6
 
-Sửa vai trò vùng: dữ liệu trung gian để cuối; copy nhanh giữ cấu trúc; tin tách gom theo block 2 đài chính, không tách bao riêng từng đài; tin không tách lấy copy nhanh trừ phần đã tách.
+Sửa lỗi Số tách/Số không tách: bao 2 số gom theo block 2 đài chính, không tách riêng từng đài; không tách giữ cấu trúc copy nhanh, không bung keo/dd/dau/duoi thành từng dòng trừ phần đá phụ cần giữ để không mất dữ liệu.

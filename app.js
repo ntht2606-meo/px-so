@@ -1,4 +1,4 @@
-// PX-SO v0.3.5
+// PX-SO v0.3.6.6
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -323,6 +323,123 @@ function renderCopyFastBlocks(blocks){
   }
   return out.join("\n").trim();
 }
+
+
+function addLineGroup(obj, block, line){
+  if(!block || !line) return;
+  if(!obj[block]) obj[block] = [];
+  obj[block].push(line);
+}
+
+function renderObj(obj){
+  const out=[];
+  for(const [block, lines] of Object.entries(obj)){
+    if(!lines.length) continue;
+    out.push(block);
+    out.push(...lines);
+    out.push("");
+  }
+  return out.join("\n").trim();
+}
+
+function reconstructParts(nums, parts){
+  if(!parts.length) return "";
+  const base = (nums || []).join(".");
+  let first = parts[0];
+  let s = base + first.type + fmtN(first.n) + "n";
+  for(let i=1;i<parts.length;i++){
+    s += "." + parts[i].type + fmtN(parts[i].n) + "n";
+  }
+  return s;
+}
+
+function buildTachFromBlocks(blocks){
+  const tach = {};
+  const khong = {};
+  const max2 = getNum("max2",10);
+  const maxDa = getNum("maxDa",1);
+
+  for(const block of blocks){
+    const mainPair = block.mainDais.length >= 2 ? block.mainDais[0] + block.mainDais[1] : "";
+    const hasMainPair = !!mainPair;
+
+    for(const rawLine of block.lines){
+      const parts = parseBetLine(rawLine);
+      if(!parts){
+        addLineGroup(khong, block.name, rawLine);
+        continue;
+      }
+
+      let anyTaken = false;
+      const remainingSameStructure = [];
+
+      for(const part of parts){
+        const t = part.type;
+        const nums = part.nums || [];
+
+        // Bao 2 số: lấy nguyên danh sách số theo block 2 đài chính, KHÔNG tách riêng từng đài.
+        if(t === "b" && hasMainPair && nums.every(n => n.length === 2)){
+          addLineGroup(tach, mainPair, `${nums.join(".")}b${fmtN(Math.min(part.n,max2))}n`);
+          anyTaken = true;
+          continue;
+        }
+
+        // Đá trực tiếp trong block nhiều đài: lấy cặp 2 đài chính vào tin tách.
+        // Các cặp đài phụ còn lại phải giữ ở tin không tách để không mất dữ liệu.
+        if(t === "da" && hasMainPair && nums.length >= 2){
+          const line = `${nums[0]}.${nums[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
+          addLineGroup(tach, mainPair, line);
+          anyTaken = true;
+
+          if(block.dais.length > 2){
+            for(const dp of pairDais(block.dais)){
+              const pairName = dp[0] + dp[1];
+              if(pairName !== mainPair) addLineGroup(khong, pairName, line);
+            }
+          }
+          continue;
+        }
+
+        // DV trong block nhiều đài: bung cặp số thành đá, lấy cặp 2 đài chính vào tin tách.
+        // Cặp đài phụ còn lại giữ ở tin không tách.
+        if(t === "dv" && hasMainPair && nums.length >= 2){
+          const numPairs = pairNumbers(nums);
+          for(const np of numPairs){
+            const line = `${np[0]}.${np[1]}da${fmtN(Math.min(part.n,maxDa))}n`;
+            addLineGroup(tach, mainPair, line);
+
+            if(block.dais.length > 2){
+              for(const dp of pairDais(block.dais)){
+                const pairName = dp[0] + dp[1];
+                if(pairName !== mainPair) addLineGroup(khong, pairName, line);
+              }
+            }
+          }
+          anyTaken = true;
+          continue;
+        }
+
+        // Những phần không đủ điều kiện tách thì giữ nguyên cấu trúc dòng gốc/copy nhanh.
+        remainingSameStructure.push(part);
+      }
+
+      // Nếu không tách được phần nào: giữ nguyên rawLine theo block copy nhanh.
+      if(!anyTaken){
+        addLineGroup(khong, block.name, rawLine);
+      }else if(remainingSameStructure.length){
+        // Nếu dòng ghép có phần tách + phần không tách, chỉ giữ phần còn lại.
+        addLineGroup(
+          khong,
+          block.name,
+          reconstructParts(remainingSameStructure[0].nums, remainingSameStructure) || rawLine
+        );
+      }
+    }
+  }
+
+  return { tach: renderObj(tach), khong: renderObj(khong) };
+}
+
 
 function runAll(){
   const blocks = splitBlocks(document.getElementById("inputData").value);

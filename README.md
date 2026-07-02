@@ -1,14 +1,12 @@
-# PX-SO v0.5.0
+# PX-SO v0.5.3
 
-Bản test riêng phần chuẩn hóa kết quả để kiểm trước:
-- Base từ bản khóa v0.4.8.
-- Không đổi form/layout.
-- Không thêm dò thưởng.
-- Copy nhanh vẫn không bung/gom.
-- Ghi mẫu lớn có `681xc10n` vẫn = `3168k`.
-- Tin Tninh 1 đài vẫn = `595,2k`.
-- Kết quả đã hiểu hiện đủ:
-  - Bao 2 số / Đầu 2 số / Đuôi 2 số
-  - Bao 3 số / Đầu 3 số / Đuôi 3 số
-  - Bao 4 số / Đầu 4 số / Đuôi 4 số
-- index.html dùng app.js?v=50 để tránh cache.
+Chỉ chỉnh giao diện:
+- Bảng trung gian chạy ẩn, không hiện trên màn hình.
+- Không xoá engine/bảng trung gian trong code: app vẫn dùng nội bộ để tính tiền.
+- Giữ các khóa đúng từ v0.5.2:
+  - Ghi = 3168k với tin mẫu lớn có `681xc10n`.
+  - CHẠY không tự chuẩn hóa kết quả.
+  - Nút `Chuẩn hoá kết quả` mới ghi vào `Kết quả đã hiểu`.
+  - Copy nhanh không bung/gom.
+  - Bỏ nút Copy ghi / Copy trúng.
+- index.html dùng app.js?v=53 để tránh cache.

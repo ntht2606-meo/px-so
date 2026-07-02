@@ -323,3 +323,21 @@ footer{
 }
 
 /* PX-SO v0.4.6: locked form, money keeps 0.1k decimals, b4 = 16 */
+
+
+/* PX-SO v0.5.2 — bỏ nút copy trong khối Ghi/Trúng */
+.compact-money .moneyButtons{
+  display:none !important;
+}
+.compact-money{
+  padding-bottom:10px;
+}
+.moneyRow{
+  margin-bottom:0;
+}
+
+
+/* PX-SO v0.5.3 — Bảng trung gian chạy ẩn */
+.intermediate-panel{
+  display:none !important;
+}

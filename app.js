@@ -1,4 +1,4 @@
-// PX-SO v0.5.0 - rebuild sạch
+// PX-SO v0.5.3 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -574,7 +574,7 @@ function runAll(){
     setVal("soTach", tk.tach);
     setVal("soKhongTach", tk.khong);
 
-    renderParsedResults(parseAllResults());
+    // CHẠY không tự chuẩn hóa kết quả. Bấm nút "Chuẩn hoá kết quả" mới ghi vào ô Kết quả đã hiểu.
     setVal("thuong", "0");
     setVal("soTrung", "");
   }catch(err){

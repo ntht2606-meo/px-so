@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.0</title>
+  <title>PX-SO v0.5.3</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.5.0</h1>
+      <h1>PX-SO v0.5.3</h1>
       <p>Khóa form; Copy nhanh không bung; chuẩn hóa kết quả có Bao/Đầu/Đuôi 2-3-4 số.</p>
     </header>
 
@@ -46,10 +46,6 @@
         <label>Trúng:
           <input id="thuong" readonly value="0">
         </label>
-      </div>
-      <div class="moneyButtons">
-        <button onclick="copyText('ghi')">Copy ghi</button>
-        <button onclick="copyText('thuong')">Copy trúng</button>
       </div>
     </section>
 
@@ -104,7 +100,7 @@
       <textarea id="parsedResults" readonly></textarea>
     </section>
 
-    <section class="panel">
+    <section class="panel intermediate-panel">
       <h2>Bảng trung gian</h2>
       <p class="hint">Bảng này để cuối/kiểm lỗi: engine tách sạch từng cách ghi trước rồi mới tính tiền.</p>
       <div class="tableWrap">
@@ -126,8 +122,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.0 — chuẩn hóa kết quả</footer>
+    <footer>PX-SO v0.5.3 — ẩn bảng trung gian</footer>
   </div>
-<script src="app.js?v=50"></script>
+<script src="app.js?v=53"></script>
 </body>
 </html>

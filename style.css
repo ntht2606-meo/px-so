@@ -341,3 +341,10 @@ footer{
 .intermediate-panel{
   display:none !important;
 }
+
+
+/* PX-SO v0.5.4 — Ẩn các khối kiểm nội bộ */
+.parsed-results-panel,
+.intermediate-panel{
+  display:none !important;
+}

@@ -645,8 +645,8 @@ function calcWinRow(row, results){
       const r2 = resultFor(results, region, dais[1]);
       if(!r1 || !r2) return null;
 
-      // Đá/DV phải đếm theo cặp A-B: số lần trúng = min(số lần A, số lần B)
-      // Không nhân chéo countA * countB vì sẽ phóng đại x2/x4 khi một số ra nhiều lần.
+      // DA/DV tính theo cặp, không nhân chéo.
+      // Hit 2 đài = min(A đài 1, B đài 2) + min(B đài 1, A đài 2).
       const c1a = countExact(r1.bao2, a);
       const c2b = countExact(r2.bao2, b);
       const c1b = countExact(r1.bao2, b);
@@ -660,7 +660,7 @@ function calcWinRow(row, results){
       const ca = countExact(r.bao2, a);
       const cb = countExact(r.bao2, b);
 
-      // Đá 1 đài cũng là cặp A-B: lấy min(A,B), không lấy A*B.
+      // DA/DV 1 đài = min(A,B), không A*B.
       hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
     }
 

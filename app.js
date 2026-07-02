@@ -202,26 +202,31 @@ function runAll(){
   renderParsedResults(resultObj);
 
   let fast=[], detail=[], total=0;
-  let tach=[], khong=[];
+  let tachBlocks = {};
+  let khongBlocks = {};
   const hasKq = ["kqMn","kqMt","kqHn"].some(id=>document.getElementById(id).value.trim());
 
   for(const block of blocks){
     let blockMoney=0;
     let detailLines=[];
     fast.push(block.name);
+
     for(const line of block.lines){
       const parsed=parseBet(line);
       fast.push(line);
+
       if(!parsed){
         detailLines.push(line+" = lỗi đọc");
-        khong.push(line);
+        addBlockLine(khongBlocks, block.name, line);
         continue;
       }
+
       const m=calcBet(parsed, block);
       blockMoney += m;
       detailLines.push(`${line} = ${money(m)}`);
-      classifyTach(line, parsed, block, tach, khong);
+      classifyTach(line, parsed, block, tachBlocks, khongBlocks);
     }
+
     total += blockMoney;
     fast.push("");
     detail.push(block.name);
@@ -236,41 +241,75 @@ function runAll(){
   document.getElementById("detail").value = detail.join("\n").trim() + "\n\nGhi: " + money(total);
   document.getElementById("thuong").value = hasKq ? "0  (v0.2 mới chuẩn hoá kết quả, dò thưởng sẽ gắn bước sau)" : "0";
   document.getElementById("soTrung").value = "";
-  document.getElementById("soTach").value = tach.join("\n");
-  document.getElementById("soKhongTach").value = khong.join("\n");
+  document.getElementById("soTach").value = renderBlockText(tachBlocks);
+  document.getElementById("soKhongTach").value = renderBlockText(khongBlocks);
 }
 
-function classifyTach(line, parsed, block, tach, khong){
+function addBlockLine(obj, blockName, line){
+  if(!obj[blockName]) obj[blockName] = [];
+  obj[blockName].push(line);
+}
+function renderBlockText(obj){
+  const out = [];
+  for(const [block, lines] of Object.entries(obj)){
+    if(!lines.length) continue;
+    out.push(block);
+    out.push(...lines);
+    out.push("");
+  }
+  return out.join("\n").trim();
+}
+
+function classifyTach(line, parsed, block, tachBlocks, khongBlocks){
   const xoaId = block.region==="HN" ? "xoaHn" : block.region==="MT" ? "xoaMt" : "xoaMn";
   const hasXoa = document.getElementById(xoaId).value.trim().length>0;
   const max2 = val("max2") || 10;
   const maxDa = val("maxDa") || 1;
 
+  // Bản tách này chỉ lấy phần đủ điều kiện:
+  // - Bao 2 số: bung từng con, áp max 2 số.
+  // - Đá/ĐV: bung cặp đá, áp max đá.
+  // - Các loại khác giữ nguyên ở Số không tách, kèm đúng tên đài/block gốc.
   if(!hasXoa){
-    let handled=false;
+    let taken = false;
+
     for(const part of parsed.parts){
       if(part.type==="b" && part.nums.every(n=>n.length===2)){
-        part.nums.forEach(n=>tach.push(`${n}b${fmtN(Math.min(part.n,max2))}n`));
-        handled=true;
+        part.nums.forEach(n=>{
+          addBlockLine(tachBlocks, block.name, `${n}b${fmtN(Math.min(part.n,max2))}n`);
+        });
+        taken = true;
       } else if(part.type==="da"){
-        tach.push(`${part.nums.join(".")}da${fmtN(Math.min(part.n,maxDa))}n`);
-        handled=true;
+        addBlockLine(tachBlocks, block.name, `${part.nums.join(".")}da${fmtN(Math.min(part.n,maxDa))}n`);
+        taken = true;
       } else if(part.type==="dv"){
         for(let i=0;i<part.nums.length;i++){
           for(let j=i+1;j<part.nums.length;j++){
-            tach.push(`${part.nums[i]}.${part.nums[j]}da${fmtN(Math.min(part.n,maxDa))}n`);
+            addBlockLine(tachBlocks, block.name, `${part.nums[i]}.${part.nums[j]}da${fmtN(Math.min(part.n,maxDa))}n`);
           }
         }
-        handled=true;
+        taken = true;
+      } else {
+        // Phần không thuộc bao 2 số / đá thì giữ lại ở không tách
+        // Nếu dòng ghép có một phần được tách và một phần không tách, tạm giữ nguyên dòng gốc để không mất dữ liệu.
       }
     }
-    if(!handled) khong.push(line);
+
+    if(!taken){
+      addBlockLine(khongBlocks, block.name, line);
+    } else {
+      const hasUntaken = parsed.parts.some(p=>{
+        return !(p.type==="b" && p.nums.every(n=>n.length===2)) && p.type!=="da" && p.type!=="dv";
+      });
+      if(hasUntaken) addBlockLine(khongBlocks, block.name, line);
+    }
     return;
   }
 
   const set = new Set(document.getElementById(xoaId).value.match(/\d{2}/g) || []);
   const nums = parsed.parts.flatMap(p=>p.nums.map(n=>n.slice(-2)));
-  if(nums.some(n=>set.has(n))) tach.push(line); else khong.push(line);
+  if(nums.some(n=>set.has(n))) addBlockLine(tachBlocks, block.name, line);
+  else addBlockLine(khongBlocks, block.name, line);
 }
 
 function parseAllResults(){

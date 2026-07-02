@@ -1,3 +1,9 @@
-# PX-SO v0.4.2
+# PX-SO v0.4.4
 
-Tính Ghi từ bảng trung gian. Sửa công thức đá/DV: đá chéo 2 đài nhân đúng 2 đài; đá/DV một đài MN/MT không cộng Ghi. Tiền làm tròn lên k để case test ra 3125k.
+Chỉnh form nhỏ gọn:
+- Font nhỏ hơn.
+- Nút bấm nhỏ hơn.
+- Ô nhập/ô kết quả gọn hơn.
+- Vùng nhập dữ liệu + Copy nhanh chia 2 cột khi đủ ngang.
+- Giữ fix công thức đá 2 đài từ v0.4.3.
+- index.html dùng app.js?v=44 để tránh cache.

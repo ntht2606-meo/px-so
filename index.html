@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.4.2</title>
+  <title>PX-SO v0.4.4</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.4.2</h1>
-      <p>Sửa Ghi: tính từ bảng trung gian, đá chéo nhân đúng 2 đài, đá/DV 1 đài không cộng Ghi.</p>
+      <h1>PX-SO v0.4.4</h1>
+      <p>Form nhỏ gọn hơn, vùng dữ liệu chia 2 cột khi đủ ngang; giữ công thức đá 2 đài.</p>
     </header>
 
+    <div class="topGrid">
     <section class="panel">
       <h2>Vùng nhập dữ liệu</h2>
       <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
@@ -27,6 +28,8 @@
       <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, gom đồng giá, tự xuống dòng không quá 24 ký tự..."></textarea>
       <button onclick="copyText('copyFast')">Copy nhanh</button>
     </section>
+
+    </div>
 
     <section class="panel">
       <h2>Số trúng</h2>
@@ -105,6 +108,7 @@
               <th>Loại</th>
               <th>Số</th>
               <th>N</th>
+              <th>Đài</th>
               <th>Tiền</th>
             </tr>
           </thead>
@@ -114,8 +118,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.4.2 — test Ghi ra 3125k</footer>
+    <footer>PX-SO v0.4.4 — form nhỏ gọn 2 cột</footer>
   </div>
-<script src="app.js"></script>
+<script src="app.js?v=44"></script>
 </body>
 </html>

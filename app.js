@@ -1,4 +1,4 @@
-// PX-SO v0.4.2 - rebuild sạch
+// PX-SO v0.4.4 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -233,7 +233,7 @@ function buildIntermediate(blocks){
     for(const rawLine of block.lines){
       const parts = parseBetLine(rawLine);
       if(!parts){
-        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false});
+        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, daiCount:1});
         continue;
       }
       for(const part of parts){
@@ -245,19 +245,19 @@ function buildIntermediate(blocks){
           for(const dp of daiPairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
             for(const np of numPairs){
-              rows.push({block:bname, line:makeDaLine(np[0],np[1],part.n), type:"da", nums:np, n:part.n, region:block.region, calc:true, raw:rawLine});
+              rows.push({block:bname, line:makeDaLine(np[0],np[1],part.n), type:"da", nums:np, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
             }
           }
         }else if(t==="da"){
           const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
           for(const dp of daiPairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
-            rows.push({block:bname, line:makeDaLine(nums[0],nums[1],part.n), type:"da", nums:nums.slice(0,2), n:part.n, region:block.region, calc:true, raw:rawLine});
+            rows.push({block:bname, line:makeDaLine(nums[0],nums[1],part.n), type:"da", nums:nums.slice(0,2), n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
           }
         }else{
           for(const dai of block.dais){
             for(const num of nums){
-              rows.push({block:dai, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine});
+              rows.push({block:dai, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:1});
             }
           }
         }
@@ -276,14 +276,11 @@ function calcRow(row){
   let base=0, qty=1;
 
   if(t==="da"){
-    const daiCount = getDaisFromName(row.block).length || 1;
-
-    // MN/MT: chỉ tính đá chéo/cặp đài. Đá/DV một đài không cộng Ghi.
-    // Bảng trung gian đã bung DV/DA thành từng cặp đài, nên block cặp có 2 đài.
+    // Lấy số đài từ bảng trung gian đã bung, không đoán lại bằng tên block.
+    // MN/MT đá 2 đài: 36 x 2 x n x 0.8 = 57,6k cho 1n.
+    // MN/MT đá 1 đài: không cộng Ghi.
+    const daiCount = row.daiCount || 1;
     if(region !== "HN" && daiCount < 2) return 0;
-
-    // MN/MT đá chéo 2 đài = 36 x 2 đài x n x nhân.
-    // HN giữ công thức HN = 54 x n x nhân.
     base = region==="HN" ? 54 : 36 * daiCount;
 
   }else if(t==="b"){
@@ -330,6 +327,7 @@ function renderIntermediate(rows){
         row.type,
         (row.nums||[]).join("."),
         fmtN(row.n),
+        String(row.daiCount || 1),
         money(calcRow(row))
       ];
       for(const c of cells){
@@ -342,7 +340,7 @@ function renderIntermediate(rows){
   }
   const lines=[];
   for(const row of rows){
-    lines.push([row.block,row.line,row.type,(row.nums||[]).join("."),fmtN(row.n),money(calcRow(row))].join("\t"));
+    lines.push([row.block,row.line,row.type,(row.nums||[]).join("."),fmtN(row.n),String(row.daiCount||1),money(calcRow(row))].join("\t"));
   }
   setVal("detail", lines.join("\n"));
 }

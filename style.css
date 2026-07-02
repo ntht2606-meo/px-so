@@ -114,3 +114,151 @@ footer{
 /* PX-SO v0.4.1: fixed DA/DV double-count in calcRow */
 
 /* PX-SO v0.4.2: calc from intermediate, cross-da x2, single-da ignored, ceil money */
+
+/* PX-SO v0.4.3: fixed DA 2 đài = 57,6k, script cache-bust */
+
+
+/* PX-SO v0.4.4 — form nhỏ gọn, dễ bấm/lướt */
+body{
+  font-size:15px;
+}
+.app{
+  max-width:1120px;
+  padding:8px;
+}
+header{
+  padding:10px;
+  margin-bottom:8px;
+  border-radius:10px;
+}
+h1{
+  font-size:22px;
+  margin-bottom:4px;
+}
+header p{
+  font-size:13px;
+  line-height:1.25;
+}
+.panel{
+  padding:10px;
+  margin:8px 0;
+  border-radius:10px;
+}
+h2{
+  font-size:22px;
+  margin-bottom:6px;
+}
+label{
+  font-size:16px;
+}
+textarea{
+  min-height:86px;
+  padding:8px;
+  border-radius:8px;
+  font-size:17px;
+  line-height:1.22;
+}
+#inputData{
+  min-height:135px;
+}
+#copyFast{
+  min-height:135px;
+}
+#soTrung{
+  min-height:72px;
+}
+#ghi,#thuong{
+  min-height:52px;
+}
+button{
+  padding:10px 8px;
+  margin-top:8px;
+  border-radius:9px;
+  font-size:18px;
+}
+.buttons{
+  gap:8px;
+}
+input{
+  padding:7px 8px;
+  border-radius:8px;
+  font-size:20px;
+}
+.settings{
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.grid3{
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.topGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  align-items:start;
+}
+.topGrid .panel{
+  margin:0;
+}
+.hint{
+  font-size:13px;
+}
+.tableWrap{
+  max-height:260px;
+}
+table{
+  font-size:13px;
+  min-width:680px;
+}
+th,td{
+  padding:4px 5px;
+}
+footer{
+  padding:10px;
+  font-size:13px;
+}
+@media(max-width:760px){
+  .app{
+    padding:6px;
+  }
+  h1{
+    font-size:20px;
+  }
+  h2{
+    font-size:20px;
+  }
+  textarea{
+    font-size:16px;
+    min-height:78px;
+  }
+  #inputData,#copyFast{
+    min-height:125px;
+  }
+  button{
+    font-size:17px;
+    padding:9px 7px;
+  }
+  .settings{
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+  }
+  .settings label{
+    font-size:13px;
+  }
+  .settings input{
+    font-size:17px;
+    padding:6px;
+  }
+  .grid3{
+    grid-template-columns:1fr;
+  }
+}
+@media(max-width:560px){
+  .topGrid{
+    grid-template-columns:1fr;
+  }
+  .buttons{
+    grid-template-columns:1fr 1fr;
+  }
+}

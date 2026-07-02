@@ -112,3 +112,5 @@ footer{
 }
 
 /* PX-SO v0.4.1: fixed DA/DV double-count in calcRow */
+
+/* PX-SO v0.4.2: calc from intermediate, cross-da x2, single-da ignored, ceil money */

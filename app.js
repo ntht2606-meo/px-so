@@ -1,4 +1,4 @@
-// PX-SO v0.4.1 - rebuild sạch
+// PX-SO v0.4.2 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -67,7 +67,8 @@ function fmtN(n){
   return String(x).replace(".",",").replace(/,0$/,"");
 }
 function money(n){
-  const x = Math.round((Number(n)||0)*10)/10;
+  // Làm tròn lên theo k như Excel: 3124.8 -> 3125k
+  const x = Math.ceil((Number(n)||0) - 1e-9);
   return String(x).replace(".",",")+"k";
 }
 function cleanName(s){
@@ -274,35 +275,46 @@ function calcRow(row){
   const num = row.nums && row.nums[0] ? row.nums[0] : "";
   let base=0, qty=1;
 
-  // QUAN TRỌNG:
-  // Bảng trung gian đã bung:
-  // - Bao/DD/Đầu/Đuôi/XC/BDAO đã bung về từng đài.
-  // - Đá/DV đã bung về từng cặp đài.
-  // Vì vậy khi tính Ghi KHÔNG được nhân thêm số đài lần nữa.
   if(t==="da"){
-    base = region==="HN" ? 54 : 36;
+    const daiCount = getDaisFromName(row.block).length || 1;
+
+    // MN/MT: chỉ tính đá chéo/cặp đài. Đá/DV một đài không cộng Ghi.
+    // Bảng trung gian đã bung DV/DA thành từng cặp đài, nên block cặp có 2 đài.
+    if(region !== "HN" && daiCount < 2) return 0;
+
+    // MN/MT đá chéo 2 đài = 36 x 2 đài x n x nhân.
+    // HN giữ công thức HN = 54 x n x nhân.
+    base = region==="HN" ? 54 : 36 * daiCount;
+
   }else if(t==="b"){
     const len = num.length;
     if(len===2) base = region==="HN" ? 27 : 18;
     else if(len===3) base = region==="HN" ? 23 : 17;
     else if(len===4) base = region==="HN" ? 0 : 16;
+
   }else if(t==="bdao"){
     const len = num.length;
     if(len===3) base = region==="HN" ? 23 : 17;
     else if(len===4) base = region==="HN" ? 0 : 16;
     qty = permCount(num);
+
   }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
     base = region==="HN" ? 4 : 2;
+
   }else if(t==="xcdao"){
     base = region==="HN" ? 4 : 2;
     qty = permCount(num);
+
   }else if(t==="dd"){
     base = region==="HN" ? 5 : 2;
+
   }else if(t==="dau"){
     base = region==="HN" ? 4 : 1;
+
   }else if(t==="duoi"){
     base = 1;
   }
+
   return base * qty * row.n * r;
 }
 

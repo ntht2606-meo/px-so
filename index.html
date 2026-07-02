@@ -3,35 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.3.1</title>
+  <title>PX-SO v0.3.2</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.3.1</h1>
-      <p>Sắp vùng theo form Excel: nhập dữ liệu → ghi/thưởng → hệ số → tách/không tách → dãy xoá → kết quả</p>
+      <h1>PX-SO v0.3.2</h1>
+      <p>Copy nhanh tự ngắt dòng không quá 24 ký tự; dữ liệu vẫn bung qua vùng trung gian trước khi tính.</p>
     </header>
 
-    <section class="panel result-row">
-      <div>
-        <h2>Vùng nhập dữ liệu</h2>
-        <textarea id="inputData" placeholder="Ví dụ:
-Tninh
-93.97.07.29dv1n
+    <section class="panel">
+      <h2>Vùng nhập dữ liệu</h2>
+      <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
+      <div class="buttons">
+        <button onclick="runAll()">CHẠY</button>
+        <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
+      </div>
+    </section>
 
-3dmn
-93b5n
-93dau10n.duoi15n"></textarea>
-        <div class="buttons">
-          <button onclick="runAll()">CHẠY</button>
-          <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
-        </div>
-      </div>
-      <div>
-        <h2>Số trúng</h2>
-        <textarea id="soTrung" readonly></textarea>
-      </div>
+    <section class="panel">
+      <h2>Copy nhanh</h2>
+      <textarea id="copyFast" readonly placeholder="Tin sau khi tự xuống dòng tối đa 24 ký tự..."></textarea>
+      <button onclick="copyText('copyFast')">Copy nhanh</button>
+    </section>
+
+    <section class="panel">
+      <h2>Số trúng</h2>
+      <textarea id="soTrung" readonly></textarea>
     </section>
 
     <section class="panel result-row compact-result">
@@ -105,13 +104,7 @@ Tninh
       <textarea id="detail" readonly></textarea>
     </section>
 
-    <section class="panel">
-      <h2>Copy nhanh</h2>
-      <textarea id="copyFast" readonly></textarea>
-      <button onclick="copyText('copyFast')">Copy nhanh</button>
-    </section>
-
-    <footer>PX-SO v0.3.1 — sắp vùng theo form Excel</footer>
+    <footer>PX-SO v0.3.2 — copy nhanh ngắt dòng tối đa 24 ký tự</footer>
   </div>
 <script src="app.js"></script>
 </body>

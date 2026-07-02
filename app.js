@@ -1,4 +1,4 @@
-// PX-SO v0.3
+// PX-SO v0.3.2
 // Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
@@ -266,6 +266,61 @@ function renderEntries(entries){
   return out.join("\n").trim();
 }
 
+
+const COPY_MAX = 24;
+
+function wrapCopyLine(line, maxLen=COPY_MAX){
+  const s = normalizeLine(line);
+  if(!s || s.length <= maxLen) return [s];
+
+  // Chỉ ngắt những kiểu nhiều số độc lập. Không ngắt da/dv vì tách ra sẽ đổi nghĩa đá.
+  const m = s.match(/^([0-9.]+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)$/i);
+  if(!m) return [s];
+
+  const nums = m[1].split(".").filter(Boolean);
+  const suffix = m[2];
+  if(nums.length <= 1) return [s];
+
+  const out = [];
+  let cur = [];
+  for(const num of nums){
+    const testNums = cur.concat([num]).join(".");
+    const testLine = testNums + suffix;
+    if(cur.length && testLine.length > maxLen){
+      out.push(cur.join(".") + suffix);
+      cur = [num];
+    }else{
+      cur.push(num);
+    }
+  }
+  if(cur.length) out.push(cur.join(".") + suffix);
+  return out;
+}
+
+function renderCopyFastBlocks(blocks){
+  const out = [];
+  for(const block of blocks){
+    out.push(block.name);
+    for(const line of block.lines){
+      const parts = parseBetLine(line);
+      // Nếu dòng ghép nhiều cách, tách từng cách trước để copy dễ đọc.
+      // Riêng da/dv vẫn giữ nghĩa của dòng đá, không cắt giữa danh sách số.
+      if(parts && parts.length > 1 && !["da","dv"].includes(parts[0].type)){
+        for(const p of parts){
+          const baseNums = p.nums.join(".");
+          const oneLine = baseNums + p.type + fmtN(p.n) + "n";
+          out.push(...wrapCopyLine(oneLine, COPY_MAX));
+        }
+      }else{
+        out.push(...wrapCopyLine(line, COPY_MAX));
+      }
+    }
+    out.push("");
+  }
+  return out.join("\n").trim();
+}
+
+
 function permCount(s){
   const arr = String(s).split("");
   const fact = n => n<=1?1:n*fact(n-1);
@@ -356,8 +411,9 @@ function runAll(){
   const total = totalMoney(entries);
   document.getElementById("ghi").value = "Ghi: " + money(total);
 
-  const copyFast = intermediateText ? `${intermediateText}\n\nGhi: ${money(total)}` : `Ghi: ${money(total)}`;
-  document.getElementById("copyFast").value = copyFast.trim();
+  // Copy nhanh: chỉ làm nhiệm vụ soạn lại tin và tự ngắt dòng <= 24 ký tự.
+  // Không dùng vùng trung gian đã bung để tránh quá dài khi copy/in.
+  document.getElementById("copyFast").value = renderCopyFastBlocks(blocks);
 
   const tk = buildTach(entries);
   document.getElementById("soTach").value = tk.tach;

@@ -27,3 +27,8 @@ footer{text-align:center;color:#777;font-size:12px;margin:18px 0}
 @media(max-width:700px){
   .compact-result textarea{min-height:72px}
 }
+
+/* v0.3.2 */
+#copyFast{min-height:90px}
+#inputData{min-height:120px}
+#soTrung{min-height:70px}

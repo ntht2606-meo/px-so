@@ -1,3 +1,3 @@
-# PX-SO v0.3.1
+# PX-SO v0.3.2
 
-Sắp thứ tự vùng theo form Excel: nhập dữ liệu/số trúng, ghi/thưởng, hệ số, số tách, số không tách, dãy xoá, kết quả.
+Copy nhanh tự ngắt dòng tối đa 24 ký tự, đặt ngay sau Vùng nhập dữ liệu theo form Excel mới.

@@ -1,4 +1,5 @@
-// PX-SO v0.2
+// PX-SO v0.3
+// Luồng mới: Input thô -> Vùng trung gian đã bung -> Tính ghi / Tách / Không tách
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"], 2:["Btre","Vtau","Blieu"], 3:["Dnai","Ctho","Strang"],
@@ -10,6 +11,13 @@ const MT_MAP = {
   4:["Bdinh","Qtri","Qbinh"], 5:["Glai","Nthuan"],
   6:["Dnang","Qngai","Dnong"], 0:["Ktum","Khoa","Hue"]
 };
+
+const KNOWN_DAI = [
+  "Tninh","Agiang","Bthuan","Dnai","Ctho","Strang","Tpho","Dthap","Cmau","Btre","Vtau","Blieu",
+  "Vlong","Bduong","Tvinh","Lan","Bphuoc","Hgiang","Tgiang","Kgiang","Dlat",
+  "Bdinh","Qtri","Qbinh","Dnang","Khoa","Pyen","Hue","Dlac","Qnam","Glai","Nthuan","Qngai","Dnong","Ktum","HN"
+];
+
 const NAME_MAP = {
   "tây ninh":"Tninh","tay ninh":"Tninh","tninh":"Tninh",
   "an giang":"Agiang","agiang":"Agiang",
@@ -26,66 +34,84 @@ const NAME_MAP = {
   "hà nội":"HN","ha noi":"HN","hn":"HN","mb":"HN"
 };
 
-function val(id){
-  let s = document.getElementById(id).value.trim().replace(",",".").replace("%","");
+function dayIndex(){ return new Date().getDay(); }
+function getRate(){
+  let s = (document.getElementById("rate")?.value || "0.8").trim().replace(",",".").replace("%","");
   let n = parseFloat(s);
-  if (id==="rate" && n>1) n=n/100;
-  return isNaN(n)?0:n;
+  if(isNaN(n)) n = 0.8;
+  if(n > 1) n = n / 100;
+  return n;
+}
+function getNum(id, fallback){
+  let s = (document.getElementById(id)?.value || "").trim().replace(",",".");
+  let n = parseFloat(s);
+  return isNaN(n) ? fallback : n;
 }
 function money(n){
   const x = Math.round(n*10)/10;
   return String(x).replace(".",",")+"k";
 }
-function fmtN(n){ return String(Math.round(n*100)/100).replace(".",","); }
-function dayIndex(){ return new Date().getDay(); }
-
+function fmtN(n){
+  const x = Math.round(n*100)/100;
+  return String(x).replace(".",",").replace(/,0$/,"");
+}
 function normalizeLine(s){
-  return s.trim()
+  return (s||"").trim()
     .replace(/\s+/g,"")
     .replace(/đá/gi,"da")
     .replace(/đầu/gi,"dau")
     .replace(/đuôi|đui/gi,"duoi")
     .replace(/đđ/gi,"dd");
 }
+function cleanName(s){
+  return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+}
+function detectRegionByDais(dais){
+  if(dais.includes("HN")) return "HN";
+  const mt = ["Pyen","Hue","Dlac","Qnam","Dnang","Khoa","Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum"];
+  return dais.some(d=>mt.includes(d)) ? "MT" : "MN";
+}
+function getDaisFromName(name){
+  if(!name) return [];
+  const raw = name.trim();
+  if(raw === "HN" || raw.toLowerCase()==="hn" || raw.toLowerCase()==="mb") return ["HN"];
+  let found = [];
+  for(const d of KNOWN_DAI){
+    if(d !== "HN" && raw.includes(d)) found.push(d);
+  }
+  return found.length ? found : [raw];
+}
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
-  return /^(hn|mb|2dmn|3dmn|4dmn|2dmt|3dmt|mn|mt)$/.test(l) || /^[a-zA-ZÀ-ỹ]+$/.test(line.trim());
+  if(/^(hn|mb|2dmn|3dmn|4dmn|2dmt|3dmt)$/.test(l)) return true;
+  // Header là dòng chữ không có số và không có hậu tố cách đánh
+  return !/\d/.test(line) && /^[a-zA-ZÀ-ỹ]+$/.test(line.trim());
 }
 function resolveHeader(raw){
   const l = normalizeLine(raw).toLowerCase();
   const d = dayIndex();
-  if(l==="hn" || l==="mb") return {name:"HN", region:"HN", dai:1};
-  if(l==="2dmn") {let a=MN_MAP[d].slice(0,2); return {name:a.join(""), region:"MN", dai:2};}
-  if(l==="3dmn") {let a=MN_MAP[d].slice(0,3); return {name:a.join(""), region:"MN", dai:3};}
-  if(l==="4dmn") {let a=MN_MAP[d].slice(0,4); return {name:a.join(""), region:"MN", dai:4};}
-  if(l==="2dmt") {let a=MT_MAP[d].slice(0,2); return {name:a.join(""), region:"MT", dai:2};}
-  if(l==="3dmt") {let a=MT_MAP[d].slice(0,3); return {name:a.join(""), region:"MT", dai:3};}
-  return {name:raw.trim(), region:detectRegionByName(raw), dai:countDaiByName(raw)};
-}
-function detectRegionByName(name){
-  const n = name.toLowerCase();
-  if(n==="hn" || n==="mb") return "HN";
-  const mt = ["pyen","hue","dlac","qnam","dnang","khoa","bdinh","qtri","qbinh","glai","nthuan","qngai","dnong","ktum"];
-  if(mt.some(x=>n.includes(x.toLowerCase()))) return "MT";
-  return "MN";
-}
-function countDaiByName(name){
-  // Đếm tương đối theo chuỗi ghép tên đài đã biết
-  const known = ["Tninh","Agiang","Bthuan","Dnai","Ctho","Strang","Tpho","Dthap","Cmau","Btre","Vtau","Blieu","Vlong","Bduong","Tvinh","Lan","Bphuoc","Hgiang","Tgiang","Kgiang","Dlat","Bdinh","Qtri","Qbinh","Dnang","Khoa","Pyen","Hue","Dlac","Qnam","Glai","Nthuan","Qngai","Dnong","Ktum"];
-  let c=0;
-  for(const k of known){ if(name.includes(k)) c++; }
-  return c || 1;
+  let dais;
+  if(l==="hn" || l==="mb") dais = ["HN"];
+  else if(l==="2dmn") dais = MN_MAP[d].slice(0,2);
+  else if(l==="3dmn") dais = MN_MAP[d].slice(0,3);
+  else if(l==="4dmn") dais = MN_MAP[d].slice(0,4);
+  else if(l==="2dmt") dais = MT_MAP[d].slice(0,2);
+  else if(l==="3dmt") dais = MT_MAP[d].slice(0,3);
+  else dais = getDaisFromName(raw.trim());
+  return { raw: raw.trim(), name: dais.join(""), dais, region: detectRegionByDais(dais), mainDais: dais.slice(0,2), lines: [] };
 }
 function splitBlocks(text){
-  const lines = text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const blocks=[]; let cur=null;
   for(const raw of lines){
     if(isHeader(raw)){
       cur = resolveHeader(raw);
-      cur.lines=[];
       blocks.push(cur);
     }else{
-      if(!cur){cur={name:"Không rõ đài", region:"MN", dai:1, lines:[]}; blocks.push(cur);}
+      if(!cur){
+        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], lines:[]};
+        blocks.push(cur);
+      }
       cur.lines.push(normalizeLine(raw));
     }
   }
@@ -93,55 +119,153 @@ function splitBlocks(text){
 }
 
 function expandKeoToken(token){
-  const m = token.match(/^(\d+?)keo(\d+)$/i);
+  const m = token.match(/^(\d+)keo(\d+)$/i);
   if(!m) return [token];
   const a=m[1], b=m[2];
-  if(a.length!==b.length) return [token];
-  const start=parseInt(a,10), end=parseInt(b,10);
-  if(isNaN(start)||isNaN(end)||start>end) return [token];
+  if(a.length !== b.length) return [token];
+  const start = parseInt(a,10), end = parseInt(b,10);
+  if(isNaN(start) || isNaN(end) || start>end || end-start>200) return [token];
   const out=[];
   for(let i=start;i<=end;i++) out.push(String(i).padStart(a.length,"0"));
   return out;
 }
+function parseNums(numStr){
+  return (numStr||"").split(".").filter(Boolean).flatMap(expandKeoToken);
+}
+function parseAmount(x){
+  return parseFloat(String(x||"0").replace(",",".")) || 0;
+}
 
-function parseLineToParts(line){
-  // Hỗ trợ: 93dau10n.duoi15n, 00keo09dd5n, 681b1n, 93.97.07.29dv1n
+function parseBetLine(line){
   const clean = normalizeLine(line);
-  const segments = clean.split(".");
-  let first = segments[0];
-  let m = first.match(/^([0-9.]+?)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc|da|dv)([\d,.]+)n$/i);
+  const direct = clean.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
+  if(direct){
+    return [{nums:parseNums(direct[1]), type:direct[2].toLowerCase(), n:parseAmount(direct[3]), source:clean}];
+  }
+
+  const m = clean.match(/^([0-9.]+(?:keo[0-9]+)?)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n((?:\.(?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)*)$/i);
   if(!m) return null;
 
-  let baseNums = m[1].split(".").filter(Boolean).flatMap(expandKeoToken);
-  const parts = [{nums:baseNums, type:m[2].toLowerCase(), n:parseFloat(m[3].replace(",","."))||0, raw:first}];
+  const baseNums = parseNums(m[1]);
+  const parts = [{nums:baseNums, type:m[2].toLowerCase(), n:parseAmount(m[3]), source:clean}];
 
-  // Nếu dòng có dạng 93dau10n.duoi15n thì phần sau không có số, dùng lại baseNums
-  for(let i=1;i<segments.length;i++){
-    const seg = segments[i];
-    if(!seg) continue;
-    let m2 = seg.match(/^(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc|da|dv)([\d,.]+)n$/i);
-    if(m2){
-      parts.push({nums:baseNums, type:m2[1].toLowerCase(), n:parseFloat(m2[2].replace(",","."))||0, raw:seg});
-      continue;
+  const rest = m[4] || "";
+  const re = /\.(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n/ig;
+  let x;
+  while((x = re.exec(rest)) !== null){
+    parts.push({nums:baseNums, type:x[1].toLowerCase(), n:parseAmount(x[2]), source:clean});
+  }
+  return parts;
+}
+
+function pairNumbers(nums){
+  const out=[];
+  for(let i=0;i<nums.length;i++){
+    for(let j=i+1;j<nums.length;j++){
+      out.push([nums[i], nums[j]]);
     }
-    // Nếu là đá/dv có dấu chấm số thì parseLine cũ đã bị split, nên fallback ở dưới
-    return parseSimpleLine(clean);
   }
-  return {raw:clean, parts};
+  return out;
 }
-function parseSimpleLine(line){
-  const m = line.match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc|da|dv)([\d,.]+)n$/i);
-  if(!m) return null;
-  return {raw:line, parts:[{nums:m[1].split(".").filter(Boolean).flatMap(expandKeoToken), type:m[2].toLowerCase(), n:parseFloat(m[3].replace(",","."))||0, raw:line}]};
-}
-function parseBet(line){
-  // Quan trọng: da/dv có nhiều số như 93.97.07.29dv1n phải parse nguyên, không split compound
-  const simple = line.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
-  if(simple){
-    return {raw:line, parts:[{nums:simple[1].split(".").filter(Boolean), type:simple[2].toLowerCase(), n:parseFloat(simple[3].replace(",","."))||0, raw:line}]};
+function pairDais(dais){
+  const out=[];
+  for(let i=0;i<dais.length;i++){
+    for(let j=i+1;j<dais.length;j++){
+      out.push([dais[i], dais[j]]);
+    }
   }
-  return parseLineToParts(line);
+  return out;
 }
+function lineFromPart(num, type, n){
+  return `${num}${type}${fmtN(n)}n`;
+}
+function daLine(a,b,n){
+  return `${a}.${b}da${fmtN(n)}n`;
+}
+
+function expandIntermediate(blocks){
+  const entries = [];
+  for(const block of blocks){
+    const mainPairName = block.mainDais.length>=2 ? block.mainDais[0]+block.mainDais[1] : "";
+    for(const rawLine of block.lines){
+      const parts = parseBetLine(rawLine);
+      if(!parts){
+        entries.push({block:block.name, line:rawLine, region:block.region, raw:rawLine, calc:false, tachEligible:false});
+        continue;
+      }
+      for(const part of parts){
+        const t = part.type;
+        if(t === "dv"){
+          const numPairs = pairNumbers(part.nums);
+          if(block.dais.length >= 2){
+            for(const dp of pairDais(block.dais)){
+              const bname = dp[0]+dp[1];
+              for(const np of numPairs){
+                entries.push({
+                  block:bname, line:daLine(np[0],np[1],part.n), type:"da", nums:np, n:part.n,
+                  region:block.region, raw:rawLine, calc:true,
+                  tachEligible:(bname===mainPairName)
+                });
+              }
+            }
+          }else{
+            for(const np of numPairs){
+              entries.push({
+                block:block.name, line:daLine(np[0],np[1],part.n), type:"da", nums:np, n:part.n,
+                region:block.region, raw:rawLine, calc:true, tachEligible:false
+              });
+            }
+          }
+        } else if(t === "da"){
+          if(block.dais.length >= 2){
+            for(const dp of pairDais(block.dais)){
+              const bname = dp[0]+dp[1];
+              entries.push({
+                block:bname, line:daLine(part.nums[0],part.nums[1],part.n), type:"da", nums:part.nums.slice(0,2), n:part.n,
+                region:block.region, raw:rawLine, calc:true,
+                tachEligible:(bname===mainPairName)
+              });
+            }
+          }else{
+            entries.push({
+              block:block.name, line:daLine(part.nums[0],part.nums[1],part.n), type:"da", nums:part.nums.slice(0,2), n:part.n,
+              region:block.region, raw:rawLine, calc:true, tachEligible:false
+            });
+          }
+        } else {
+          for(const dai of block.dais){
+            for(const num of part.nums){
+              const outLine = lineFromPart(num, t, part.n);
+              const isB2 = (t==="b" && num.length===2);
+              entries.push({
+                block:dai, line:outLine, type:t, nums:[num], n:part.n,
+                region:block.region, raw:rawLine, calc:true,
+                tachEligible:(block.dais.length>=2 && block.mainDais.includes(dai) && isB2)
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return entries;
+}
+
+function renderEntries(entries){
+  const groups = {};
+  for(const e of entries){
+    if(!groups[e.block]) groups[e.block] = [];
+    groups[e.block].push(e.line);
+  }
+  const out=[];
+  for(const [block, lines] of Object.entries(groups)){
+    out.push(block);
+    out.push(...lines);
+    out.push("");
+  }
+  return out.join("\n").trim();
+}
+
 function permCount(s){
   const arr = String(s).split("");
   const fact = n => n<=1?1:n*fact(n-1);
@@ -149,108 +273,70 @@ function permCount(s){
   let den=1; Object.values(counts).forEach(c=>den*=fact(c));
   return fact(arr.length)/den;
 }
-function pairCount(nums){ return nums.length<2?0:(nums.length*(nums.length-1))/2; }
+function daiCountForCalc(blockName, region, type){
+  if(region === "HN") return 1;
+  if(type === "da") return Math.max(1, getDaisFromName(blockName).length);
+  return 1; // đã bung bao/xc/dd/dau/duoi về từng đài riêng
+}
+function calcEntry(e){
+  if(!e.calc) return 0;
+  const r = getRate();
+  const region = e.region || "MN";
+  const t = e.type;
+  const dai = daiCountForCalc(e.block, region, t);
+  let base=0, qty=1;
+  const num = e.nums && e.nums[0] ? e.nums[0] : "";
 
-function calcPart(part, block){
-  const r = val("rate");
-  const region = block.region;
-  const dai = region==="HN" ? 1 : block.dai;
-  const t = part.type;
-  const countNums = part.nums.length;
-  let base = 0, qty = 1;
-
-  if(t==="da") {
-    base = region==="HN" ? 54 : 36;
-    qty = 1;
-  } else if(t==="dv") {
-    base = region==="HN" ? 54 : 36;
-    qty = pairCount(part.nums);
-  } else if(t==="b") {
-    const len = part.nums[0]?.length || 2;
+  if(t==="da") { base = region==="HN" ? 54 : 36; qty = 1; }
+  else if(t==="b") {
+    const len = num.length;
     base = region==="HN" ? (len===2?27:len===3?23:0) : (len===2?18:len===3?17:16);
-    qty = countNums;
-  } else if(t==="bdao") {
-    const len = part.nums[0]?.length || 3;
+  }
+  else if(t==="bdao") {
+    const len = num.length;
     base = region==="HN" ? (len===3?23:0) : (len===3?17:16);
-    qty = part.nums.reduce((a,n)=>a+permCount(n),0);
-  } else if(t==="xc" || t==="xcdau" || t==="xcduoi") {
-    base = region==="HN" ? 4 : 2;
-    qty = countNums;
-  } else if(t==="xcdao") {
-    base = region==="HN" ? 4 : 2;
-    qty = part.nums.reduce((a,n)=>a+permCount(n),0);
-  } else if(t==="dau") {
-    base = region==="HN" ? 4 : 1;
-    qty = countNums;
-  } else if(t==="duoi") {
-    base = 1;
-    qty = countNums;
-  } else if(t==="dd") {
-    base = region==="HN" ? 5 : 2;
-    qty = countNums;
-  } else return 0;
-
-  return base * qty * part.n * dai * r;
+    qty = permCount(num);
+  }
+  else if(t==="xc" || t==="xcdau" || t==="xcduoi") { base = region==="HN" ? 4 : 2; }
+  else if(t==="xcdao") { base = region==="HN" ? 4 : 2; qty = permCount(num); }
+  else if(t==="dau") { base = region==="HN" ? 4 : 1; }
+  else if(t==="duoi") { base = 1; }
+  else if(t==="dd") { base = region==="HN" ? 5 : 2; }
+  else return 0;
+  return base * qty * e.n * dai * r;
 }
-function calcBet(parsed, block){
-  return parsed.parts.reduce((sum,p)=>sum+calcPart(p, block),0);
+function totalMoney(entries){
+  return entries.reduce((s,e)=>s+calcEntry(e),0);
 }
 
-function runAll(){
-  const blocks = splitBlocks(document.getElementById("inputData").value);
-  const resultObj = parseAllResults();
-  renderParsedResults(resultObj);
+function buildTach(entries){
+  const tach = {};
+  const khong = {};
+  const max2 = getNum("max2",10);
+  const maxDa = getNum("maxDa",1);
 
-  let fast=[], detail=[], total=0;
-  let tachBlocks = {};
-  let khongBlocks = {};
-  const hasKq = ["kqMn","kqMt","kqHn"].some(id=>document.getElementById(id).value.trim());
-
-  for(const block of blocks){
-    let blockMoney=0;
-    let detailLines=[];
-    fast.push(block.name);
-
-    for(const line of block.lines){
-      const parsed=parseBet(line);
-      fast.push(line);
-
-      if(!parsed){
-        detailLines.push(line+" = lỗi đọc");
-        addBlockLine(khongBlocks, block.name, line);
-        continue;
-      }
-
-      const m=calcBet(parsed, block);
-      blockMoney += m;
-      detailLines.push(`${line} = ${money(m)}`);
-      classifyTach(line, parsed, block, tachBlocks, khongBlocks);
-    }
-
-    total += blockMoney;
-    fast.push("");
-    detail.push(block.name);
-    detail.push(...detailLines);
-    detail.push("Tổng = "+money(blockMoney));
-    detail.push("");
+  function add(obj, block, line){
+    if(!obj[block]) obj[block] = [];
+    obj[block].push(line);
   }
 
-  fast.push("Ghi: " + money(total));
-  document.getElementById("copyFast").value = fast.join("\n").replace(/\n{3,}/g,"\n\n").trim();
-  document.getElementById("ghi").value = "Ghi: " + money(total);
-  document.getElementById("detail").value = detail.join("\n").trim() + "\n\nGhi: " + money(total);
-  document.getElementById("thuong").value = hasKq ? "0  (v0.2 mới chuẩn hoá kết quả, dò thưởng sẽ gắn bước sau)" : "0";
-  document.getElementById("soTrung").value = "";
-  document.getElementById("soTach").value = renderBlockText(tachBlocks);
-  document.getElementById("soKhongTach").value = renderBlockText(khongBlocks);
+  for(const e of entries){
+    if(e.tachEligible){
+      if(e.type==="b" && e.nums[0].length===2){
+        add(tach, e.block, `${e.nums[0]}b${fmtN(Math.min(e.n,max2))}n`);
+      }else if(e.type==="da"){
+        add(tach, e.block, `${e.nums[0]}.${e.nums[1]}da${fmtN(Math.min(e.n,maxDa))}n`);
+      }else{
+        add(khong, e.block, e.line);
+      }
+    }else{
+      add(khong, e.block, e.line);
+    }
+  }
+  return {tach:renderObj(tach), khong:renderObj(khong)};
 }
-
-function addBlockLine(obj, blockName, line){
-  if(!obj[blockName]) obj[blockName] = [];
-  obj[blockName].push(line);
-}
-function renderBlockText(obj){
-  const out = [];
+function renderObj(obj){
+  const out=[];
   for(const [block, lines] of Object.entries(obj)){
     if(!lines.length) continue;
     out.push(block);
@@ -260,56 +346,27 @@ function renderBlockText(obj){
   return out.join("\n").trim();
 }
 
-function classifyTach(line, parsed, block, tachBlocks, khongBlocks){
-  const xoaId = block.region==="HN" ? "xoaHn" : block.region==="MT" ? "xoaMt" : "xoaMn";
-  const hasXoa = document.getElementById(xoaId).value.trim().length>0;
-  const max2 = val("max2") || 10;
-  const maxDa = val("maxDa") || 1;
+function runAll(){
+  const blocks = splitBlocks(document.getElementById("inputData").value);
+  const entries = expandIntermediate(blocks);
 
-  // Bản tách này chỉ lấy phần đủ điều kiện:
-  // - Bao 2 số: bung từng con, áp max 2 số.
-  // - Đá/ĐV: bung cặp đá, áp max đá.
-  // - Các loại khác giữ nguyên ở Số không tách, kèm đúng tên đài/block gốc.
-  if(!hasXoa){
-    let taken = false;
+  const intermediateText = renderEntries(entries);
+  document.getElementById("detail").value = intermediateText;
 
-    for(const part of parsed.parts){
-      if(part.type==="b" && part.nums.every(n=>n.length===2)){
-        part.nums.forEach(n=>{
-          addBlockLine(tachBlocks, block.name, `${n}b${fmtN(Math.min(part.n,max2))}n`);
-        });
-        taken = true;
-      } else if(part.type==="da"){
-        addBlockLine(tachBlocks, block.name, `${part.nums.join(".")}da${fmtN(Math.min(part.n,maxDa))}n`);
-        taken = true;
-      } else if(part.type==="dv"){
-        for(let i=0;i<part.nums.length;i++){
-          for(let j=i+1;j<part.nums.length;j++){
-            addBlockLine(tachBlocks, block.name, `${part.nums[i]}.${part.nums[j]}da${fmtN(Math.min(part.n,maxDa))}n`);
-          }
-        }
-        taken = true;
-      } else {
-        // Phần không thuộc bao 2 số / đá thì giữ lại ở không tách
-        // Nếu dòng ghép có một phần được tách và một phần không tách, tạm giữ nguyên dòng gốc để không mất dữ liệu.
-      }
-    }
+  const total = totalMoney(entries);
+  document.getElementById("ghi").value = "Ghi: " + money(total);
 
-    if(!taken){
-      addBlockLine(khongBlocks, block.name, line);
-    } else {
-      const hasUntaken = parsed.parts.some(p=>{
-        return !(p.type==="b" && p.nums.every(n=>n.length===2)) && p.type!=="da" && p.type!=="dv";
-      });
-      if(hasUntaken) addBlockLine(khongBlocks, block.name, line);
-    }
-    return;
-  }
+  const copyFast = intermediateText ? `${intermediateText}\n\nGhi: ${money(total)}` : `Ghi: ${money(total)}`;
+  document.getElementById("copyFast").value = copyFast.trim();
 
-  const set = new Set(document.getElementById(xoaId).value.match(/\d{2}/g) || []);
-  const nums = parsed.parts.flatMap(p=>p.nums.map(n=>n.slice(-2)));
-  if(nums.some(n=>set.has(n))) addBlockLine(tachBlocks, block.name, line);
-  else addBlockLine(khongBlocks, block.name, line);
+  const tk = buildTach(entries);
+  document.getElementById("soTach").value = tk.tach;
+  document.getElementById("soKhongTach").value = tk.khong;
+
+  const resultObj = parseAllResults();
+  renderParsedResults(resultObj);
+  document.getElementById("thuong").value = "0";
+  document.getElementById("soTrung").value = "";
 }
 
 function parseAllResults(){
@@ -319,19 +376,15 @@ function parseAllResults(){
     HN: parseResultText(document.getElementById("kqHn").value)
   };
 }
-function cleanName(s){
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
-}
 function mapDaiName(line){
-  const raw = line.trim();
-  const c = cleanName(raw);
+  const c = cleanName(line);
   for(const [k,v] of Object.entries(NAME_MAP)){
     if(cleanName(k)===c) return v;
   }
   return null;
 }
 function parseResultText(text){
-  const lines = text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out = {};
   let cur = null;
   for(const line of lines){
@@ -348,7 +401,6 @@ function parseResultText(text){
   for(const [dai, nums] of Object.entries(out)){
     shaped[dai] = {
       full: nums,
-      // Tạm quy ước: giữ full để sau gắn đúng giải; tạo thêm lớp đuôi để dò từng loại
       all2: nums.map(n=>n.slice(-2)),
       all3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
       all4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
@@ -378,8 +430,7 @@ function renderParsedResults(obj){
   document.getElementById("parsedResults").value = lines.join("\n").trim();
 }
 function parseResultsOnly(){
-  const obj = parseAllResults();
-  renderParsedResults(obj);
+  renderParsedResults(parseAllResults());
 }
 
 async function copyText(id){
@@ -395,3 +446,14 @@ function clearRun(){
   ["copyFast","ghi","thuong","detail","soTrung","soTach","soKhongTach","parsedResults"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("thuong").value="0";
 }
+
+// Auto chuẩn hoá kết quả khi dán/gõ, không cần click
+window.addEventListener("DOMContentLoaded", () => {
+  ["kqMn","kqMt","kqHn"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener("input", () => parseResultsOnly());
+      el.addEventListener("paste", () => setTimeout(parseResultsOnly, 50));
+    }
+  });
+});

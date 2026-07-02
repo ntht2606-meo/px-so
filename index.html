@@ -3,65 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.2</title>
+  <title>PX-SO v0.3.1</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.2</h1>
-      <p>Tính ghi đúng công thức gốc + output copy nhanh + vùng dán kết quả</p>
+      <h1>PX-SO v0.3.1</h1>
+      <p>Sắp vùng theo form Excel: nhập dữ liệu → ghi/thưởng → hệ số → tách/không tách → dãy xoá → kết quả</p>
     </header>
 
-    <section class="panel">
-      <h2>Cài đặt</h2>
-      <div class="grid settings">
-        <label>Nhân <input id="rate" value="0.8"></label>
-        <label>Max 2 số <input id="max2" value="10"></label>
-        <label>Max đá <input id="maxDa" value="1"></label>
-      </div>
-      <div class="note">
-        Giá ghi đang dùng công thức gốc: MN/MT b2=18, b3=17, b4=16, đá=36, dd=2, đầu=1, đuôi=1, xc=2. HN dùng hệ riêng.
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Vùng nhập dữ liệu</h2>
-      <textarea id="inputData" placeholder="Ví dụ:
+    <section class="panel result-row">
+      <div>
+        <h2>Vùng nhập dữ liệu</h2>
+        <textarea id="inputData" placeholder="Ví dụ:
 Tninh
 93.97.07.29dv1n
 
 3dmn
 93b5n
 93dau10n.duoi15n"></textarea>
-      <div class="buttons">
-        <button onclick="runAll()">CHẠY</button>
-        <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
+        <div class="buttons">
+          <button onclick="runAll()">CHẠY</button>
+          <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
+        </div>
+      </div>
+      <div>
+        <h2>Số trúng</h2>
+        <textarea id="soTrung" readonly></textarea>
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Copy nhanh</h2>
-      <textarea id="copyFast" readonly></textarea>
-      <button onclick="copyText('copyFast')">Copy nhanh</button>
-    </section>
-
-    <section class="panel result-row">
+    <section class="panel result-row compact-result">
       <div>
-        <h2>Ghi</h2>
+        <h2>Ghi:</h2>
         <textarea id="ghi" readonly></textarea>
         <button onclick="copyText('ghi')">Copy ghi</button>
       </div>
       <div>
-        <h2>Thưởng</h2>
+        <h2>Thưởng:</h2>
         <textarea id="thuong" readonly>0</textarea>
         <button onclick="copyText('thuong')">Copy thưởng</button>
       </div>
     </section>
 
     <section class="panel">
-      <h2>Chi tiết tính</h2>
-      <textarea id="detail" readonly></textarea>
+      <h2>Hệ số / cài đặt</h2>
+      <div class="grid settings">
+        <label>Nhân <input id="rate" value="0.8"></label>
+        <label>Đá 2 đài <input id="coefDa2" value="550"></label>
+        <label>Đá 1 đài <input id="coefDa1" value="750"></label>
+        <label>Đá Hà Nội <input id="coefDaHN" value="650"></label>
+        <label>2 số <input id="coef2" value="75"></label>
+        <label>3 số <input id="coef3" value="650"></label>
+        <label>4 số <input id="coef4" value="5500"></label>
+        <label>Max 2 số <input id="max2" value="10"></label>
+        <label>Max đá <input id="maxDa" value="1"></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Số tách</h2>
+      <textarea id="soTach" readonly></textarea>
+      <button onclick="copyText('soTach')">Copy số tách</button>
+    </section>
+
+    <section class="panel">
+      <h2>Số không tách</h2>
+      <textarea id="soKhongTach" readonly></textarea>
+      <button onclick="copyText('soKhongTach')">Copy không tách</button>
+    </section>
+
+    <section class="panel">
+      <h2>Dãy xoá</h2>
+      <div class="grid3">
+        <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
+        <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
+        <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
+      </div>
     </section>
 
     <section class="panel">
@@ -82,33 +101,17 @@ Tninh
     </section>
 
     <section class="panel">
-      <h2>Số trúng</h2>
-      <textarea id="soTrung" readonly></textarea>
+      <h2>Dữ liệu trung gian đã bung</h2>
+      <textarea id="detail" readonly></textarea>
     </section>
 
     <section class="panel">
-      <h2>Dãy xoá</h2>
-      <div class="grid3">
-        <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
-        <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
-        <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
-      </div>
+      <h2>Copy nhanh</h2>
+      <textarea id="copyFast" readonly></textarea>
+      <button onclick="copyText('copyFast')">Copy nhanh</button>
     </section>
 
-    <section class="panel result-row">
-      <div>
-        <h2>Số tách</h2>
-        <textarea id="soTach" readonly></textarea>
-        <button onclick="copyText('soTach')">Copy số tách</button>
-      </div>
-      <div>
-        <h2>Số không tách</h2>
-        <textarea id="soKhongTach" readonly></textarea>
-        <button onclick="copyText('soKhongTach')">Copy không tách</button>
-      </div>
-    </section>
-
-    <footer>PX-SO v0.2 — bản sửa công thức ghi và output</footer>
+    <footer>PX-SO v0.3.1 — sắp vùng theo form Excel</footer>
   </div>
 <script src="app.js"></script>
 </body>

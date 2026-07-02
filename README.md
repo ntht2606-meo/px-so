@@ -1,13 +1,17 @@
-# PX-SO v0.5.5
+# PX-SO v0.5.6
 
-Viết từ bản v0.5.4 đang chạy:
-- Ẩn luôn `Vùng dán kết quả` gồm MN/MT/HN và nút `Chuẩn hoá kết quả`.
-- Vẫn ẩn `Kết quả đã hiểu`.
-- Vẫn ẩn `Bảng trung gian`.
-- Không xoá DOM/code nội bộ để sau này cần dò thưởng có thể mở lại.
-- Cache-bust `style.css?v=55` và `app.js?v=55`.
+Chỉ sửa phần dò trúng / báo trúng:
+- Không đổi mẫu/form đang ổn.
+- Không hiện lại vùng chuẩn hóa/kết quả đã hiểu/bảng trung gian.
+- Khi có dữ liệu kết quả, CHẠY sẽ dò ngầm và báo vào:
+  - `Số trúng`
+  - ô `Trúng`
+- Format báo trúng:
+  `VlongBduong`
+  `01.02da1n 550k`
+- Tiền trúng = n x ô hệ số tương ứng x số lần trúng.
 - Giữ các khóa đúng:
   - Ghi mẫu lớn có `681xc10n` = `3168k`.
   - Copy nhanh không bung/gom.
-  - CHẠY không tự chuẩn hóa kết quả.
-  - Bỏ nút Copy ghi / Copy trúng.
+  - Không có kết quả thì Trúng = `0`, Số trúng rỗng.
+- index.html dùng `app.js?v=56` để tránh cache JS.

@@ -1,4 +1,4 @@
-// PX-SO v0.5.5 - rebuild sạch
+// PX-SO v0.5.6 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -41,6 +41,30 @@ const NAME_MAP = {
   "ben tre":"Btre","bến tre":"Btre","btre":"Btre",
   "vung tau":"Vtau","vũng tàu":"Vtau","vtau":"Vtau",
   "bac lieu":"Blieu","bạc liêu":"Blieu","blieu":"Blieu",
+  "vinh long":"Vlong","vĩnh long":"Vlong","vlong":"Vlong",
+  "binh duong":"Bduong","bình dương":"Bduong","bduong":"Bduong",
+  "tra vinh":"Tvinh","trà vinh":"Tvinh","tvinh":"Tvinh",
+  "long an":"Lan","lan":"Lan",
+  "binh phuoc":"Bphuoc","bình phước":"Bphuoc","bphuoc":"Bphuoc",
+  "hau giang":"Hgiang","hậu giang":"Hgiang","hgiang":"Hgiang",
+  "tien giang":"Tgiang","tiền giang":"Tgiang","tgiang":"Tgiang",
+  "kien giang":"Kgiang","kiên giang":"Kgiang","kgiang":"Kgiang",
+  "da lat":"Dlat","đà lạt":"Dlat","dlat":"Dlat","lam dong":"Dlat","lâm đồng":"Dlat",
+
+  "phu yen":"Pyen","phú yên":"Pyen","pyen":"Pyen",
+  "hue":"Hue","huế":"Hue",
+  "dak lak":"Dlac","đắk lắk":"Dlac","dac lac":"Dlac","đắc lắc":"Dlac","dlac":"Dlac",
+  "quang nam":"Qnam","quảng nam":"Qnam","qnam":"Qnam",
+  "da nang":"Dnang","đà nẵng":"Dnang","dnang":"Dnang",
+  "khanh hoa":"Khoa","khánh hòa":"Khoa","khoa":"Khoa",
+  "binh dinh":"Bdinh","bình định":"Bdinh","bdinh":"Bdinh",
+  "quang tri":"Qtri","quảng trị":"Qtri","qtri":"Qtri",
+  "quang binh":"Qbinh","quảng bình":"Qbinh","qbinh":"Qbinh",
+  "gia lai":"Glai","glai":"Glai",
+  "ninh thuan":"Nthuan","ninh thuận":"Nthuan","nthuan":"Nthuan",
+  "quang ngai":"Qngai","quảng ngãi":"Qngai","qngai":"Qngai",
+  "dak nong":"Dnong","đắk nông":"Dnong","dnong":"Dnong",
+  "kon tum":"Ktum","ktum":"Ktum",
   "ha noi":"HN","hà nội":"HN","hn":"HN","mb":"HN"
 };
 
@@ -558,6 +582,160 @@ function parseResultsOnly(){
   renderParsedResults(parseAllResults());
 }
 
+
+function hasAnyResults(results){
+  return ["MN","MT","HN"].some(region => results && results[region] && Object.keys(results[region]).length);
+}
+function resultFor(results, region, dai){
+  if(!results || !dai) return null;
+  const r = region || "MN";
+  if(results[r] && results[r][dai]) return results[r][dai];
+  if(results.MN && results.MN[dai]) return results.MN[dai];
+  if(results.MT && results.MT[dai]) return results.MT[dai];
+  if(results.HN && results.HN[dai]) return results.HN[dai];
+  return null;
+}
+function countExact(arr, num){
+  const s = String(num || "");
+  return (arr || []).filter(x => String(x) === s).length;
+}
+function isPermOf(a,b){
+  a = String(a || "");
+  b = String(b || "");
+  if(a.length !== b.length) return false;
+  return a.split("").sort().join("") === b.split("").sort().join("");
+}
+function countPerm(arr, num){
+  const s = String(num || "");
+  return (arr || []).filter(x => isPermOf(x,s)).length;
+}
+function winCoefForRow(row){
+  const t = row.type;
+  const num = row.nums && row.nums[0] ? String(row.nums[0]) : "";
+  const len = num.length;
+  if(t === "da"){
+    const dc = row.daiCount || 1;
+    if((row.region || "MN") === "HN") return getNum("coefDaHN",650);
+    return dc >= 2 ? getNum("coefDa2",550) : getNum("coefDa1",750);
+  }
+  if(t === "b" || t === "bdao"){
+    if(len === 2) return getNum("coef2",75);
+    if(len === 3) return getNum("coef3",650);
+    if(len === 4) return getNum("coef4",5500);
+  }
+  if(t === "dd" || t === "dau" || t === "duoi") return getNum("coef2",75);
+  if(t === "xc" || t === "xcdau" || t === "xcduoi" || t === "xcdao") return getNum("coef3",650);
+  return 0;
+}
+function calcWinRow(row, results){
+  if(!row || !row.calc || !hasAnyResults(results)) return null;
+
+  const t = row.type;
+  const nums = row.nums || [];
+  const n = Number(row.n || 0);
+  const region = row.region || "MN";
+  const dais = getDaisFromName(row.block);
+  let hit = 0;
+
+  if(t === "da"){
+    if(nums.length < 2) return null;
+    const a = nums[0], b = nums[1];
+
+    if((row.daiCount || 1) >= 2 && dais.length >= 2){
+      const r1 = resultFor(results, region, dais[0]);
+      const r2 = resultFor(results, region, dais[1]);
+      if(!r1 || !r2) return null;
+      const ab = countExact(r1.bao2, a) * countExact(r2.bao2, b);
+      const ba = (a === b) ? 0 : countExact(r1.bao2, b) * countExact(r2.bao2, a);
+      hit = ab + ba;
+    }else{
+      const r = resultFor(results, region, dais[0]);
+      if(!r) return null;
+      const ca = countExact(r.bao2, a);
+      const cb = countExact(r.bao2, b);
+      hit = (a === b) ? Math.max(0, ca - 1) : ca * cb;
+    }
+
+  }else{
+    const dai = dais[0];
+    const r = resultFor(results, region, dai);
+    if(!r) return null;
+
+    const num = nums[0] || "";
+    const len = String(num).length;
+
+    if(t === "b"){
+      if(len === 2) hit = countExact(r.bao2, num);
+      else if(len === 3) hit = countExact(r.bao3, num);
+      else if(len === 4) hit = countExact(r.bao4, num);
+
+    }else if(t === "bdao"){
+      if(len === 3) hit = countPerm(r.bao3, num);
+      else if(len === 4) hit = countPerm(r.bao4, num);
+
+    }else if(t === "dd"){
+      hit = countExact(r.dau2, num) + countExact(r.duoi2, num);
+
+    }else if(t === "dau"){
+      hit = countExact(r.dau2, num);
+
+    }else if(t === "duoi"){
+      hit = countExact(r.duoi2, num);
+
+    }else if(t === "xc"){
+      hit = countExact(r.dau3, num) + countExact(r.duoi3, num);
+
+    }else if(t === "xcdau"){
+      hit = countExact(r.dau3, num);
+
+    }else if(t === "xcduoi"){
+      hit = countExact(r.duoi3, num);
+
+    }else if(t === "xcdao"){
+      hit = countPerm(r.dau3, num) + countPerm(r.duoi3, num);
+    }
+  }
+
+  const coef = winCoefForRow(row);
+  if(!hit || !coef || !n) return null;
+  return {
+    block: row.block,
+    line: row.line,
+    amount: n * coef * hit,
+    hit,
+    coef
+  };
+}
+function calcWinners(rows, results){
+  const items = [];
+  let total = 0;
+  for(const row of rows || []){
+    const w = calcWinRow(row, results);
+    if(w && w.amount > 0){
+      items.push(w);
+      total += w.amount;
+    }
+  }
+  return {items,total};
+}
+function buildWinReport(pack){
+  const items = pack && pack.items ? pack.items : [];
+  if(!items.length) return "";
+  const grouped = {};
+  for(const w of items){
+    if(!grouped[w.block]) grouped[w.block] = [];
+    grouped[w.block].push(`${w.line} ${money(w.amount)}`);
+  }
+  const out = [];
+  for(const [block, lines] of Object.entries(grouped)){
+    out.push(block);
+    out.push(...lines);
+    out.push("");
+  }
+  out.push("Tổng trúng: " + money(pack.total || 0));
+  return out.join("\n").trim();
+}
+
 function runAll(){
   try{
     const blocks = splitBlocks(val("inputData"));
@@ -574,9 +752,11 @@ function runAll(){
     setVal("soTach", tk.tach);
     setVal("soKhongTach", tk.khong);
 
-    // CHẠY không tự chuẩn hóa kết quả. Bấm nút "Chuẩn hoá kết quả" mới ghi vào ô Kết quả đã hiểu.
-    setVal("thuong", "0");
-    setVal("soTrung", "");
+    // CHẠY không hiện chuẩn hóa kết quả. Chỉ dò ngầm nếu đã có dữ liệu kết quả.
+    const resultObj = parseAllResults();
+    const winPack = calcWinners(rows, resultObj);
+    setVal("thuong", winPack.total ? money(winPack.total) : "0");
+    setVal("soTrung", buildWinReport(winPack));
   }catch(err){
     console.error(err);
     setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));

@@ -348,3 +348,11 @@ footer{
 .intermediate-panel{
   display:none !important;
 }
+
+
+/* PX-SO v0.5.5 — Ẩn toàn bộ vùng chuẩn hoá/kết quả kiểm */
+.result-input-panel,
+.parsed-results-panel,
+.intermediate-panel{
+  display:none !important;
+}

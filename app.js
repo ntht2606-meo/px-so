@@ -1,4 +1,4 @@
-// PX-SO v0.5.4 - rebuild sạch
+// PX-SO v0.5.5 - rebuild sạch
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 

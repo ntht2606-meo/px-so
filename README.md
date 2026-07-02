@@ -1,13 +1,13 @@
-# PX-SO v0.5.4
+# PX-SO v0.5.5
 
-Viết lại từ nền v0.5.3 theo lệnh mới:
-- Ẩn `Kết quả đã hiểu`.
-- Ẩn `Bảng trung gian`.
-- Không xoá engine/code nội bộ, chỉ không hiện trên màn hình.
-- Cache-bust cả `style.css?v=54` và `app.js?v=54`.
-- Giữ các khóa đúng từ v0.5.3:
+Viết từ bản v0.5.4 đang chạy:
+- Ẩn luôn `Vùng dán kết quả` gồm MN/MT/HN và nút `Chuẩn hoá kết quả`.
+- Vẫn ẩn `Kết quả đã hiểu`.
+- Vẫn ẩn `Bảng trung gian`.
+- Không xoá DOM/code nội bộ để sau này cần dò thưởng có thể mở lại.
+- Cache-bust `style.css?v=55` và `app.js?v=55`.
+- Giữ các khóa đúng:
   - Ghi mẫu lớn có `681xc10n` = `3168k`.
   - Copy nhanh không bung/gom.
   - CHẠY không tự chuẩn hóa kết quả.
-  - Nút `Chuẩn hoá kết quả` vẫn chạy ngầm.
   - Bỏ nút Copy ghi / Copy trúng.

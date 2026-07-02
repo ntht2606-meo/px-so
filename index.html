@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.10</title>
-  <link rel="stylesheet" href="style.css?v=57" />
+  <title>PX-SO v0.5.12</title>
+  <link rel="stylesheet" href="style.css?v=512" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.5.10</h1>
+      <h1>PX-SO v0.5.12</h1>
       <p>Khóa form; Copy nhanh không bung; chuẩn hóa kết quả có Bao/Đầu/Đuôi 2-3-4 số.</p>
     </header>
 
@@ -17,25 +17,11 @@
     <section class="panel">
       <h2>Vùng nhập dữ liệu</h2>
       <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
+      <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu.</p>
       <div class="buttons">
-        <button onclick="runAll()">CHẠY</button>
+        <button onclick="runAll()">CHẠY LẠI</button>
         <button onclick="clearRun()" class="gray">XÓA KẾT QUẢ</button>
       </div>
-    </section>
-
-    <section class="panel">
-      <h2>Copy nhanh</h2>
-      <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, gom đồng giá, tự xuống dòng không quá 24 ký tự..."></textarea>
-      <button onclick="copyText('copyFast')">Copy nhanh</button>
-    </section>
-
-    </div>
-
-    <section class="panel">
-      <h2>Số trúng</h2>
-      <textarea id="soTrung" readonly></textarea>
-      <button onclick="copyText('soTrung')">Copy số trúng</button>
-    </section>
 
     <section class="panel compact-money">
       <h2>Ghi / Trúng</h2>
@@ -48,6 +34,22 @@
         </label>
       </div>
     </section>
+
+    <section class="panel">
+      <h2>Số trúng</h2>
+      <textarea id="soTrung" readonly></textarea>
+      <button onclick="copyText('soTrung')">Copy số trúng</button>
+    </section>
+
+    </section>
+
+    <section class="panel">
+      <h2>Copy nhanh</h2>
+      <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, gom đồng giá, tự xuống dòng không quá 24 ký tự..."></textarea>
+      <button onclick="copyText('copyFast')">Copy nhanh</button>
+    </section>
+
+    </div>
 
     <section class="panel">
       <h2>Hệ số / cài đặt</h2>
@@ -64,16 +66,12 @@
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Số tách</h2>
-      <textarea id="soTach" readonly></textarea>
-      <button onclick="copyText('soTach')">Copy số tách</button>
-    </section>
-
-    <section class="panel">
-      <h2>Số không tách</h2>
-      <textarea id="soKhongTach" readonly></textarea>
-      <button onclick="copyText('soKhongTach')">Copy không tách</button>
+    <section class="panel split-pair-panel">
+      <h2>Số tách / Không tách</h2>
+      <div class="grid2 splitPair">
+        <label>Số tách<textarea id="soTach" readonly></textarea><button onclick="copyText('soTach')">Copy số tách</button></label>
+        <label>Số không tách<textarea id="soKhongTach" readonly></textarea><button onclick="copyText('soKhongTach')">Copy không tách</button></label>
+      </div>
     </section>
 
     <section class="panel">
@@ -121,8 +119,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.10 — dò đá theo min(A,B)</footer>
+    <footer>PX-SO v0.5.12 — dò đá theo min(A,B)</footer>
   </div>
-<script src="app.js?v=510"></script>
+<script src="app.js?v=512"></script>
 </body>
 </html>

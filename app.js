@@ -75,6 +75,15 @@ function el(id){ return document.getElementById(id); }
 function val(id){ return (el(id)?.value || ""); }
 function setVal(id, v){ if(el(id)) el(id).value = v == null ? "" : String(v); }
 
+function debounce(fn, delay=280){
+  let t;
+  return function(...args){
+    clearTimeout(t);
+    t = setTimeout(()=>fn.apply(this,args), delay);
+  };
+}
+
+
 function getRate(){
   let s = val("rate").trim().replace(",",".").replace("%","");
   let n = parseFloat(s);
@@ -745,6 +754,10 @@ function buildWinReport(pack){
 
 function runAll(){
   try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
     const blocks = splitBlocks(val("inputData"));
     const rows = buildIntermediate(blocks);
 
@@ -786,11 +799,43 @@ async function copyText(id){
 }
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  const autoRun = debounce(runAll, 280);
+
+  const input = el("inputData");
+  if(input){
+    input.addEventListener("input", autoRun);
+    input.addEventListener("paste", ()=>setTimeout(runAll, 30));
+    input.addEventListener("change", runAll);
+  }
+
+  // Dán kết quả MN/MT/HN cũng tự cập nhật dò/trúng.
   ["kqMn","kqMt","kqHn"].forEach(id=>{
     const x=el(id);
     if(x){
-      x.addEventListener("input", parseResultsOnly);
-      x.addEventListener("paste", ()=>setTimeout(parseResultsOnly,50));
+      x.addEventListener("input", ()=>{
+        parseResultsOnly();
+        autoRun();
+      });
+      x.addEventListener("paste", ()=>{
+        setTimeout(()=>{
+          parseResultsOnly();
+          runAll();
+        },50);
+      });
+      x.addEventListener("change", ()=>{
+        parseResultsOnly();
+        runAll();
+      });
+    }
+  });
+
+  // Thay đổi hệ số/cài đặt thì tự tính lại nếu đang có dữ liệu.
+  ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"].forEach(id=>{
+    const x=el(id);
+    if(x){
+      x.addEventListener("input", autoRun);
+      x.addEventListener("change", runAll);
     }
   });
 });
+

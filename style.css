@@ -369,3 +369,156 @@ footer{
 .intermediate-panel{
   display:none !important;
 }
+
+
+/* PX-SO v0.5.11 — mobile layout thực tế
+   - Ghi/Trúng nằm trên Số trúng
+   - Dãy xoá và Vùng dán kết quả: 3 cột ngang MN | MT | HN
+   - Số tách / Không tách: 2 cột ngang, không chia theo miền
+   - Textarea nhỏ lại, cuộn trong ô
+*/
+:root{
+  --px-gap: 6px;
+}
+
+.topGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  align-items:start;
+}
+
+#copyFast{
+  min-height:105px !important;
+  max-height:42vh;
+  overflow:auto;
+}
+
+#soTrung{
+  min-height:82px !important;
+  max-height:28vh;
+  overflow:auto;
+}
+
+.grid3{
+  display:grid !important;
+  grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+  gap:var(--px-gap) !important;
+}
+
+.grid3 label{
+  min-width:0;
+  font-size:13px;
+  line-height:1.15;
+}
+
+.grid3 textarea{
+  min-height:86px !important;
+  max-height:130px;
+  overflow:auto;
+  font-size:14px;
+  padding:6px;
+}
+
+.grid2{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+}
+
+.splitPair label{
+  min-width:0;
+  font-size:14px;
+  line-height:1.15;
+}
+
+.splitPair textarea{
+  min-height:105px !important;
+  max-height:170px;
+  overflow:auto;
+  font-size:14px;
+  padding:6px;
+}
+
+.splitPair button{
+  font-size:14px;
+  padding:7px 5px;
+  margin-top:6px;
+}
+
+.compact-money{
+  margin-top:8px;
+  margin-bottom:8px;
+}
+
+.moneyRow input{
+  height:38px;
+  font-size:18px;
+}
+
+.settings{
+  grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+}
+
+.result-input-panel textarea,
+.panel:has(#xoaMn) textarea{
+  resize:none;
+}
+
+@media(max-width:760px){
+  .topGrid{
+    grid-template-columns:1fr;
+  }
+
+  .grid3{
+    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+    gap:5px !important;
+  }
+
+  .grid3 label{
+    font-size:12px;
+  }
+
+  .grid3 textarea{
+    min-height:78px !important;
+    max-height:118px;
+    font-size:12px;
+    padding:5px;
+  }
+
+  .grid2{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:6px;
+  }
+
+  .splitPair label{
+    font-size:12px;
+  }
+
+  .splitPair textarea{
+    min-height:96px !important;
+    max-height:150px;
+    font-size:12px;
+    padding:5px;
+  }
+
+  #inputData{
+    min-height:118px !important;
+  }
+
+  #copyFast{
+    min-height:96px !important;
+  }
+
+  #soTrung{
+    min-height:76px !important;
+  }
+}
+
+
+/* PX-SO v0.5.12 — Auto Run */
+.auto-run-hint{
+  margin-top:6px;
+  font-weight:700;
+  color:#2f7d37;
+}

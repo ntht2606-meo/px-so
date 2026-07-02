@@ -356,3 +356,16 @@ footer{
 .intermediate-panel{
   display:none !important;
 }
+
+
+/* PX-SO v0.5.7 — Khôi phục vùng dán kết quả, chỉ bỏ nút chuẩn hoá */
+.result-input-panel-visible{
+  display:block !important;
+}
+.result-input-panel{
+  display:block !important;
+}
+.parsed-results-panel,
+.intermediate-panel{
+  display:none !important;
+}

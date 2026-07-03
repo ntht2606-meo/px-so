@@ -823,7 +823,6 @@ async function copyText(id){
   const text = val(id);
   try{
     await navigator.clipboard.writeText(text);
-    alert("Đã copy");
   }catch(e){
     alert("Không copy tự động được, anh bôi đen rồi copy thủ công nhé");
   }

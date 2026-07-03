@@ -651,11 +651,7 @@ button{
 }
 .panel-title-row h2{
   margin:0;
-}
-.title-actions{
-  display:flex;
-  gap:6px;
-  align-items:center;
+  margin-right:auto;
 }
 .save-mini{
   width:auto;
@@ -708,9 +704,6 @@ button{
     min-width:52px;
     padding:6px 9px;
     font-size:13px;
-  }
-  .title-actions{
-    gap:5px;
   }
 }
 

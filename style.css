@@ -566,3 +566,139 @@ footer{
     min-height:76px !important;
   }
 }
+
+/* PX-SO v0.5.14 — chữ gọn mobile + nút lưu góc panel */
+body{
+  font-size:14px;
+}
+.app{
+  padding:6px;
+}
+header{
+  padding:8px;
+  margin-bottom:8px;
+  border-radius:8px;
+}
+h1{
+  font-size:20px;
+  line-height:1.15;
+}
+header p{
+  font-size:12px;
+}
+.panel{
+  padding:8px;
+  margin:8px 0;
+  border-radius:8px;
+}
+h2{
+  font-size:20px;
+  line-height:1.15;
+  margin-bottom:6px;
+}
+label{
+  font-size:14px;
+  line-height:1.15;
+}
+input,
+textarea{
+  border-radius:8px;
+  font-size:16px;
+}
+textarea{
+  padding:6px;
+  line-height:1.22;
+}
+button{
+  border-radius:8px;
+  font-size:15px;
+  padding:8px 6px;
+}
+.settings label{
+  font-size:13px;
+}
+.settings input{
+  font-size:16px;
+  padding:6px;
+}
+.grid2,
+.grid3,
+.settings,
+.mainTop,
+.moneyRow,
+.buttons{
+  gap:6px !important;
+}
+.grid3 label,
+.splitPair label{
+  font-size:13px;
+}
+.grid3 textarea,
+.splitPair textarea{
+  font-size:16px !important;
+  padding:5px;
+}
+.splitPair button{
+  font-size:15px;
+  padding:8px 5px;
+}
+.panel-title-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
+.panel-title-row h2{
+  margin:0;
+}
+.save-mini{
+  width:auto;
+  min-width:56px;
+  margin:0;
+  padding:6px 10px;
+  border-radius:8px;
+  font-size:14px;
+  line-height:1;
+  white-space:nowrap;
+}
+.save-mini.saved{
+  background:#2f7d37;
+}
+@media(max-width:760px){
+  .app{
+    padding:6px;
+  }
+  h1{
+    font-size:19px;
+  }
+  h2{
+    font-size:20px;
+  }
+  label{
+    font-size:13px;
+  }
+  .grid3 label,
+  .splitPair label{
+    font-size:12px;
+  }
+  .grid3 textarea{
+    min-height:78px !important;
+    max-height:118px;
+    font-size:16px !important;
+  }
+  .splitPair textarea{
+    min-height:92px !important;
+    max-height:145px;
+    font-size:16px !important;
+  }
+  .copy-panel textarea,
+  #inputData{
+    font-size:16px !important;
+  }
+  .save-mini{
+    min-width:52px;
+    padding:6px 9px;
+    font-size:13px;
+  }
+}

@@ -69,6 +69,10 @@ const NAME_MAP = {
 };
 
 const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)";
+const STORAGE_KEYS = {
+  xoa: "pxso.v0.saved.xoa",
+  results: "pxso.v0.saved.results"
+};
 
 function dayIndex(){ return new Date().getDay(); }
 function el(id){ return document.getElementById(id); }
@@ -798,7 +802,60 @@ async function copyText(id){
   }
 }
 
+function readStorage(key){
+  try{
+    return JSON.parse(localStorage.getItem(key) || "{}");
+  }catch(e){
+    return {};
+  }
+}
+function writeStorage(key, data){
+  try{
+    localStorage.setItem(key, JSON.stringify(data || {}));
+    return true;
+  }catch(e){
+    console.error(e);
+    return false;
+  }
+}
+function collectValues(ids){
+  const out = {};
+  ids.forEach(id => out[id] = val(id));
+  return out;
+}
+function applyValues(data){
+  Object.entries(data || {}).forEach(([id, value]) => setVal(id, value));
+}
+function flashSaveButton(btn){
+  if(!btn) return;
+  const old = btn.textContent;
+  btn.textContent = "Đã lưu";
+  btn.classList.add("saved");
+  setTimeout(()=>{
+    btn.textContent = old || "Lưu";
+    btn.classList.remove("saved");
+  }, 900);
+}
+function saveXoaData(){
+  const ok = writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
+  if(ok) flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
+}
+function saveResultData(){
+  const ok = writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
+  if(ok){
+    parseResultsOnly();
+    runAll();
+    flashSaveButton(document.querySelector(".result-input-panel-visible .save-mini"));
+  }
+}
+function loadSavedData(){
+  applyValues(readStorage(STORAGE_KEYS.xoa));
+  applyValues(readStorage(STORAGE_KEYS.results));
+}
+
 window.addEventListener("DOMContentLoaded", ()=>{
+  loadSavedData();
+
   const autoRun = debounce(runAll, 280);
 
   const input = el("inputData");
@@ -837,5 +894,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
       x.addEventListener("change", runAll);
     }
   });
-});
 
+  parseResultsOnly();
+  if(val("inputData").trim()) runAll();
+});

@@ -614,24 +614,36 @@ function buildTach(blocks){
       if(!ordered[block]) ordered[block]=[];
       ordered[block].push(line);
     };
+    const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
+    const parseGroupableLine=(line)=>{
+      const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+      if(!m) return null;
+      const type = m[2].toLowerCase();
+      if(!groupableTypes.has(type)) return null;
+      return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
+    };
 
     for(const [block, lines] of Object.entries(obj)){
-      const byPrice={}, other=[];
+      const groups={}, order=[], other=[];
       for(const line of lines){
-        const parsed = parseBaoLine(line);
+        const parsed = parseGroupableLine(line);
         if(parsed){
-          const key = fmtN(parsed.n);
-          if(!byPrice[key]) byPrice[key]=[];
-          byPrice[key].push(parsed.num);
+          const shape = Array.from(new Set(parsed.nums.map(num => String(num).length))).sort().join(",");
+          const key = parsed.type + "|" + fmtN(parsed.n) + "|" + shape;
+          if(!groups[key]){
+            groups[key]={type:parsed.type, n:parsed.n, nums:[]};
+            order.push(key);
+          }
+          groups[key].nums.push(...parsed.nums);
         }else{
           other.push(line);
         }
       }
 
-      const priceKeys = Object.keys(byPrice).sort((a,b)=>parseAmount(a)-parseAmount(b));
-      for(const key of priceKeys){
-        const nums = sortNumsAsc(byPrice[key]);
-        if(nums.length) setOut(block, makeLine(nums, "b", parseAmount(key)));
+      for(const key of order){
+        const g = groups[key];
+        const nums = sortNumsAsc(g.nums);
+        if(nums.length) setOut(block, makeLine(nums, g.type, g.n));
       }
       other.forEach(line => setOut(block, line));
     }

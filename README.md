@@ -1,11 +1,12 @@
-# PX-SO v0.5.15 — compact font + saved settings/history
+# PX-SO v0.5.16 — taller copy fast + saved settings/history
 
-Bản này nối tiếp v0.5.14.
+Bản này nối tiếp v0.5.15.
 
 Điểm chính:
 - Vùng nhập dữ liệu tự chạy khi gõ/dán, không cần bấm CHẠY.
 - Nút CHẠY LẠI giữ lại để chạy dự phòng khi cần.
 - Giảm cỡ chữ toàn web để gọn hơn trên mobile.
+- Tăng chiều cao vùng Copy nhanh để nhìn rõ nội dung chi tiết hơn.
 - Thêm nút Lưu ở góc phải khung Hệ số / cài đặt.
 - Thêm nút Lưu ở góc phải khung Dãy xoá.
 - Thêm nút Lưu ở góc phải khung Vùng dán kết quả.

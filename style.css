@@ -254,6 +254,21 @@ footer{
     grid-template-columns:1fr;
   }
 }
+
+/* PX-SO v0.5.16 — vùng Copy nhanh cao hơn để xem chi tiết */
+.copy-panel textarea,
+#copyFast{
+  min-height:220px !important;
+  max-height:70vh;
+  resize:vertical;
+}
+@media(max-width:760px){
+  .copy-panel textarea,
+  #copyFast{
+    min-height:180px !important;
+    max-height:62vh;
+  }
+}
 @media(max-width:560px){
   .topGrid{
     grid-template-columns:1fr;
@@ -700,5 +715,20 @@ button{
     min-width:52px;
     padding:6px 9px;
     font-size:13px;
+  }
+}
+
+/* PX-SO v0.5.16 final override — khóa chiều cao Copy nhanh */
+.copy-panel textarea,
+#copyFast{
+  min-height:220px !important;
+  max-height:70vh !important;
+  resize:vertical !important;
+}
+@media(max-width:760px){
+  .copy-panel textarea,
+  #copyFast{
+    min-height:180px !important;
+    max-height:62vh !important;
   }
 }

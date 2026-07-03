@@ -68,7 +68,7 @@ const NAME_MAP = {
   "ha noi":"HN","hà nội":"HN","hn":"HN","mb":"HN"
 };
 
-const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)";
+const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 const STORAGE_KEYS = {
   settings: "pxso.v0.saved.settings",
   xoa: "pxso.v0.saved.xoa",
@@ -798,7 +798,7 @@ function runAll(){
   }
 }
 function clearRun(){
-  ["copyFast","ghi","thuong","soTach","soKhongTach","soTrung","parsedResults","detail"].forEach(id=>setVal(id,""));
+  ["inputData","copyFast","ghi","thuong","soTach","soKhongTach","soTrung","parsedResults","detail"].forEach(id=>setVal(id,""));
   const tbody = document.querySelector("#interTable tbody");
   if(tbody) tbody.innerHTML = "";
   setVal("thuong","0");

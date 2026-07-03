@@ -291,19 +291,21 @@ function buildIntermediate(blocks){
         const t=part.type;
         const nums=part.nums || [];
         if(t==="dv"){
-          const numPairs = pairNumbers(nums);
+          const numPairs = uniquePairs(pairNumbers(nums));
           const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
           for(const dp of daiPairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
             for(const np of numPairs){
-              rows.push({block:bname, line:makeDaLine(np[0],np[1],part.n), type:"da", nums:np, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
+              const pair = sortPair(np[0], np[1]);
+              rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
             }
           }
         }else if(t==="da"){
+          const pair = sortPair(nums[0], nums[1]);
           const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
           for(const dp of daiPairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
-            rows.push({block:bname, line:makeDaLine(nums[0],nums[1],part.n), type:"da", nums:nums.slice(0,2), n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
+            rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
           }
         }else{
           for(const dai of block.dais){
@@ -459,6 +461,43 @@ function renderObj(obj){
   return out.join("\n").trim();
 }
 
+function twoDigit(n){
+  return String(n == null ? "" : n).replace(/\D/g, "").slice(-2).padStart(2, "0");
+}
+function readXoaSet(region){
+  const id = region==="MT" ? "xoaMt" : region==="HN" ? "xoaHn" : "xoaMn";
+  const nums = val(id).match(/\d+/g) || [];
+  return new Set(nums.map(twoDigit).filter(x => x.length===2));
+}
+function numInXoa(num, xoaSet){
+  return xoaSet.has(twoDigit(num));
+}
+function sortNumsAsc(nums){
+  return (nums||[]).slice().sort((a,b)=>{
+    const aa=parseInt(a,10), bb=parseInt(b,10);
+    if(aa!==bb) return aa-bb;
+    return String(a).localeCompare(String(b));
+  });
+}
+function sortPair(a,b){
+  return sortNumsAsc([a,b]);
+}
+function uniquePairs(pairs){
+  const seen=new Set(), out=[];
+  for(const pair of pairs){
+    const p=sortPair(pair[0], pair[1]);
+    const key=p.join(".");
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out.sort((x,y)=>{
+    const a0=parseInt(x[0],10), y0=parseInt(y[0],10);
+    if(a0!==y0) return a0-y0;
+    return parseInt(x[1],10)-parseInt(y[1],10);
+  });
+}
+
 function buildTach(blocks){
   const tach={}, khong={};
   const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
@@ -475,24 +514,34 @@ function buildTach(blocks){
     }
     return s;
   };
-  const isFirstSchedulePair=(region, a, b)=>{
-    const map = region==="MT" ? MT_MAP : MN_MAP;
-    return Object.values(map).some(arr => arr && arr[0]===a && arr[1]===b);
+  const addSplitAmount=(blockName, type, nums, n, maxN, isTach)=>{
+    const keepN = Math.min(n, maxN);
+    const overflowN = n - keepN;
+    if(isTach && keepN > 0) add(tach, blockName, type==="da" ? makeDaLine(nums[0],nums[1],keepN) : makeLine(nums, type, keepN));
+    if(isTach && overflowN > 0) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],overflowN) : makeLine(nums, type, overflowN));
+    if(!isTach) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],n) : makeLine(nums, type, n));
   };
-  const mainPairForTach=(block)=>{
-    if(!block || !block.mainDais || block.mainDais.length < 2) return "";
-    const a = block.mainDais[0], b = block.mainDais[1];
-
-    // Generic scopes are already normalized from today's schedule.
-    if(block.generic) return a + b;
-
-    // Explicit scopes may be a side pair such as BduongTvinh.
-    // Only the first two stations of a valid schedule are allowed for "Số tách".
-    return isFirstSchedulePair(block.region, a, b) ? a + b : "";
+  const scheduledMainDais=(block)=>{
+    if(!block || block.region==="HN") return ["HN"];
+    if(block.generic && block.mainDais && block.mainDais.length>=2) return block.mainDais.slice(0,2);
+    const map = block.region==="MT" ? MT_MAP : MN_MAP;
+    const day = pickDayForGeneric(block.region, 2, block.dais || []);
+    const arr = map[day] || [];
+    return arr.slice(0,2);
+  };
+  // Vùng xanh để giữ tin tách:
+  // bao 2 số chỉ lấy Đài 1 / Đài 2; đá chéo chỉ lấy Đài 1-2.
+  const isTachBaoScope=(block, dai)=>scheduledMainDais(block).includes(dai);
+  const mainPairForDa=(block)=>{
+    if(!block || !block.dais || block.dais.length < 2) return "";
+    const mainDais = scheduledMainDais(block);
+    if(mainDais.length < 2) return "";
+    return block.dais[0]===mainDais[0] && block.dais[1]===mainDais[1] ? mainDais[0] + mainDais[1] : "";
   };
 
   for(const block of blocks){
-    const mainPair = mainPairForTach(block);
+    const xoaSet = readXoaSet(block.region);
+    const mainPair = mainPairForDa(block);
     for(const rawLine of block.lines){
       const parts = parseBetLine(rawLine);
       if(!parts){
@@ -503,24 +552,29 @@ function buildTach(blocks){
       const remain=[];
       for(const part of parts){
         const nums=part.nums||[];
-        if(part.type==="b" && mainPair && nums.every(n=>n.length===2)){
-          const keepN = Math.min(part.n, max2);
-          const overflowN = part.n - keepN;
-          if(keepN > 0) add(tach, mainPair, makeLine(nums, "b", keepN));
-          if(overflowN > 0) add(khong, mainPair, makeLine(nums, "b", overflowN));
+        if(part.type==="b" && nums.every(n=>n.length===2)){
+          const targetDais = (block.dais && block.dais.length) ? block.dais : [block.name];
+          for(const dai of targetDais){
+            for(const num of sortNumsAsc(nums)){
+              addSplitAmount(dai, "b", num, part.n, max2, isTachBaoScope(block, dai) && !numInXoa(num, xoaSet));
+            }
+          }
           took=true;
-        }else if(part.type==="da" && mainPair && nums.length>=2){
-          const keepN = Math.min(part.n, maxDa);
-          const overflowN = part.n - keepN;
-          if(keepN > 0) add(tach, mainPair, makeDaLine(nums[0],nums[1],keepN));
-          if(overflowN > 0) add(khong, mainPair, makeDaLine(nums[0],nums[1],overflowN));
+        }else if(part.type==="da" && nums.length>=2){
+          const pair = sortPair(nums[0], nums[1]);
+          if(mainPair){
+            addSplitAmount(mainPair, "da", pair, part.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
+          }else{
+            add(khong, block.name, makeDaLine(pair[0], pair[1], part.n));
+          }
           took=true;
-        }else if(part.type==="dv" && mainPair && nums.length>=2){
-          const keepN = Math.min(part.n, maxDa);
-          const overflowN = part.n - keepN;
-          for(const np of pairNumbers(nums)){
-            if(keepN > 0) add(tach, mainPair, makeDaLine(np[0],np[1],keepN));
-            if(overflowN > 0) add(khong, mainPair, makeDaLine(np[0],np[1],overflowN));
+        }else if(part.type==="dv" && nums.length>=2){
+          for(const pair of uniquePairs(pairNumbers(nums))){
+            if(mainPair){
+              addSplitAmount(mainPair, "da", pair, part.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
+            }else{
+              add(khong, block.name, makeDaLine(pair[0], pair[1], part.n));
+            }
           }
           took=true;
         }else{

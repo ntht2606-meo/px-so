@@ -545,6 +545,16 @@ function buildTach(blocks){
     if(mainDais.length < 2) return "";
     return row.block === mainDais[0] + mainDais[1];
   };
+  const isDaKeepScope=(row, xoaSet)=>{
+    if(row.type!=="da") return false;
+
+    // HN chỉ có một vùng đài, nên đá HN thuộc phạm vi giữ.
+    if(row.region==="HN") return true;
+
+    // MN/MT luôn phải qua ô điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
+    // Dãy xoá trống chỉ có nghĩa là chưa lọc số, không mở rộng sang cặp phụ.
+    return isTachDaRow(row);
+  };
   const parseBaoLine=(line)=>{
     const m = String(line||"").match(/^(\d{2})b([\d,.]+)n$/i);
     if(!m) return null;
@@ -656,9 +666,10 @@ function buildTach(blocks){
     if(isTachBaoRow(row)){
       const num = row.nums[0];
       addSplitAmount(row.block, "b", num, row.n, max2, !numInXoa(num, xoaSet));
-    }else if(isTachDaRow(row)){
+    }else if(isDaKeepScope(row, xoaSet)){
       const pair = sortPair(row.nums[0], row.nums[1]);
-      addSplitAmount(row.block, "da", pair, row.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
+      const keepDa = xoaSet.size===0 || !pair.some(n=>numInXoa(n, xoaSet));
+      addSplitAmount(row.block, "da", pair, row.n, maxDa, keepDa);
     }else{
       add(khong, row.block, row.line);
     }

@@ -522,3 +522,47 @@ footer{
   font-weight:700;
   color:#2f7d37;
 }
+
+/* PX-SO v0.5.13 — khóa lại bố trí web/mobile */
+.mainTop{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  align-items:start;
+}
+.input-panel,
+.copy-panel,
+.win-panel{
+  margin:0;
+}
+.compact-money,
+.win-panel{
+  margin-top:8px;
+}
+.copy-panel textarea{
+  min-height:150px !important;
+}
+.win-panel textarea{
+  min-height:82px !important;
+}
+.xoa-panel textarea,
+.result-input-panel-visible textarea{
+  resize:none;
+}
+@media(max-width:760px){
+  .mainTop{
+    grid-template-columns:1fr;
+  }
+  .input-panel,
+  .copy-panel,
+  .compact-money,
+  .win-panel{
+    margin:8px 0;
+  }
+  .copy-panel textarea{
+    min-height:96px !important;
+  }
+  .win-panel textarea{
+    min-height:76px !important;
+  }
+}

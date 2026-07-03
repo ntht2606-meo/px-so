@@ -1,27 +1,24 @@
-# PX-SO v0.5.10 — rewrite từ v0.5.9
+# PX-SO v0.5.13 — layout locked + auto-run
 
-Viết lại từ bản trước v0.5.9 theo nhiệm vụ mới.
+Bản này nối tiếp v0.5.12.
 
-Chỉ sửa:
-- Logic dò trúng DA/DV.
-- DA/DV không còn nhân chéo `countA * countB`.
-- Đá 1 đài: `hit = min(countA, countB)`.
-- Đá 2 đài: `hit = min(A đài 1, B đài 2) + min(B đài 1, A đài 2)`.
+Điểm chính:
+- Vùng nhập dữ liệu tự chạy khi gõ/dán, không cần bấm CHẠY.
+- Nút CHẠY LẠI giữ lại để chạy dự phòng khi cần.
+- Bố trí web/mobile đã khóa lại:
+  1. Vùng nhập dữ liệu
+  2. Copy nhanh
+  3. Ghi / Trúng
+  4. Số trúng
+  5. Hệ số / cài đặt
+  6. Số tách / Không tách
+  7. Dãy xoá
+  8. Vùng dán kết quả
+- Sửa lỗi HTML lồng panel làm vị trí bị lệch.
+- Dãy xoá và Vùng dán kết quả giữ dạng 3 cột MN/MT/HN.
+- Số tách / Không tách giữ dạng 2 cột.
+- Kết quả đã hiểu và Bảng trung gian vẫn ẩn.
 
-Giữ nguyên:
-- Không đổi mẫu/form.
-- Vùng dán kết quả vẫn hiện để nhập kết quả thô MN/MT/HN.
-- Nút `Chuẩn hoá kết quả` vẫn bỏ.
-- `Kết quả đã hiểu` vẫn ẩn.
-- `Bảng trung gian` vẫn ẩn.
-- Ô `Số trúng` báo gọn, không có dòng `Tổng trúng`.
-- Tổng tiền trúng nằm ở ô `Trúng`.
-- Ghi DA/DV 1 đài MN/MT vẫn tính đúng.
-
-Test khóa:
-- Tin gốc đầy đủ = `3340,8k`.
-- Block 3dmn riêng = `3168k`.
-- `Tninh\n93.97.07.29dv1n` = `172,8k`.
-- DA 2 đài basic `01.02da1n` = `550k`.
-- DA 2 đài nhiều lần: hit = min, không nhân chéo.
-- DA 1 đài nhiều lần: hit = min, không nhân chéo.
+Logic tính/dò giữ theo v0.5.12:
+- Copy nhanh không bung dữ liệu trung gian.
+- Dò đá DA/DV theo số lần trúng cặp bằng min(A,B), không nhân chéo.

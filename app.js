@@ -149,14 +149,23 @@ function getDaisFromName(name){
   if(lower==="hn" || lower==="mb") return ["HN"];
   const found = [];
   for(const d of KNOWN_DAI){
-    if(d !== "HN" && raw.includes(d)) found.push(d);
+    if(d !== "HN" && raw.includes(d)) found.push({d, idx:raw.indexOf(d)});
   }
-  return found.length ? found : [raw];
+  found.sort((a,b)=>a.idx-b.idx);
+  return found.length ? found.map(x=>x.d) : [raw];
 }
 function detectRegionByDais(dais){
   if(dais.includes("HN")) return "HN";
   const mt = ["Pyen","Hue","Dlac","Qnam","Dnang","Khoa","Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum"];
   return dais.some(d => mt.includes(d)) ? "MT" : "MN";
+}
+function maxDaiForRegion(region){
+  if(region==="HN") return 1;
+  if(region==="MT") return 3;
+  return 4;
+}
+function capDaisByRegion(dais, region){
+  return (dais || []).slice(0, maxDaiForRegion(region));
 }
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
@@ -185,7 +194,9 @@ function resolveHeader(raw, hintDais=[]){
   else if(l==="3dmt") dais=MT_MAP[pickDayForGeneric("MT",3,hintDais)].slice(0,3);
   else dais=getDaisFromName(raw.trim());
   const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
-  return {raw:raw.trim(), name:dais.join(""), dais, region:detectRegionByDais(dais), mainDais:dais.slice(0,2), generic, lines:[]};
+  const region = detectRegionByDais(dais);
+  dais = capDaisByRegion(dais, region);
+  return {raw:raw.trim(), name:dais.join(""), dais, region, mainDais:dais.slice(0,2), generic, lines:[]};
 }
 function splitBlocks(text){
   const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);

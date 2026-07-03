@@ -1,4 +1,4 @@
-// PX-SO v0.5.45 - safe branch demo, keeps v0.5.43 PX-SO logic
+// PX-SO v0.5.46 - editable header, keeps v0.5.43 PX-SO logic
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,6 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
+  appTitle: "pxso.v0.5.46.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -125,6 +126,21 @@ function setActiveTab(tab){
   document.querySelectorAll(".tab-btn").forEach(btn=>{
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
+}
+function saveAppTitle(){
+  try{
+    localStorage.setItem(STORAGE_KEYS.appTitle, val("appTitleInput"));
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadAppTitle(){
+  try{
+    const title = localStorage.getItem(STORAGE_KEYS.appTitle);
+    if(title) setVal("appTitleInput", title);
+  }catch(e){
+    console.error(e);
+  }
 }
 function showMainApp(name){
   const isNew = name === "newwork";
@@ -1355,6 +1371,7 @@ function loadSavedData(){
 }
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  loadAppTitle();
   loadSavedData();
   loadNewWorkData();
 

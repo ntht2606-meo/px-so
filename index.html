@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.45</title>
-  <link rel="stylesheet" href="style.css?v=545" />
+  <title>PX-SO v0.5.46</title>
+  <link rel="stylesheet" href="style.css?v=546" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
-      <h1>Web công việc v0.5.45</h1>
-      <p>Viết lại từ v0.5.43. Thêm nhánh công việc mới để thử bật/mở vùng, không sửa logic PX-SO.</p>
+      <label class="header-title-input">Tên web / ghi chú
+        <input id="appTitleInput" value="Web công việc" oninput="saveAppTitle()" />
+      </label>
     </header>
 
     <nav class="main-tabs" aria-label="Chọn công việc chính">
@@ -214,8 +215,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.45 — safe branch demo</footer>
+    <footer>PX-SO v0.5.46 — editable header</footer>
   </div>
-<script src="app.js?v=545"></script>
+<script src="app.js?v=546"></script>
 </body>
 </html>

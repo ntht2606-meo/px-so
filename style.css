@@ -15,8 +15,17 @@ body{
   background:#fff;
   border:2px solid #111;
   border-radius:10px;
-  padding:10px;
+  padding:8px;
   margin-bottom:8px;
+}
+.header-title-input{
+  font-size:13px;
+}
+.header-title-input input{
+  margin-top:4px;
+  text-align:left;
+  font-size:18px;
+  font-weight:800;
 }
 .main-tabs{
   display:grid;

@@ -1,11 +1,12 @@
-# PX-SO v0.5.14 — compact font + saved history
+# PX-SO v0.5.15 — compact font + saved settings/history
 
-Bản này nối tiếp v0.5.13.
+Bản này nối tiếp v0.5.14.
 
 Điểm chính:
 - Vùng nhập dữ liệu tự chạy khi gõ/dán, không cần bấm CHẠY.
 - Nút CHẠY LẠI giữ lại để chạy dự phòng khi cần.
 - Giảm cỡ chữ toàn web để gọn hơn trên mobile.
+- Thêm nút Lưu ở góc phải khung Hệ số / cài đặt.
 - Thêm nút Lưu ở góc phải khung Dãy xoá.
 - Thêm nút Lưu ở góc phải khung Vùng dán kết quả.
 - Dữ liệu đã lưu giữ lại sau khi refresh/reset trang, miễn không xoá lịch sử/cache dữ liệu web của trình duyệt.
@@ -28,6 +29,7 @@ Logic tính/dò giữ theo v0.5.12:
 - Dò đá DA/DV theo số lần trúng cặp bằng min(A,B), không nhân chéo.
 
 Ghi chú lưu dữ liệu:
+- Nút Lưu trong Hệ số / cài đặt lưu: Nhân, Đá 2 đài, Đá 1 đài, Đá Hà Nội, 2 số, 3 số, 4 số, Max 2 số, Max đá.
 - Nút Lưu trong Dãy xoá lưu cả MN/MT/HN vào localStorage của trình duyệt.
 - Nút Lưu trong Vùng dán kết quả lưu cả MN/MT/HN vào localStorage của trình duyệt.
 - Dữ liệu này không ghi ngược vào code GitHub; máy/trình duyệt khác sẽ không tự có dữ liệu đã lưu trên máy hiện tại.

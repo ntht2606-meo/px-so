@@ -70,9 +70,11 @@ const NAME_MAP = {
 
 const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)";
 const STORAGE_KEYS = {
+  settings: "pxso.v0.saved.settings",
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results"
 };
+const SETTINGS_IDS = ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"];
 
 function dayIndex(){ return new Date().getDay(); }
 function el(id){ return document.getElementById(id); }
@@ -840,6 +842,13 @@ function saveXoaData(){
   const ok = writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
   if(ok) flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
 }
+function saveSettingsData(){
+  const ok = writeStorage(STORAGE_KEYS.settings, collectValues(SETTINGS_IDS));
+  if(ok){
+    runAll();
+    flashSaveButton(document.querySelector(".settings-panel .save-mini"));
+  }
+}
 function saveResultData(){
   const ok = writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
   if(ok){
@@ -849,6 +858,7 @@ function saveResultData(){
   }
 }
 function loadSavedData(){
+  applyValues(readStorage(STORAGE_KEYS.settings));
   applyValues(readStorage(STORAGE_KEYS.xoa));
   applyValues(readStorage(STORAGE_KEYS.results));
 }
@@ -887,7 +897,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   });
 
   // Thay đổi hệ số/cài đặt thì tự tính lại nếu đang có dữ liệu.
-  ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"].forEach(id=>{
+  SETTINGS_IDS.forEach(id=>{
     const x=el(id);
     if(x){
       x.addEventListener("input", autoRun);

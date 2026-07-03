@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.14</title>
-  <link rel="stylesheet" href="style.css?v=514" />
+  <title>PX-SO v0.5.15</title>
+  <link rel="stylesheet" href="style.css?v=515" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.5.14</h1>
+      <h1>PX-SO v0.5.15</h1>
       <p>Auto-run khi nhập/dán dữ liệu; chữ gọn hơn và lưu dữ liệu theo trình duyệt.</p>
     </header>
 
@@ -49,8 +49,11 @@
       <button onclick="copyText('soTrung')">Copy số trúng</button>
     </section>
 
-    <section class="panel">
-      <h2>Hệ số / cài đặt</h2>
+    <section class="panel settings-panel save-panel">
+      <div class="panel-title-row">
+        <h2>Hệ số / cài đặt</h2>
+        <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
+      </div>
       <div class="grid settings">
         <label>Nhân <input id="rate" value="0.8"></label>
         <label>Đá 2 đài <input id="coefDa2" value="550"></label>
@@ -123,8 +126,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.14 — compact font + saved history</footer>
+    <footer>PX-SO v0.5.15 — compact font + saved settings/history</footer>
   </div>
-<script src="app.js?v=514"></script>
+<script src="app.js?v=515"></script>
 </body>
 </html>

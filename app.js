@@ -277,6 +277,31 @@ function makeLine(nums, type, n){
 function makeDaLine(a,b,n){
   return `${a}.${b}da${fmtN(n)}n`;
 }
+function sortNumsAsc(nums){
+  return (nums||[]).slice().sort((a,b)=>{
+    const aa=parseInt(a,10), bb=parseInt(b,10);
+    if(aa!==bb) return aa-bb;
+    return String(a).localeCompare(String(b));
+  });
+}
+function sortPair(a,b){
+  return sortNumsAsc([a,b]);
+}
+function uniquePairs(pairs){
+  const seen=new Set(), out=[];
+  for(const pair of pairs){
+    const p=sortPair(pair[0], pair[1]);
+    const key=p.join(".");
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out.sort((x,y)=>{
+    const a0=parseInt(x[0],10), y0=parseInt(y[0],10);
+    if(a0!==y0) return a0-y0;
+    return parseInt(x[1],10)-parseInt(y[1],10);
+  });
+}
 
 function buildIntermediate(blocks){
   const rows=[];
@@ -471,31 +496,6 @@ function readXoaSet(region){
 }
 function numInXoa(num, xoaSet){
   return xoaSet.has(twoDigit(num));
-}
-function sortNumsAsc(nums){
-  return (nums||[]).slice().sort((a,b)=>{
-    const aa=parseInt(a,10), bb=parseInt(b,10);
-    if(aa!==bb) return aa-bb;
-    return String(a).localeCompare(String(b));
-  });
-}
-function sortPair(a,b){
-  return sortNumsAsc([a,b]);
-}
-function uniquePairs(pairs){
-  const seen=new Set(), out=[];
-  for(const pair of pairs){
-    const p=sortPair(pair[0], pair[1]);
-    const key=p.join(".");
-    if(seen.has(key)) continue;
-    seen.add(key);
-    out.push(p);
-  }
-  return out.sort((x,y)=>{
-    const a0=parseInt(x[0],10), y0=parseInt(y[0],10);
-    if(a0!==y0) return a0-y0;
-    return parseInt(x[1],10)-parseInt(y[1],10);
-  });
 }
 
 function buildTach(blocks){

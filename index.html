@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.23</title>
-  <link rel="stylesheet" href="style.css?v=523" />
+  <title>PX-SO v0.5.24</title>
+  <link rel="stylesheet" href="style.css?v=524" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.5.23</h1>
+      <h1>PX-SO v0.5.24</h1>
       <p>Auto-run khi nhập/dán dữ liệu; chữ gọn hơn và lưu dữ liệu theo trình duyệt.</p>
     </header>
 
@@ -78,7 +78,10 @@
     <section class="panel xoa-panel save-panel">
       <div class="panel-title-row">
         <h2>Dãy xoá</h2>
-        <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
+        <div class="title-actions">
+          <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
+        </div>
       </div>
       <div class="grid3">
         <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
@@ -90,7 +93,10 @@
     <section class="panel result-input-panel-visible save-panel">
       <div class="panel-title-row">
         <h2>Vùng dán kết quả</h2>
-        <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
+        <div class="title-actions">
+          <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
+        </div>
       </div>
       <div class="grid3">
         <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN..."></textarea></label>
@@ -135,8 +141,8 @@
       </div>
     </section>
 
-    <footer>PX-SO v0.5.23 — daily run log</footer>
+    <footer>PX-SO v0.5.24 — clear saved xoa/results</footer>
   </div>
-<script src="app.js?v=523"></script>
+<script src="app.js?v=524"></script>
 </body>
 </html>

@@ -870,6 +870,15 @@ function saveXoaData(){
   const ok = writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
   if(ok) flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
 }
+function clearXoaData(){
+  ["xoaMn","xoaMt","xoaHn"].forEach(id=>setVal(id,""));
+  try{
+    localStorage.removeItem(STORAGE_KEYS.xoa);
+  }catch(e){
+    console.error(e);
+  }
+  runAll();
+}
 function saveSettingsData(){
   const ok = writeStorage(STORAGE_KEYS.settings, collectValues(SETTINGS_IDS));
   if(ok){
@@ -884,6 +893,17 @@ function saveResultData(){
     runAll();
     flashSaveButton(document.querySelector(".result-input-panel-visible .save-mini"));
   }
+}
+function clearResultData(){
+  ["kqMn","kqMt","kqHn","parsedResults","soTrung"].forEach(id=>setVal(id,""));
+  try{
+    localStorage.removeItem(STORAGE_KEYS.results);
+  }catch(e){
+    console.error(e);
+  }
+  setVal("thuong","0");
+  parseResultsOnly();
+  runAll();
 }
 function saveDailyInputBackup(){
   const text = val("inputData");

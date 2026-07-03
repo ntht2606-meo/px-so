@@ -72,11 +72,20 @@ const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 const STORAGE_KEYS = {
   settings: "pxso.v0.saved.settings",
   xoa: "pxso.v0.saved.xoa",
-  results: "pxso.v0.saved.results"
+  results: "pxso.v0.saved.results",
+  dailyInputPrefix: "pxso.v0.dailyInput."
 };
 const SETTINGS_IDS = ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"];
 
 function dayIndex(){ return new Date().getDay(); }
+function dateKey(){
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
+  ].join("-");
+}
 function el(id){ return document.getElementById(id); }
 function val(id){ return (el(id)?.value || ""); }
 function setVal(id, v){ if(el(id)) el(id).value = v == null ? "" : String(v); }
@@ -844,6 +853,9 @@ function collectValues(ids){
 function applyValues(data){
   Object.entries(data || {}).forEach(([id, value]) => setVal(id, value));
 }
+function dailyInputKey(){
+  return STORAGE_KEYS.dailyInputPrefix + dateKey();
+}
 function flashSaveButton(btn){
   if(!btn) return;
   const old = btn.textContent;
@@ -873,10 +885,54 @@ function saveResultData(){
     flashSaveButton(document.querySelector(".result-input-panel-visible .save-mini"));
   }
 }
+function saveDailyInputBackup(){
+  const text = val("inputData");
+  if(!text.trim()) return;
+  try{
+    localStorage.setItem(dailyInputKey(), text);
+    setVal("savedInputToday", text);
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadDailyInputBackup(){
+  try{
+    setVal("savedInputToday", localStorage.getItem(dailyInputKey()) || "");
+  }catch(e){
+    setVal("savedInputToday", "");
+  }
+}
+function restoreDailyInput(){
+  const text = val("savedInputToday");
+  if(!text.trim()){
+    alert("Hôm nay chưa có tin đã lưu");
+    return;
+  }
+  setVal("inputData", text);
+  runAll();
+}
+function saveDayAndRun(){
+  if(!val("inputData").trim()){
+    clearRun();
+    alert("Chưa có dữ liệu để lưu ngày");
+    return;
+  }
+  saveDailyInputBackup();
+  runAll();
+}
+function clearDailyInputBackup(){
+  try{
+    localStorage.removeItem(dailyInputKey());
+  }catch(e){
+    console.error(e);
+  }
+  setVal("savedInputToday", "");
+}
 function loadSavedData(){
   applyValues(readStorage(STORAGE_KEYS.settings));
   applyValues(readStorage(STORAGE_KEYS.xoa));
   applyValues(readStorage(STORAGE_KEYS.results));
+  loadDailyInputBackup();
 }
 
 window.addEventListener("DOMContentLoaded", ()=>{
@@ -886,9 +942,18 @@ window.addEventListener("DOMContentLoaded", ()=>{
 
   const input = el("inputData");
   if(input){
-    input.addEventListener("input", autoRun);
-    input.addEventListener("paste", ()=>setTimeout(runAll, 30));
-    input.addEventListener("change", runAll);
+    input.addEventListener("input", ()=>{
+      saveDailyInputBackup();
+      autoRun();
+    });
+    input.addEventListener("paste", ()=>setTimeout(()=>{
+      saveDailyInputBackup();
+      runAll();
+    }, 30));
+    input.addEventListener("change", ()=>{
+      saveDailyInputBackup();
+      runAll();
+    });
   }
 
   // Dán kết quả MN/MT/HN cũng tự cập nhật dò/trúng.

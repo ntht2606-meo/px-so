@@ -576,7 +576,7 @@ function buildTach(blocks){
     }
     return out;
   };
-  const compactMainPairBao=(obj, rows)=>{
+  const compactMainPairBao=(obj, rows, overflowObj, maxN)=>{
     const bao={}, other={};
     for(const [block, lines] of Object.entries(obj)){
       for(const line of lines){
@@ -599,7 +599,10 @@ function buildTach(blocks){
       for(const num of nums){
         const common = Math.min(aMap[num] || 0, bMap[num] || 0);
         if(common > 0){
-          setOut(info.pair, makeLine(num, "b", common));
+          const keep = Math.min(common, maxN);
+          const overflow = common - keep;
+          if(keep > 0) setOut(info.pair, makeLine(num, "b", keep));
+          if(overflow > 0) add(overflowObj, info.pair, makeLine(num, "b", overflow));
           aMap[num] -= common;
           bMap[num] -= common;
         }
@@ -609,7 +612,12 @@ function buildTach(blocks){
     for(const [block, numMap] of Object.entries(bao)){
       for(const num of sortNumsAsc(Object.keys(numMap))){
         const n = numMap[num] || 0;
-        if(n > 0) setOut(block, makeLine(num, "b", n));
+        if(n > 0){
+          const keep = Math.min(n, maxN);
+          const overflow = n - keep;
+          if(keep > 0) setOut(block, makeLine(num, "b", keep));
+          if(overflow > 0) add(overflowObj, block, makeLine(num, "b", overflow));
+        }
       }
     }
     for(const [block, lines] of Object.entries(other)){
@@ -675,7 +683,7 @@ function buildTach(blocks){
     }
   }
   return {
-    tach:renderObj(compactMainPairBao(tach, rows)),
+    tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),
     khong:renderObj(compactKhongByPrice(khong))
   };
 }

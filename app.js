@@ -475,13 +475,20 @@ function buildTach(blocks){
     }
     return s;
   };
+  const isFirstSchedulePair=(region, a, b)=>{
+    const map = region==="MT" ? MT_MAP : MN_MAP;
+    return Object.values(map).some(arr => arr && arr[0]===a && arr[1]===b);
+  };
   const mainPairForTach=(block)=>{
-    if(!block || !block.dais || block.dais.length < 2) return "";
-    const map = block.region === "MT" ? MT_MAP : MN_MAP;
-    const todayDais = map[dayIndex()] || [];
-    if(todayDais.length < 2) return "";
-    const a = todayDais[0], b = todayDais[1];
-    return block.dais.includes(a) && block.dais.includes(b) ? a + b : "";
+    if(!block || !block.mainDais || block.mainDais.length < 2) return "";
+    const a = block.mainDais[0], b = block.mainDais[1];
+
+    // Generic scopes are already normalized from today's schedule.
+    if(block.generic) return a + b;
+
+    // Explicit scopes may be a side pair such as BduongTvinh.
+    // Only the first two stations of a valid schedule are allowed for "Số tách".
+    return isFirstSchedulePair(block.region, a, b) ? a + b : "";
   };
 
   for(const block of blocks){

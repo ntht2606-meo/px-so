@@ -1,4 +1,4 @@
-// PX-SO v0.5.42 - khong tach step 5 compact by station then price
+// PX-SO v0.5.43 - rewrite from 5.41, safe khong tach bao2 station compact
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -708,109 +708,25 @@ function buildTach(blocks){
     }
     return ordered;
   };
-  const groupableKhongTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
-  const parseKhongGroupableLine=(line)=>{
-    const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
-    if(!m) return null;
-    const type = m[2].toLowerCase();
-    if(!groupableKhongTypes.has(type)) return null;
-    return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
-  };
-  const blockToDais=(block)=>{
-    const dais = getDaisFromName(block).filter(Boolean);
-    if(dais.length) return dais;
-    return [block];
-  };
-  const makeDaiRank=(rows)=>{
-    const rank={};
-    let i=0;
-    for(const row of rows){
-      (row.sourceDais || []).forEach(dai=>{
-        if(rank[dai] == null) rank[dai] = i++;
-      });
-    }
-    KNOWN_DAI.forEach(dai=>{
-      if(rank[dai] == null) rank[dai] = i++;
-    });
-    return rank;
-  };
-  const sortDaisByRank=(dais, rank)=>{
-    return (dais || []).slice().sort((a,b)=>{
-      const ra = rank[a] == null ? 9999 : rank[a];
-      const rb = rank[b] == null ? 9999 : rank[b];
-      if(ra !== rb) return ra - rb;
-      return String(a).localeCompare(String(b));
-    });
-  };
-  const compactKhongByDai=(obj, rows)=>{
-    const rank = makeDaiRank(rows);
-    const grouped={}, groupOrder=[], fixed=[];
-    const addGroup=(key, block, num, type, n)=>{
-      if(!grouped[key]){
-        grouped[key]={num, type, amounts:{}};
-        groupOrder.push(key);
-      }
-      grouped[key].amounts[block] = (grouped[key].amounts[block] || 0) + n;
-    };
-
-    for(const [block, lines] of Object.entries(obj)){
-      const dais = blockToDais(block);
-      for(const line of lines){
-        const parsed = parseKhongGroupableLine(line);
-        if(!parsed || dais.length !== 1){
-          fixed.push({block, line});
-          continue;
-        }
-        for(const num of parsed.nums){
-          const key = [parsed.type, num, String(num).length].join("|");
-          addGroup(key, block, num, parsed.type, parsed.n);
-        }
-      }
-    }
-
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-
-    for(const key of groupOrder){
-      const group = grouped[key];
-      const amounts = {...group.amounts};
-      while(true){
-        const blocks = Object.keys(amounts).filter(block => amounts[block] > 0);
-        if(blocks.length < 2) break;
-        const common = Math.min(...blocks.map(block => amounts[block]));
-        const dais = sortDaisByRank(blocks.flatMap(blockToDais), rank);
-        const combinedBlock = dais.join("");
-        setOut(combinedBlock, makeLine(group.num, group.type, common));
-        blocks.forEach(block=>{
-          amounts[block] = Math.round((amounts[block] - common) * 100) / 100;
-        });
-      }
-      for(const block of Object.keys(amounts).sort((a,b)=>{
-        const da = sortDaisByRank(blockToDais(a), rank)[0] || a;
-        const db = sortDaisByRank(blockToDais(b), rank)[0] || b;
-        return (rank[da] || 9999) - (rank[db] || 9999);
-      })){
-        if(amounts[block] > 0) setOut(block, makeLine(group.num, group.type, amounts[block]));
-      }
-    }
-
-    fixed.forEach(item => setOut(item.block, item.line));
-    return out;
-  };
   const compactKhongByPrice=(obj)=>{
     const ordered={};
     const setOut=(block, line)=>{
       if(!ordered[block]) ordered[block]=[];
       ordered[block].push(line);
     };
+    const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
+    const parseGroupableLine=(line)=>{
+      const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+      if(!m) return null;
+      const type = m[2].toLowerCase();
+      if(!groupableTypes.has(type)) return null;
+      return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
+    };
 
     for(const [block, lines] of Object.entries(obj)){
       const groups={}, order=[], other=[];
       for(const line of lines){
-        const parsed = parseKhongGroupableLine(line);
+        const parsed = parseGroupableLine(line);
         if(parsed){
           const shape = Array.from(new Set(parsed.nums.map(num => String(num).length))).sort().join(",");
           const key = parsed.type + "|" + fmtN(parsed.n) + "|" + shape;
@@ -843,6 +759,90 @@ function buildTach(blocks){
     }
     return ordered;
   };
+  const compactKhongBao2ByDai=(obj, rows)=>{
+    const rank={};
+    let rankIndex=0;
+    for(const row of rows){
+      (row.sourceDais || []).forEach(dai=>{
+        if(rank[dai] == null) rank[dai] = rankIndex++;
+      });
+    }
+    KNOWN_DAI.forEach(dai=>{
+      if(rank[dai] == null) rank[dai] = rankIndex++;
+    });
+    const sortDais=(dais)=>dais.slice().sort((a,b)=>{
+      const ra = rank[a] == null ? 9999 : rank[a];
+      const rb = rank[b] == null ? 9999 : rank[b];
+      if(ra !== rb) return ra - rb;
+      return String(a).localeCompare(String(b));
+    });
+    const singleKnownDai=(block)=>{
+      const dais = getDaisFromName(block).filter(d => d && d !== "HN");
+      return dais.length === 1 ? dais[0] : "";
+    };
+    const parseBao2Line=(line)=>{
+      const m = String(line || "").match(/^([0-9.]+)b([\d,.]+)n$/i);
+      if(!m) return null;
+      const nums = m[1].split(".").filter(Boolean);
+      if(!nums.length || !nums.every(num => String(num).length === 2)) return null;
+      return {nums, n:parseAmount(m[2])};
+    };
+
+    const groups={}, order=[], passthrough=[];
+    const addGroup=(region, num, dai, n)=>{
+      const key = region + "|" + num;
+      if(!groups[key]){
+        groups[key]={region, num, amounts:{}};
+        order.push(key);
+      }
+      groups[key].amounts[dai] = (groups[key].amounts[dai] || 0) + n;
+    };
+
+    for(const [block, lines] of Object.entries(obj)){
+      const dai = singleKnownDai(block);
+      for(const line of lines){
+        const parsed = parseBao2Line(line);
+        if(!dai || !parsed){
+          passthrough.push({block, line});
+          continue;
+        }
+        const region = detectRegionByDais([dai]);
+        if(region === "HN"){
+          passthrough.push({block, line});
+          continue;
+        }
+        parsed.nums.forEach(num => addGroup(region, num, dai, parsed.n));
+      }
+    }
+
+    const out={};
+    const setOut=(block, line)=>{
+      if(!out[block]) out[block]=[];
+      out[block].push(line);
+    };
+
+    for(const key of order){
+      const group = groups[key];
+      const amounts = {...group.amounts};
+      while(true){
+        const dais = Object.keys(amounts).filter(dai => amounts[dai] > 0);
+        if(dais.length < 2) break;
+        const common = Math.min(...dais.map(dai => amounts[dai]));
+        const block = sortDais(dais).join("");
+        setOut(block, makeLine(group.num, "b", common));
+        dais.forEach(dai=>{
+          amounts[dai] = Math.round((amounts[dai] - common) * 100) / 100;
+        });
+      }
+      Object.keys(amounts)
+        .filter(dai => amounts[dai] > 0)
+        .sort((a,b)=>(rank[a] || 9999) - (rank[b] || 9999))
+        .forEach(dai => setOut(dai, makeLine(group.num, "b", amounts[dai])));
+    }
+
+    passthrough.forEach(item => setOut(item.block, item.line));
+    return out;
+  };
 
   const rows = buildIntermediate(blocks);
   for(const row of rows){
@@ -860,7 +860,7 @@ function buildTach(blocks){
   }
   return {
     tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),
-    khong:renderObj(compactKhongByPrice(compactKhongByDai(khong, rows)))
+    khong:renderObj(compactKhongByPrice(compactKhongBao2ByDai(khong, rows)))
   };
 }
 

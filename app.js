@@ -389,6 +389,13 @@ function renderIntermediate(rows){
 function totalMoney(rows){
   return rows.reduce((s,row)=>s+calcRow(row),0);
 }
+function todayLabel(){
+  const d = new Date();
+  return `Ngày ${d.getDate()}/${d.getMonth() + 1}`;
+}
+function roundedMoney(n){
+  return String(Math.ceil(Number(n) || 0)) + "k";
+}
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
@@ -419,8 +426,8 @@ function splitCopyLineOriginal(rawLine, maxLen=24){
   if(cur.length) out.push(cur.join(".") + suffix);
   return out;
 }
-function buildCopyFast(blocks){
-  const out=[];
+function buildCopyFast(blocks, total){
+  const out=[todayLabel(), ""];
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of block.lines){
@@ -428,6 +435,7 @@ function buildCopyFast(blocks){
     }
     out.push("");
   }
+  out.push(roundedMoney(total));
   return out.join("\n").trim();
 }
 
@@ -778,9 +786,8 @@ function runAll(){
 
     renderIntermediate(rows);
 
-    setVal("copyFast", buildCopyFast(blocks));
-
     const total = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, total));
     setVal("ghi", money(total));
 
     const tk = buildTach(blocks);

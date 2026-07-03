@@ -305,11 +305,16 @@ function uniquePairs(pairs){
 
 function buildIntermediate(blocks){
   const rows=[];
+  const meta = block => ({
+    sourceBlock:block.name,
+    sourceDais:(block.dais||[]).slice(),
+    sourceGeneric:!!block.generic
+  });
   for(const block of blocks){
     for(const rawLine of block.lines){
       const parts = parseBetLine(rawLine);
       if(!parts){
-        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, daiCount:1});
+        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, daiCount:1, ...meta(block)});
         continue;
       }
       for(const part of parts){
@@ -322,7 +327,7 @@ function buildIntermediate(blocks){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
             for(const np of numPairs){
               const pair = sortPair(np[0], np[1]);
-              rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
+              rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1), ...meta(block)});
             }
           }
         }else if(t==="da"){
@@ -330,12 +335,12 @@ function buildIntermediate(blocks){
           const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
           for(const dp of daiPairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
-            rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1)});
+            rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1), ...meta(block)});
           }
         }else{
           for(const dai of block.dais){
             for(const num of nums){
-              rows.push({block:dai, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:1});
+              rows.push({block:dai, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:1, ...meta(block)});
             }
           }
         }
@@ -521,68 +526,37 @@ function buildTach(blocks){
     if(isTach && overflowN > 0) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],overflowN) : makeLine(nums, type, overflowN));
     if(!isTach) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],n) : makeLine(nums, type, n));
   };
-  const scheduledMainDais=(block)=>{
-    if(!block || block.region==="HN") return ["HN"];
-    if(block.generic && block.mainDais && block.mainDais.length>=2) return block.mainDais.slice(0,2);
-    const map = block.region==="MT" ? MT_MAP : MN_MAP;
-    const day = pickDayForGeneric(block.region, 2, block.dais || []);
+  const scheduledMainDaisForRow=(row)=>{
+    if(!row || row.region==="HN") return ["HN"];
+    const map = row.region==="MT" ? MT_MAP : MN_MAP;
+    const day = pickDayForGeneric(row.region, 2, row.sourceDais || []);
     const arr = map[day] || [];
     return arr.slice(0,2);
   };
   // Vùng xanh để giữ tin tách:
   // bao 2 số chỉ lấy Đài 1 / Đài 2; đá chéo chỉ lấy Đài 1-2.
-  const isTachBaoScope=(block, dai)=>scheduledMainDais(block).includes(dai);
-  const mainPairForDa=(block)=>{
-    if(!block || !block.dais || block.dais.length < 2) return "";
-    const mainDais = scheduledMainDais(block);
+  const isTachBaoRow=(row)=>{
+    const num = row.nums && row.nums[0] ? row.nums[0] : "";
+    return row.type==="b" && String(num).length===2 && scheduledMainDaisForRow(row).includes(row.block);
+  };
+  const isTachDaRow=(row)=>{
+    if(row.type!=="da") return false;
+    const mainDais = scheduledMainDaisForRow(row);
     if(mainDais.length < 2) return "";
-    return block.dais[0]===mainDais[0] && block.dais[1]===mainDais[1] ? mainDais[0] + mainDais[1] : "";
+    return row.block === mainDais[0] + mainDais[1];
   };
 
-  for(const block of blocks){
-    const xoaSet = readXoaSet(block.region);
-    const mainPair = mainPairForDa(block);
-    for(const rawLine of block.lines){
-      const parts = parseBetLine(rawLine);
-      if(!parts){
-        add(khong, block.name, rawLine);
-        continue;
-      }
-      let took=false;
-      const remain=[];
-      for(const part of parts){
-        const nums=part.nums||[];
-        if(part.type==="b" && nums.every(n=>n.length===2)){
-          const targetDais = (block.dais && block.dais.length) ? block.dais : [block.name];
-          for(const dai of targetDais){
-            for(const num of sortNumsAsc(nums)){
-              addSplitAmount(dai, "b", num, part.n, max2, isTachBaoScope(block, dai) && !numInXoa(num, xoaSet));
-            }
-          }
-          took=true;
-        }else if(part.type==="da" && nums.length>=2){
-          const pair = sortPair(nums[0], nums[1]);
-          if(mainPair){
-            addSplitAmount(mainPair, "da", pair, part.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
-          }else{
-            add(khong, block.name, makeDaLine(pair[0], pair[1], part.n));
-          }
-          took=true;
-        }else if(part.type==="dv" && nums.length>=2){
-          for(const pair of uniquePairs(pairNumbers(nums))){
-            if(mainPair){
-              addSplitAmount(mainPair, "da", pair, part.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
-            }else{
-              add(khong, block.name, makeDaLine(pair[0], pair[1], part.n));
-            }
-          }
-          took=true;
-        }else{
-          remain.push(part);
-        }
-      }
-      if(!took) add(khong, block.name, normalizeLine(rawLine));
-      else if(remain.length) add(khong, block.name, rebuildParts(remain));
+  const rows = buildIntermediate(blocks);
+  for(const row of rows){
+    const xoaSet = readXoaSet(row.region);
+    if(isTachBaoRow(row)){
+      const num = row.nums[0];
+      addSplitAmount(row.block, "b", num, row.n, max2, !numInXoa(num, xoaSet));
+    }else if(isTachDaRow(row)){
+      const pair = sortPair(row.nums[0], row.nums[1]);
+      addSplitAmount(row.block, "da", pair, row.n, maxDa, !pair.some(n=>numInXoa(n, xoaSet)));
+    }else{
+      add(khong, row.block, row.line);
     }
   }
   return {tach:renderObj(tach), khong:renderObj(khong)};

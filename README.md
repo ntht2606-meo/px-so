@@ -1,19 +1,21 @@
-# PX-SO v0.5.16 — taller copy fast + saved settings/history
+# PX-SO v0.5.17 — copy fast first + taller copy fast
 
-Bản này nối tiếp v0.5.15.
+Bản này rebuild sạch từ v0.5.15, cộng nhiệm vụ của v0.5.16 và v0.5.17.
 
 Điểm chính:
 - Vùng nhập dữ liệu tự chạy khi gõ/dán, không cần bấm CHẠY.
 - Nút CHẠY LẠI giữ lại để chạy dự phòng khi cần.
 - Giảm cỡ chữ toàn web để gọn hơn trên mobile.
 - Tăng chiều cao vùng Copy nhanh để nhìn rõ nội dung chi tiết hơn.
+- Chuyển Copy nhanh lên đầu trang.
+- Chuyển Vùng nhập dữ liệu xuống thứ 2.
 - Thêm nút Lưu ở góc phải khung Hệ số / cài đặt.
 - Thêm nút Lưu ở góc phải khung Dãy xoá.
 - Thêm nút Lưu ở góc phải khung Vùng dán kết quả.
 - Dữ liệu đã lưu giữ lại sau khi refresh/reset trang, miễn không xoá lịch sử/cache dữ liệu web của trình duyệt.
 - Bố trí web/mobile đã khóa lại:
-  1. Vùng nhập dữ liệu
-  2. Copy nhanh
+  1. Copy nhanh
+  2. Vùng nhập dữ liệu
   3. Ghi / Trúng
   4. Số trúng
   5. Hệ số / cài đặt

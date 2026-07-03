@@ -369,7 +369,7 @@ function calcRow(row){
     const len = num.length;
     if(len===2) base = region==="HN" ? 27 : 18;
     else if(len===3) base = region==="HN" ? 23 : 17;
-    else if(len===4) base = region==="HN" ? 0 : 16;
+    else if(len===4) base = region==="HN" ? 20 : 16;
 
   }else if(t==="bdao"){
     const len = num.length;
@@ -545,6 +545,98 @@ function buildTach(blocks){
     if(mainDais.length < 2) return "";
     return row.block === mainDais[0] + mainDais[1];
   };
+  const parseBaoLine=(line)=>{
+    const m = String(line||"").match(/^(\d{2})b([\d,.]+)n$/i);
+    if(!m) return null;
+    return {num:m[1], n:parseAmount(m[2])};
+  };
+  const addAmount=(obj, block, num, n)=>{
+    if(!obj[block]) obj[block]={};
+    obj[block][num]=(obj[block][num]||0)+n;
+  };
+  const getMainPairs=(rows)=>{
+    const seen=new Set(), out=[];
+    for(const row of rows){
+      const main = scheduledMainDaisForRow(row);
+      if(main.length < 2) continue;
+      const key = row.region + ":" + main[0] + ":" + main[1];
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push({region:row.region, a:main[0], b:main[1], pair:main[0]+main[1]});
+    }
+    return out;
+  };
+  const compactMainPairBao=(obj, rows)=>{
+    const bao={}, other={};
+    for(const [block, lines] of Object.entries(obj)){
+      for(const line of lines){
+        const parsed = parseBaoLine(line);
+        if(parsed) addAmount(bao, block, parsed.num, parsed.n);
+        else add(other, block, line);
+      }
+    }
+
+    const ordered={};
+    const setOut=(block, line)=>{
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(line);
+    };
+
+    for(const info of getMainPairs(rows)){
+      const aMap = bao[info.a] || {};
+      const bMap = bao[info.b] || {};
+      const nums = sortNumsAsc(Array.from(new Set(Object.keys(aMap).concat(Object.keys(bMap)))));
+      for(const num of nums){
+        const common = Math.min(aMap[num] || 0, bMap[num] || 0);
+        if(common > 0){
+          setOut(info.pair, makeLine(num, "b", common));
+          aMap[num] -= common;
+          bMap[num] -= common;
+        }
+      }
+    }
+
+    for(const [block, numMap] of Object.entries(bao)){
+      for(const num of sortNumsAsc(Object.keys(numMap))){
+        const n = numMap[num] || 0;
+        if(n > 0) setOut(block, makeLine(num, "b", n));
+      }
+    }
+    for(const [block, lines] of Object.entries(other)){
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(...lines);
+    }
+    return ordered;
+  };
+  const compactKhongByPrice=(obj)=>{
+    const ordered={};
+    const setOut=(block, line)=>{
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(line);
+    };
+
+    for(const [block, lines] of Object.entries(obj)){
+      const byPrice={}, other=[];
+      for(const line of lines){
+        const parsed = parseBaoLine(line);
+        if(parsed){
+          const key = fmtN(parsed.n);
+          if(!byPrice[key]) byPrice[key]=[];
+          byPrice[key].push(parsed.num);
+        }else{
+          other.push(line);
+        }
+      }
+
+      const priceKeys = Object.keys(byPrice).sort((a,b)=>parseAmount(a)-parseAmount(b));
+      for(const key of priceKeys){
+        const nums = sortNumsAsc(byPrice[key]);
+        if(nums.length) setOut(block, makeLine(nums, "b", parseAmount(key)));
+      }
+      other.forEach(line => setOut(block, line));
+    }
+    return ordered;
+  };
 
   const rows = buildIntermediate(blocks);
   for(const row of rows){
@@ -559,7 +651,10 @@ function buildTach(blocks){
       add(khong, row.block, row.line);
     }
   }
-  return {tach:renderObj(tach), khong:renderObj(khong)};
+  return {
+    tach:renderObj(compactMainPairBao(tach, rows)),
+    khong:renderObj(compactKhongByPrice(khong))
+  };
 }
 
 function mapDaiName(line){

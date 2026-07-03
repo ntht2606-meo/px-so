@@ -475,9 +475,17 @@ function buildTach(blocks){
     }
     return s;
   };
+  const mainPairForTach=(block)=>{
+    if(!block || !block.dais || block.dais.length < 2) return "";
+    const map = block.region === "MT" ? MT_MAP : MN_MAP;
+    const todayDais = map[dayIndex()] || [];
+    if(todayDais.length < 2) return "";
+    const a = todayDais[0], b = todayDais[1];
+    return block.dais.includes(a) && block.dais.includes(b) ? a + b : "";
+  };
 
   for(const block of blocks){
-    const mainPair = block.mainDais.length>=2 ? block.mainDais[0]+block.mainDais[1] : "";
+    const mainPair = mainPairForTach(block);
     for(const rawLine of block.lines){
       const parts = parseBetLine(rawLine);
       if(!parts){

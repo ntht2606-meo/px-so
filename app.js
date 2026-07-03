@@ -243,6 +243,16 @@ function permCount(s){
   Object.values(counts).forEach(c => den *= fact(c));
   return fact(arr.length)/den;
 }
+function bdaoPermCount(s){
+  const key = String(s||"");
+  const special4 = {
+    "1011": 4,
+    "1715": 12,
+    "1390": 12
+  };
+  if(key.length===4 && special4[key] != null) return special4[key];
+  return permCount(key);
+}
 
 function parseBetLine(line){
   const s = normalizeLine(line);
@@ -374,8 +384,8 @@ function calcRow(row){
   }else if(t==="bdao"){
     const len = num.length;
     if(len===3) base = region==="HN" ? 23 : 17;
-    else if(len===4) base = region==="HN" ? 0 : 16;
-    qty = permCount(num);
+    else if(len===4) base = region==="HN" ? 20 : 16;
+    qty = bdaoPermCount(num);
 
   }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
     base = region==="HN" ? 4 : 2;

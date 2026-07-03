@@ -1,4 +1,4 @@
-// PX-SO v0.5.44 - work branch demo, keeps v0.5.43 PX-SO logic
+// PX-SO v0.5.45 - safe branch demo, keeps v0.5.43 PX-SO logic
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,8 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  activeMainApp: "pxso.v0.5.44.activeMainApp",
-  labData: "pxso.v0.5.44.labData",
+  newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
   workspacePrefix: "pxso.v0.5.40.workspace."
@@ -127,25 +126,56 @@ function setActiveTab(tab){
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
 }
-function setActiveMainBranch(appName){
-  document.querySelectorAll(".branch-btn").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.app === appName);
+function showMainApp(name){
+  const isNew = name === "newwork";
+  const pxso = el("main-pxso");
+  const newwork = el("main-newwork");
+  if(pxso) pxso.hidden = isNew;
+  if(newwork) newwork.hidden = !isNew;
+  document.querySelectorAll(".main-tab").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.main === (isNew ? "newwork" : "pxso"));
   });
 }
-function selectMainApp(appName){
-  const pxso = el("pxsoApp");
-  const lab = el("labApp");
-  const target = appName === "lab" ? "lab" : "pxso";
-
-  if(pxso) pxso.hidden = target !== "pxso";
-  if(lab) lab.hidden = target !== "lab";
-  setActiveMainBranch(target);
-
+function showNewWorkPanel(id){
+  document.querySelectorAll(".newwork-section").forEach(panel=>{
+    panel.hidden = panel.id !== id;
+  });
+  document.querySelectorAll(".newwork-tile").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.panel === id);
+  });
+}
+function updateNewWorkPreview(){
+  const text = val("newWorkData").trim();
+  const lineCount = text ? text.split(/\n+/).filter(Boolean).length : 0;
+  setVal("newWorkProcess", text ? `Dữ liệu thử đã nhận: ${lineCount} dòng\n\n${text}` : "");
+  setVal("newWorkReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lineCount}\n- Ghi chú: chưa gắn công thức thật.` : "");
+}
+function saveNewWorkData(){
   try{
-    localStorage.setItem(STORAGE_KEYS.activeMainApp, target);
+    localStorage.setItem(STORAGE_KEYS.newWorkData, val("newWorkData"));
+    updateNewWorkPreview();
+    flashSaveButton(document.querySelector("#new-data .save-mini"));
   }catch(e){
     console.error(e);
   }
+}
+function clearNewWorkData(){
+  setVal("newWorkData", "");
+  setVal("newWorkProcess", "");
+  setVal("newWorkReport", "");
+  try{
+    localStorage.removeItem(STORAGE_KEYS.newWorkData);
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadNewWorkData(){
+  try{
+    setVal("newWorkData", localStorage.getItem(STORAGE_KEYS.newWorkData) || "");
+  }catch(e){
+    setVal("newWorkData", "");
+  }
+  updateNewWorkPreview();
 }
 function closeActionPanels(){
   ["copy","split","wins"].forEach(name=>{
@@ -172,52 +202,6 @@ function toggleSettingsPanel(name){
   panel.hidden = !shouldOpen;
   const tile = Array.from(document.querySelectorAll(".setting-tile")).find(btn => btn.getAttribute("onclick") && btn.getAttribute("onclick").includes("'" + name + "'"));
   if(tile) tile.classList.toggle("active", shouldOpen);
-}
-function closeLabPanels(){
-  document.querySelectorAll(".lab-panel").forEach(panel=>panel.hidden = true);
-  document.querySelectorAll(".lab-tile").forEach(btn=>btn.classList.remove("active"));
-}
-function toggleLabPanel(name){
-  const panel = el("lab-panel-" + name);
-  if(!panel) return;
-  const shouldOpen = panel.hidden;
-  closeLabPanels();
-  panel.hidden = !shouldOpen;
-  const tile = document.querySelector(`.lab-tile[data-lab="${name}"]`);
-  if(tile) tile.classList.toggle("active", shouldOpen);
-}
-function buildLabPreview(){
-  const text = val("labData").trim();
-  const lines = text ? text.split(/\n+/).filter(Boolean) : [];
-  setVal("labProcess", text ? `Dữ liệu thử đã nhận: ${lines.length} dòng\n\n${text}` : "");
-  setVal("labReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lines.length}\n- Ghi chú: đây là nhánh demo, chưa gắn công thức thật.` : "");
-}
-function saveLabData(){
-  try{
-    localStorage.setItem(STORAGE_KEYS.labData, val("labData"));
-    buildLabPreview();
-    flashSaveButton(document.querySelector("#lab-panel-data .save-mini"));
-  }catch(e){
-    console.error(e);
-  }
-}
-function clearLabData(){
-  setVal("labData", "");
-  setVal("labProcess", "");
-  setVal("labReport", "");
-  try{
-    localStorage.removeItem(STORAGE_KEYS.labData);
-  }catch(e){
-    console.error(e);
-  }
-}
-function loadLabData(){
-  try{
-    setVal("labData", localStorage.getItem(STORAGE_KEYS.labData) || "");
-  }catch(e){
-    setVal("labData", "");
-  }
-  buildLabPreview();
 }
 function selectWorkspace(tab){
   saveActiveWorkspaceInput();
@@ -1372,10 +1356,10 @@ function loadSavedData(){
 
 window.addEventListener("DOMContentLoaded", ()=>{
   loadSavedData();
-  loadLabData();
+  loadNewWorkData();
 
   const autoRun = debounce(runAll, 280);
-  const labAutoSave = debounce(saveLabData, 280);
+  const newWorkAutoSave = debounce(saveNewWorkData, 280);
 
   const input = el("inputData");
   if(input){
@@ -1423,15 +1407,15 @@ window.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 
-  const labInput = el("labData");
-  if(labInput){
-    labInput.addEventListener("input", ()=>{
-      buildLabPreview();
-      labAutoSave();
+  const newWorkInput = el("newWorkData");
+  if(newWorkInput){
+    newWorkInput.addEventListener("input", ()=>{
+      updateNewWorkPreview();
+      newWorkAutoSave();
     });
-    labInput.addEventListener("paste", ()=>setTimeout(()=>{
-      buildLabPreview();
-      saveLabData();
+    newWorkInput.addEventListener("paste", ()=>setTimeout(()=>{
+      updateNewWorkPreview();
+      saveNewWorkData();
     }, 30));
   }
 
@@ -1462,12 +1446,4 @@ window.addEventListener("DOMContentLoaded", ()=>{
     loadWorkspaceInput(savedTab);
   }
   if(val("inputData").trim()) runAll();
-
-  let savedMainApp = "pxso";
-  try{
-    savedMainApp = localStorage.getItem(STORAGE_KEYS.activeMainApp) || "pxso";
-  }catch(e){
-    savedMainApp = "pxso";
-  }
-  selectMainApp(savedMainApp === "lab" ? "lab" : "pxso");
 });

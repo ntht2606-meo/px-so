@@ -3,30 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.44</title>
-  <link rel="stylesheet" href="style.css?v=544" />
+  <title>PX-SO v0.5.45</title>
+  <link rel="stylesheet" href="style.css?v=545" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
-      <h1>Web công việc v0.5.44</h1>
-      <p>Thêm màn hình chọn nhánh công việc. PX-SO giữ logic v0.5.43, nhánh Làm việc mới dùng để thử bật/mở vùng xử lý.</p>
+      <h1>Web công việc v0.5.45</h1>
+      <p>Viết lại từ v0.5.43. Thêm nhánh công việc mới để thử bật/mở vùng, không sửa logic PX-SO.</p>
     </header>
 
-    <nav class="main-branches" aria-label="Chọn công việc">
-      <button type="button" class="branch-btn active" data-app="pxso" onclick="selectMainApp('pxso')">PX-SO</button>
-      <button type="button" class="branch-btn" data-app="lab" onclick="selectMainApp('lab')">Làm việc mới</button>
+    <nav class="main-tabs" aria-label="Chọn công việc chính">
+      <button type="button" class="main-tab active" data-main="pxso" onclick="showMainApp('pxso')">PX-SO</button>
+      <button type="button" class="main-tab" data-main="newwork" onclick="showMainApp('newwork')">Làm việc mới</button>
     </nav>
 
-    <div id="pxsoApp" class="main-app">
-      <nav class="region-tabs" aria-label="Chọn màn hình PX-SO">
-        <button type="button" class="tab-btn active" data-tab="MN" onclick="selectWorkspace('MN')">Miền nam</button>
-        <button type="button" class="tab-btn" data-tab="MT" onclick="selectWorkspace('MT')">Miền trung</button>
-        <button type="button" class="tab-btn" data-tab="HN" onclick="selectWorkspace('HN')">Hà nội</button>
-        <button type="button" class="tab-btn" data-tab="SETTINGS" onclick="selectWorkspace('SETTINGS')">Cài đặt</button>
-      </nav>
+    <div id="main-pxso">
+    <nav class="region-tabs" aria-label="Chọn màn hình">
+      <button type="button" class="tab-btn active" data-tab="MN" onclick="selectWorkspace('MN')">Miền nam</button>
+      <button type="button" class="tab-btn" data-tab="MT" onclick="selectWorkspace('MT')">Miền trung</button>
+      <button type="button" class="tab-btn" data-tab="HN" onclick="selectWorkspace('HN')">Hà nội</button>
+      <button type="button" class="tab-btn" data-tab="SETTINGS" onclick="selectWorkspace('SETTINGS')">Cài đặt</button>
+    </nav>
 
-      <main id="workScreen" class="screen">
+    <main id="workScreen" class="screen">
       <section class="panel work-panel">
         <div class="money-chips">
           <label>Ghi:
@@ -82,9 +82,9 @@
         </div>
         <textarea id="soTrung" readonly></textarea>
       </section>
-      </main>
+    </main>
 
-      <main id="settingsScreen" class="screen" hidden>
+    <main id="settingsScreen" class="screen" hidden>
       <section class="panel settings-menu">
         <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Hệ số</button>
         <button type="button" class="setting-tile" onclick="toggleSettingsPanel('xoa')">Dãy xoá</button>
@@ -144,55 +144,47 @@
         </div>
         <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU hôm nay..."></textarea>
       </section>
-      </main>
+    </main>
     </div>
 
-    <main id="labApp" class="main-app" hidden>
-      <section class="panel lab-intro">
+    <main id="main-newwork" hidden>
+      <section class="panel newwork-panel">
         <h2>Làm việc mới</h2>
-        <p>Đây là màn thử để anh xem cách chia nhánh công việc. Bấm từng ô bên dưới thì vùng đó mới bung ra.</p>
+        <p class="hint">Màn này chỉ để thử cấu trúc bật/mở. Chưa gắn công thức xử lý thật.</p>
       </section>
 
-      <section class="panel lab-menu">
-        <button type="button" class="lab-tile active" data-lab="data" onclick="toggleLabPanel('data')">Dữ liệu</button>
-        <button type="button" class="lab-tile" data-lab="process" onclick="toggleLabPanel('process')">Xử lý</button>
-        <button type="button" class="lab-tile" data-lab="report" onclick="toggleLabPanel('report')">Báo cáo</button>
-        <button type="button" class="lab-tile" data-lab="setting" onclick="toggleLabPanel('setting')">Cài đặt</button>
+      <section class="panel newwork-menu">
+        <button type="button" class="newwork-tile active" data-panel="new-data" onclick="showNewWorkPanel('new-data')">Dữ liệu</button>
+        <button type="button" class="newwork-tile" data-panel="new-process" onclick="showNewWorkPanel('new-process')">Xử lý</button>
+        <button type="button" class="newwork-tile" data-panel="new-report" onclick="showNewWorkPanel('new-report')">Báo cáo</button>
+        <button type="button" class="newwork-tile" data-panel="new-setting" onclick="showNewWorkPanel('new-setting')">Cài đặt</button>
       </section>
 
-      <section id="lab-panel-data" class="panel lab-panel">
+      <section id="new-data" class="panel newwork-section">
         <div class="panel-title-row">
           <h2>Dữ liệu</h2>
-          <button type="button" class="save-mini" onclick="saveLabData()">Lưu</button>
-          <button type="button" class="save-mini gray-mini" onclick="clearLabData()">Xóa</button>
+          <button type="button" class="save-mini" onclick="saveNewWorkData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearNewWorkData()">Xóa</button>
         </div>
-        <textarea id="labData" placeholder="Dán dữ liệu thử vào đây..."></textarea>
-        <p class="hint">Vùng này lưu riêng trong trình duyệt để reset trang vẫn còn.</p>
+        <textarea id="newWorkData" placeholder="Dán dữ liệu thử vào đây..."></textarea>
       </section>
 
-      <section id="lab-panel-process" class="panel lab-panel" hidden>
-        <div class="panel-title-row">
-          <h2>Xử lý</h2>
-          <button type="button" class="save-mini" onclick="copyText('labProcess')">Copy</button>
-        </div>
-        <textarea id="labProcess" readonly placeholder="Sau này vùng này sẽ chứa công thức/xử lý riêng của công việc mới."></textarea>
+      <section id="new-process" class="panel newwork-section" hidden>
+        <h2>Xử lý</h2>
+        <textarea id="newWorkProcess" readonly placeholder="Vùng xử lý thử sẽ hiện ở đây..."></textarea>
       </section>
 
-      <section id="lab-panel-report" class="panel lab-panel" hidden>
-        <div class="panel-title-row">
-          <h2>Báo cáo</h2>
-          <button type="button" class="save-mini" onclick="copyText('labReport')">Copy</button>
-        </div>
-        <textarea id="labReport" readonly placeholder="Báo cáo kiểm tra/thay đổi sẽ hiện ở đây."></textarea>
+      <section id="new-report" class="panel newwork-section" hidden>
+        <h2>Báo cáo</h2>
+        <textarea id="newWorkReport" readonly placeholder="Vùng báo cáo thử sẽ hiện ở đây..."></textarea>
       </section>
 
-      <section id="lab-panel-setting" class="panel lab-panel" hidden>
-        <h2>Cài đặt công việc mới</h2>
-        <div class="sensitive-warning">
+      <section id="new-setting" class="panel newwork-section" hidden>
+        <h2>Cài đặt</h2>
+        <div class="warning-box">
           <strong>CẢNH BÁO DỮ LIỆU CẦN ẨN</strong>
           <span>Tên thật, SĐT, địa chỉ, CCCD, tài khoản ngân hàng, ghi chú riêng tư.</span>
         </div>
-        <p class="hint">Khi làm công việc mới thật, các cột nhạy cảm sẽ được đưa lên đầu để anh biết cần ẩn trước khi xử lý.</p>
       </section>
     </main>
 
@@ -222,8 +214,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.44 — work branch demo</footer>
+    <footer>PX-SO v0.5.45 — safe branch demo</footer>
   </div>
-<script src="app.js?v=544"></script>
+<script src="app.js?v=545"></script>
 </body>
 </html>

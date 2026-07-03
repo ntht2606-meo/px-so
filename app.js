@@ -717,9 +717,30 @@ function findDaiInLine(line){
   }
   return null;
 }
-function parseResultText(text){
+function splitDigitsByLen(digits, len){
+  const s = String(digits || "");
+  if(!len || s.length < len || s.length % len !== 0) return [s];
+  const out=[];
+  for(let i=0;i<s.length;i+=len) out.push(s.slice(i,i+len));
+  return out;
+}
+function hanoiPrizeLen(line){
+  const c = cleanName(line);
+  if(c.includes("db") || c.includes("dac biet")) return 5;
+  if(c.includes("giai bay")) return 2;
+  if(c.includes("giai sau")) return 3;
+  if(c.includes("giai nam")) return 4;
+  if(c.includes("giai tu")) return 4;
+  if(c.includes("giai nhat")) return 5;
+  if(c.includes("giai nhi")) return 5;
+  if(c.includes("giai ba")) return 5;
+  return null;
+}
+function parseResultText(text, defaultDai){
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
-  const out={}; let cur=null;
+  const out={}; let cur=defaultDai || null;
+  let pendingLen=null;
+  if(cur) out[cur]=[];
 
   for(const line of lines){
     const dai=findDaiInLine(line);
@@ -731,9 +752,17 @@ function parseResultText(text){
       continue;
     }
 
+    const prizeLen = defaultDai==="HN" ? hanoiPrizeLen(line) : null;
     const nums=line.match(/\d+/g);
     if(nums && cur){
-      nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
+      const len = prizeLen || pendingLen;
+      nums.forEach(n=>{
+        if(n.length<2) return;
+        splitDigitsByLen(n, len).forEach(x=>{ if(x.length>=2) out[cur].push(x); });
+      });
+      pendingLen = null;
+    }else if(prizeLen){
+      pendingLen = prizeLen;
     }
   }
 
@@ -771,7 +800,7 @@ function parseAllResults(){
   return {
     MN:parseResultText(val("kqMn")),
     MT:parseResultText(val("kqMt")),
-    HN:parseResultText(val("kqHn"))
+    HN:parseResultText(val("kqHn"), "HN")
   };
 }
 function renderParsedResults(obj){

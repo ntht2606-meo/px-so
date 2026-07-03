@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.22</title>
-  <link rel="stylesheet" href="style.css?v=522" />
+  <title>PX-SO v0.5.23</title>
+  <link rel="stylesheet" href="style.css?v=523" />
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>PX-SO v0.5.22</h1>
+      <h1>PX-SO v0.5.23</h1>
       <p>Auto-run khi nhập/dán dữ liệu; chữ gọn hơn và lưu dữ liệu theo trình duyệt.</p>
     </header>
 
@@ -30,15 +30,6 @@
         </div>
       </section>
     </div>
-
-    <section class="panel daily-backup-panel">
-      <h2>Tin lưu trong ngày</h2>
-      <textarea id="savedInputToday" readonly placeholder="Tự lưu tin nhập hôm nay để khôi phục khi lỡ tay..."></textarea>
-      <div class="backup-buttons">
-        <button type="button" onclick="restoreDailyInput()">Khôi phục tin</button>
-        <button type="button" class="gray" onclick="clearDailyInputBackup()">Xóa lưu ngày</button>
-      </div>
-    </section>
 
     <section class="panel compact-money">
       <h2>Ghi / Trúng</h2>
@@ -135,8 +126,17 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.22 — save day button</footer>
+    <section class="panel daily-backup-panel">
+      <h2>Tin lưu trong ngày</h2>
+      <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU NGÀY hôm nay..."></textarea>
+      <div class="backup-buttons">
+        <button type="button" onclick="copyText('savedInputToday')">Copy lưu ngày</button>
+        <button type="button" class="gray" onclick="clearDailyInputBackup()">Xóa lưu ngày</button>
+      </div>
+    </section>
+
+    <footer>PX-SO v0.5.23 — daily run log</footer>
   </div>
-<script src="app.js?v=522"></script>
+<script src="app.js?v=523"></script>
 </body>
 </html>

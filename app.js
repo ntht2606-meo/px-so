@@ -889,8 +889,12 @@ function saveDailyInputBackup(){
   const text = val("inputData");
   if(!text.trim()) return;
   try{
-    localStorage.setItem(dailyInputKey(), text);
-    setVal("savedInputToday", text);
+    const old = localStorage.getItem(dailyInputKey()) || "";
+    const nextIndex = old.trim() ? old.split(/\n\n---\n\n/).length + 1 : 1;
+    const entry = `#${nextIndex}\n${text.trim()}`;
+    const next = old.trim() ? old.trim() + "\n\n---\n\n" + entry : entry;
+    localStorage.setItem(dailyInputKey(), next);
+    setVal("savedInputToday", next);
   }catch(e){
     console.error(e);
   }
@@ -901,15 +905,6 @@ function loadDailyInputBackup(){
   }catch(e){
     setVal("savedInputToday", "");
   }
-}
-function restoreDailyInput(){
-  const text = val("savedInputToday");
-  if(!text.trim()){
-    alert("Hôm nay chưa có tin đã lưu");
-    return;
-  }
-  setVal("inputData", text);
-  runAll();
 }
 function saveDayAndRun(){
   if(!val("inputData").trim()){
@@ -943,15 +938,12 @@ window.addEventListener("DOMContentLoaded", ()=>{
   const input = el("inputData");
   if(input){
     input.addEventListener("input", ()=>{
-      saveDailyInputBackup();
       autoRun();
     });
     input.addEventListener("paste", ()=>setTimeout(()=>{
-      saveDailyInputBackup();
       runAll();
     }, 30));
     input.addEventListener("change", ()=>{
-      saveDailyInputBackup();
       runAll();
     });
   }

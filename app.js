@@ -1,4 +1,4 @@
-// PX-SO v0.5.43 - rewrite from 5.41, safe khong tach bao2 station compact
+// PX-SO v0.5.44 - work branch demo, keeps v0.5.43 PX-SO logic
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,6 +74,8 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
+  activeMainApp: "pxso.v0.5.44.activeMainApp",
+  labData: "pxso.v0.5.44.labData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
   workspacePrefix: "pxso.v0.5.40.workspace."
@@ -125,6 +127,26 @@ function setActiveTab(tab){
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
 }
+function setActiveMainBranch(appName){
+  document.querySelectorAll(".branch-btn").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.app === appName);
+  });
+}
+function selectMainApp(appName){
+  const pxso = el("pxsoApp");
+  const lab = el("labApp");
+  const target = appName === "lab" ? "lab" : "pxso";
+
+  if(pxso) pxso.hidden = target !== "pxso";
+  if(lab) lab.hidden = target !== "lab";
+  setActiveMainBranch(target);
+
+  try{
+    localStorage.setItem(STORAGE_KEYS.activeMainApp, target);
+  }catch(e){
+    console.error(e);
+  }
+}
 function closeActionPanels(){
   ["copy","split","wins"].forEach(name=>{
     const panel = el("panel-" + name);
@@ -150,6 +172,52 @@ function toggleSettingsPanel(name){
   panel.hidden = !shouldOpen;
   const tile = Array.from(document.querySelectorAll(".setting-tile")).find(btn => btn.getAttribute("onclick") && btn.getAttribute("onclick").includes("'" + name + "'"));
   if(tile) tile.classList.toggle("active", shouldOpen);
+}
+function closeLabPanels(){
+  document.querySelectorAll(".lab-panel").forEach(panel=>panel.hidden = true);
+  document.querySelectorAll(".lab-tile").forEach(btn=>btn.classList.remove("active"));
+}
+function toggleLabPanel(name){
+  const panel = el("lab-panel-" + name);
+  if(!panel) return;
+  const shouldOpen = panel.hidden;
+  closeLabPanels();
+  panel.hidden = !shouldOpen;
+  const tile = document.querySelector(`.lab-tile[data-lab="${name}"]`);
+  if(tile) tile.classList.toggle("active", shouldOpen);
+}
+function buildLabPreview(){
+  const text = val("labData").trim();
+  const lines = text ? text.split(/\n+/).filter(Boolean) : [];
+  setVal("labProcess", text ? `Dữ liệu thử đã nhận: ${lines.length} dòng\n\n${text}` : "");
+  setVal("labReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lines.length}\n- Ghi chú: đây là nhánh demo, chưa gắn công thức thật.` : "");
+}
+function saveLabData(){
+  try{
+    localStorage.setItem(STORAGE_KEYS.labData, val("labData"));
+    buildLabPreview();
+    flashSaveButton(document.querySelector("#lab-panel-data .save-mini"));
+  }catch(e){
+    console.error(e);
+  }
+}
+function clearLabData(){
+  setVal("labData", "");
+  setVal("labProcess", "");
+  setVal("labReport", "");
+  try{
+    localStorage.removeItem(STORAGE_KEYS.labData);
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadLabData(){
+  try{
+    setVal("labData", localStorage.getItem(STORAGE_KEYS.labData) || "");
+  }catch(e){
+    setVal("labData", "");
+  }
+  buildLabPreview();
 }
 function selectWorkspace(tab){
   saveActiveWorkspaceInput();
@@ -1304,8 +1372,10 @@ function loadSavedData(){
 
 window.addEventListener("DOMContentLoaded", ()=>{
   loadSavedData();
+  loadLabData();
 
   const autoRun = debounce(runAll, 280);
+  const labAutoSave = debounce(saveLabData, 280);
 
   const input = el("inputData");
   if(input){
@@ -1353,6 +1423,18 @@ window.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 
+  const labInput = el("labData");
+  if(labInput){
+    labInput.addEventListener("input", ()=>{
+      buildLabPreview();
+      labAutoSave();
+    });
+    labInput.addEventListener("paste", ()=>setTimeout(()=>{
+      buildLabPreview();
+      saveLabData();
+    }, 30));
+  }
+
   parseResultsOnly();
   let savedTab = "MN";
   try{
@@ -1380,4 +1462,12 @@ window.addEventListener("DOMContentLoaded", ()=>{
     loadWorkspaceInput(savedTab);
   }
   if(val("inputData").trim()) runAll();
+
+  let savedMainApp = "pxso";
+  try{
+    savedMainApp = localStorage.getItem(STORAGE_KEYS.activeMainApp) || "pxso";
+  }catch(e){
+    savedMainApp = "pxso";
+  }
+  selectMainApp(savedMainApp === "lab" ? "lab" : "pxso");
 });

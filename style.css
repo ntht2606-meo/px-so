@@ -18,6 +18,24 @@ body{
   padding:10px;
   margin-bottom:8px;
 }
+.main-branches{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+  margin:8px 0;
+}
+.branch-btn{
+  background:#fff;
+  color:#111;
+  border:2px solid #111;
+  min-height:68px;
+  margin:0;
+  font-size:24px;
+}
+.branch-btn.active{
+  background:#111;
+  color:#fff;
+}
 h1{
   margin:0 0 4px;
   font-size:22px;
@@ -64,8 +82,10 @@ button.gray,
   background:#bfbfbf;
 }
 .screen[hidden],
+.main-app[hidden],
 .action-panel[hidden],
-.setting-panel[hidden]{
+.setting-panel[hidden],
+.lab-panel[hidden]{
   display:none !important;
 }
 .panel{
@@ -175,6 +195,46 @@ textarea{
   grid-template-columns:1fr;
   gap:10px;
 }
+.lab-menu{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+}
+.lab-tile{
+  min-height:72px;
+  margin:0;
+  background:#fff;
+  color:#111;
+  border:2px solid #111;
+  border-radius:16px;
+  font-size:22px;
+}
+.lab-tile.active{
+  background:#bfbfbf;
+}
+.lab-intro p{
+  font-size:16px;
+  line-height:1.35;
+}
+.sensitive-warning{
+  border:3px solid #d60000;
+  background:#ff2020;
+  color:#fff;
+  border-radius:10px;
+  padding:12px;
+  margin:8px 0;
+  display:grid;
+  gap:6px;
+}
+.sensitive-warning strong{
+  font-size:22px;
+  line-height:1.1;
+}
+.sensitive-warning span{
+  font-size:16px;
+  font-weight:800;
+  line-height:1.35;
+}
 .setting-tile{
   min-height:72px;
   margin:0;
@@ -229,6 +289,10 @@ footer{
   h2{font-size:20px}
   .region-tabs{
     gap:6px;
+  }
+  .branch-btn{
+    min-height:58px;
+    font-size:20px;
   }
   .tab-btn{
     min-height:48px;
@@ -291,6 +355,16 @@ footer{
   .setting-tile{
     min-height:62px;
     font-size:20px;
+  }
+  .lab-menu{
+    gap:6px;
+  }
+  .lab-tile{
+    min-height:62px;
+    font-size:19px;
+  }
+  .sensitive-warning strong{
+    font-size:19px;
   }
 }
 @media(max-width:380px){

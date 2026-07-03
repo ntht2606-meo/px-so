@@ -1,6 +1,6 @@
-# PX-SO v0.5.17 — copy fast first + taller copy fast
+# PX-SO v0.5.18 — max overflow preserved
 
-Bản này rebuild sạch từ v0.5.15, cộng nhiệm vụ của v0.5.16 và v0.5.17.
+Bản này nối tiếp v0.5.17 REBUILD.
 
 Điểm chính:
 - Vùng nhập dữ liệu tự chạy khi gõ/dán, không cần bấm CHẠY.
@@ -9,6 +9,8 @@ Bản này rebuild sạch từ v0.5.15, cộng nhiệm vụ của v0.5.16 và v0
 - Tăng chiều cao vùng Copy nhanh để nhìn rõ nội dung chi tiết hơn.
 - Chuyển Copy nhanh lên đầu trang.
 - Chuyển Vùng nhập dữ liệu xuống thứ 2.
+- Sửa lỗi phần dư sau khi áp max bị mất trong Số tách / Không tách.
+- Ví dụ: `69b20n` với `Max 2 số = 10` phải ra `69b10n` ở Số tách và `69b10n` ở Số không tách.
 - Thêm nút Lưu ở góc phải khung Hệ số / cài đặt.
 - Thêm nút Lưu ở góc phải khung Dãy xoá.
 - Thêm nút Lưu ở góc phải khung Vùng dán kết quả.
@@ -30,6 +32,7 @@ Bản này rebuild sạch từ v0.5.15, cộng nhiệm vụ của v0.5.16 và v0
 Logic tính/dò giữ theo v0.5.12:
 - Copy nhanh không bung dữ liệu trung gian.
 - Dò đá DA/DV theo số lần trúng cặp bằng min(A,B), không nhân chéo.
+- Khi áp Max 2 số / Max đá trong khối Số tách, phần dư phải chuyển sang Số không tách, không được mất dữ liệu.
 
 Ghi chú lưu dữ liệu:
 - Nút Lưu trong Hệ số / cài đặt lưu: Nhân, Đá 2 đài, Đá 1 đài, Đá Hà Nội, 2 số, 3 số, 4 số, Max 2 số, Max đá.

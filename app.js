@@ -472,14 +472,23 @@ function buildTach(blocks){
       for(const part of parts){
         const nums=part.nums||[];
         if(part.type==="b" && mainPair && nums.every(n=>n.length===2)){
-          add(tach, mainPair, makeLine(nums, "b", Math.min(part.n,max2)));
+          const keepN = Math.min(part.n, max2);
+          const overflowN = part.n - keepN;
+          if(keepN > 0) add(tach, mainPair, makeLine(nums, "b", keepN));
+          if(overflowN > 0) add(khong, mainPair, makeLine(nums, "b", overflowN));
           took=true;
         }else if(part.type==="da" && mainPair && nums.length>=2){
-          add(tach, mainPair, makeDaLine(nums[0],nums[1],Math.min(part.n,maxDa)));
+          const keepN = Math.min(part.n, maxDa);
+          const overflowN = part.n - keepN;
+          if(keepN > 0) add(tach, mainPair, makeDaLine(nums[0],nums[1],keepN));
+          if(overflowN > 0) add(khong, mainPair, makeDaLine(nums[0],nums[1],overflowN));
           took=true;
         }else if(part.type==="dv" && mainPair && nums.length>=2){
+          const keepN = Math.min(part.n, maxDa);
+          const overflowN = part.n - keepN;
           for(const np of pairNumbers(nums)){
-            add(tach, mainPair, makeDaLine(np[0],np[1],Math.min(part.n,maxDa)));
+            if(keepN > 0) add(tach, mainPair, makeDaLine(np[0],np[1],keepN));
+            if(overflowN > 0) add(khong, mainPair, makeDaLine(np[0],np[1],overflowN));
           }
           took=true;
         }else{

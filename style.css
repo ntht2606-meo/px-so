@@ -4,91 +4,208 @@ body{
   background:#f7f7f7;
   color:#111;
   font-family:Arial, Helvetica, sans-serif;
-  font-size:18px;
+  font-size:15px;
 }
 .app{
   max-width:980px;
   margin:0 auto;
-  padding:14px;
+  padding:8px;
 }
-header{
+.app-header{
   background:#fff;
   border:2px solid #111;
-  border-radius:14px;
-  padding:14px;
-  margin-bottom:14px;
-}
-h1{margin:0 0 8px;font-size:34px}
-h2{margin:0 0 10px;font-size:30px}
-p{margin:0 0 8px}
-.panel{
-  background:#fff;
-  border:2px solid #111;
-  border-radius:14px;
-  padding:14px;
-  margin:14px 0;
-}
-textarea{
-  width:100%;
-  min-height:120px;
-  border:2px solid #999;
   border-radius:10px;
-  padding:12px;
-  font-family:"Courier New", monospace;
-  font-size:26px;
-  line-height:1.28;
-  resize:vertical;
-  background:#fff;
+  padding:10px;
+  margin-bottom:8px;
 }
-#inputData{min-height:150px}
-#copyFast{min-height:120px}
-#ghi,#thuong{min-height:72px}
+h1{
+  margin:0 0 4px;
+  font-size:22px;
+}
+h2{
+  margin:0 0 8px;
+  font-size:22px;
+}
+p{margin:0 0 8px}
+.hint{
+  color:#2d7d35;
+  font-size:13px;
+  font-weight:700;
+}
+.region-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin:8px 0;
+}
 button{
   width:100%;
   border:0;
-  border-radius:12px;
+  border-radius:10px;
   background:#48a252;
-  color:white;
-  padding:15px 12px;
-  margin-top:10px;
+  color:#fff;
+  padding:10px 8px;
+  margin-top:8px;
   font-weight:800;
-  font-size:26px;
+  font-size:18px;
+  line-height:1.05;
+  cursor:pointer;
 }
-button.gray{background:#666}
-.buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+button.gray,
+.gray-mini{background:#666}
+.tab-btn{
+  background:#fff;
+  color:#111;
+  border:2px solid #111;
+  margin:0;
+  min-height:52px;
+}
+.tab-btn.active{
+  background:#bfbfbf;
+}
+.screen[hidden],
+.action-panel[hidden],
+.setting-panel[hidden]{
+  display:none !important;
+}
+.panel{
+  background:#fff;
+  border:2px solid #111;
+  border-radius:10px;
+  padding:10px;
+  margin:8px 0;
+}
+.work-panel{
+  padding-bottom:8px;
+}
+.money-chips{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-bottom:10px;
+}
 label{
   display:block;
-  font-size:24px;
+  font-size:16px;
   font-weight:800;
 }
 input{
   width:100%;
   border:2px solid #999;
-  border-radius:10px;
-  padding:10px;
-  font-size:28px;
+  border-radius:8px;
+  padding:7px 8px;
+  font-size:20px;
   text-align:right;
+  background:#fff;
 }
-.onecol label{margin-top:8px}
-.hint{color:#666;font-size:18px}
+textarea{
+  width:100%;
+  min-height:86px;
+  border:2px solid #999;
+  border-radius:8px;
+  padding:8px;
+  font-family:"Courier New", monospace;
+  font-size:17px;
+  line-height:1.22;
+  resize:vertical;
+  background:#fff;
+}
+#inputData{
+  min-height:290px;
+}
+.input-workspace{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 112px;
+  gap:8px;
+  align-items:stretch;
+}
+.action-rail{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:7px;
+  align-content:end;
+}
+.action-rail button{
+  min-height:44px;
+  margin:0;
+  font-size:15px;
+}
+.panel-title-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  gap:8px;
+  align-items:center;
+}
+.panel-title-row h2{
+  margin:0;
+}
+.save-mini{
+  width:auto;
+  min-width:86px;
+  margin:0;
+  padding:8px 12px;
+  font-size:16px;
+  border-radius:9px;
+}
+.save-mini.saved{
+  background:#2d7d35;
+}
+.grid,
+.grid3{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.grid2{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+}
+.splitPair textarea{
+  min-height:170px;
+}
+#copyFast{
+  min-height:210px;
+}
+#soTrung{
+  min-height:150px;
+}
+.settings-menu{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+.setting-tile{
+  min-height:72px;
+  margin:0;
+  background:#fff;
+  color:#111;
+  border:2px solid #111;
+  border-radius:16px;
+  font-size:22px;
+}
+.setting-tile.active{
+  background:#bfbfbf;
+}
+#savedInputToday{
+  min-height:190px;
+}
 .tableWrap{
   overflow:auto;
   border:1px solid #999;
   border-radius:10px;
   margin-bottom:10px;
-  max-height:360px;
+  max-height:260px;
 }
 table{
   border-collapse:collapse;
   width:100%;
-  min-width:760px;
-  font-size:18px;
+  min-width:680px;
+  font-size:13px;
 }
 th,td{
   border:1px solid #aaa;
-  padding:6px 8px;
+  padding:4px 5px;
   vertical-align:top;
   font-family:"Courier New", monospace;
 }
@@ -98,146 +215,59 @@ th{
 }
 footer{
   text-align:center;
-  padding:18px;
+  padding:10px;
   color:#777;
   font-weight:700;
-}
-@media(max-width:760px){
-  .app{padding:10px}
-  h1{font-size:30px}
-  h2{font-size:30px}
-  textarea{font-size:26px}
-  .grid,.grid3{grid-template-columns:1fr}
-  .buttons{grid-template-columns:1fr}
-}
-
-/* PX-SO v0.4.1: fixed DA/DV double-count in calcRow */
-
-/* PX-SO v0.4.2: calc from intermediate, cross-da x2, single-da ignored, ceil money */
-
-/* PX-SO v0.4.3: fixed DA 2 đài = 57,6k, script cache-bust */
-
-
-/* PX-SO v0.4.4 — form nhỏ gọn, dễ bấm/lướt */
-body{
-  font-size:15px;
-}
-.app{
-  max-width:1120px;
-  padding:8px;
-}
-header{
-  padding:10px;
-  margin-bottom:8px;
-  border-radius:10px;
-}
-h1{
-  font-size:22px;
-  margin-bottom:4px;
-}
-header p{
-  font-size:13px;
-  line-height:1.25;
-}
-.panel{
-  padding:10px;
-  margin:8px 0;
-  border-radius:10px;
-}
-h2{
-  font-size:22px;
-  margin-bottom:6px;
-}
-label{
-  font-size:16px;
-}
-textarea{
-  min-height:86px;
-  padding:8px;
-  border-radius:8px;
-  font-size:17px;
-  line-height:1.22;
-}
-#inputData{
-  min-height:135px;
-}
-#copyFast{
-  min-height:135px;
-}
-#soTrung{
-  min-height:72px;
-}
-#ghi,#thuong{
-  min-height:52px;
-}
-button{
-  padding:10px 8px;
-  margin-top:8px;
-  border-radius:9px;
-  font-size:18px;
-}
-.buttons{
-  gap:8px;
-}
-input{
-  padding:7px 8px;
-  border-radius:8px;
-  font-size:20px;
-}
-.settings{
-  grid-template-columns:repeat(3,1fr);
-  gap:8px;
-}
-.grid3{
-  grid-template-columns:repeat(3,1fr);
-  gap:8px;
-}
-.topGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-  align-items:start;
-}
-.topGrid .panel{
-  margin:0;
-}
-.hint{
-  font-size:13px;
-}
-.tableWrap{
-  max-height:260px;
-}
-table{
-  font-size:13px;
-  min-width:680px;
-}
-th,td{
-  padding:4px 5px;
-}
-footer{
-  padding:10px;
   font-size:13px;
 }
 @media(max-width:760px){
-  .app{
+  .app{padding:6px}
+  .app-header{
+    padding:8px;
+  }
+  h1{font-size:20px}
+  h2{font-size:20px}
+  .region-tabs{
+    gap:6px;
+  }
+  .tab-btn{
+    min-height:48px;
+    padding:8px 5px;
+    font-size:15px;
+  }
+  .money-chips{
+    gap:6px;
+  }
+  .money-chips label{
+    font-size:13px;
+  }
+  input{
+    font-size:18px;
     padding:6px;
-  }
-  h1{
-    font-size:20px;
-  }
-  h2{
-    font-size:20px;
   }
   textarea{
     font-size:16px;
     min-height:78px;
   }
-  #inputData,#copyFast{
-    min-height:125px;
+  #inputData{
+    min-height:280px;
   }
-  button{
-    font-size:17px;
-    padding:9px 7px;
+  .input-workspace{
+    grid-template-columns:minmax(0,1fr) 92px;
+    gap:6px;
+  }
+  .action-rail{
+    gap:6px;
+  }
+  .action-rail button{
+    min-height:42px;
+    padding:7px 5px;
+    font-size:13px;
+  }
+  .grid,
+  .grid2,
+  .grid3{
+    grid-template-columns:1fr;
   }
   .settings{
     grid-template-columns:repeat(3,1fr);
@@ -248,498 +278,29 @@ footer{
   }
   .settings input{
     font-size:17px;
-    padding:6px;
   }
-  .grid3{
-    grid-template-columns:1fr;
-  }
-}
-@media(max-width:560px){
-  .topGrid{
-    grid-template-columns:1fr;
-  }
-  .buttons{
-    grid-template-columns:1fr 1fr;
-  }
-}
-
-
-/* PX-SO v0.4.5 — Ghi/Trúng 1 hàng nhỏ gọn */
-.compact-money{
-  padding:8px 10px;
-}
-.compact-money h2{
-  font-size:20px;
-  margin-bottom:6px;
-}
-.moneyRow{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-  align-items:end;
-}
-.moneyRow label{
-  font-size:15px;
-  font-weight:800;
-}
-.moneyRow input{
-  width:100%;
-  height:42px;
-  min-height:0;
-  border:2px solid #999;
-  border-radius:8px;
-  padding:6px 8px;
-  font-family:"Courier New", monospace;
-  font-size:20px;
-  text-align:left;
-  background:#fff;
-}
-.moneyButtons{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-}
-.moneyButtons button{
-  font-size:16px;
-  padding:8px 6px;
-  margin-top:8px;
-}
-#ghi,#thuong{
-  min-height:0 !important;
-}
-@media(max-width:420px){
-  .moneyRow{
-    grid-template-columns:1fr 1fr;
+  .panel-title-row{
+    grid-template-columns:minmax(0,1fr) auto auto;
     gap:6px;
-  }
-  .moneyRow input{
-    height:38px;
-    font-size:18px;
-  }
-  .moneyButtons button{
-    font-size:15px;
-    padding:7px 4px;
-  }
-}
-
-/* PX-SO v0.4.6: locked form, money keeps 0.1k decimals, b4 = 16 */
-
-
-/* PX-SO v0.5.2 — bỏ nút copy trong khối Ghi/Trúng */
-.compact-money .moneyButtons{
-  display:none !important;
-}
-.compact-money{
-  padding-bottom:10px;
-}
-.moneyRow{
-  margin-bottom:0;
-}
-
-
-/* PX-SO v0.5.3 — Bảng trung gian chạy ẩn */
-.intermediate-panel{
-  display:none !important;
-}
-
-
-/* PX-SO v0.5.4 — viết lại từ v0.5.3: ẩn kiểm nội bộ */
-.parsed-results-panel,
-.intermediate-panel{
-  display:none !important;
-}
-
-
-/* PX-SO v0.5.5 — Ẩn toàn bộ vùng chuẩn hoá/kết quả kiểm */
-.result-input-panel,
-.parsed-results-panel,
-.intermediate-panel{
-  display:none !important;
-}
-
-
-/* PX-SO v0.5.7 — Khôi phục vùng dán kết quả, chỉ bỏ nút chuẩn hoá */
-.result-input-panel-visible{
-  display:block !important;
-}
-.result-input-panel{
-  display:block !important;
-}
-.parsed-results-panel,
-.intermediate-panel{
-  display:none !important;
-}
-
-
-/* PX-SO v0.5.11 — mobile layout thực tế
-   - Ghi/Trúng nằm trên Số trúng
-   - Dãy xoá và Vùng dán kết quả: 3 cột ngang MN | MT | HN
-   - Số tách / Không tách: 2 cột ngang, không chia theo miền
-   - Textarea nhỏ lại, cuộn trong ô
-*/
-:root{
-  --px-gap: 6px;
-}
-
-.topGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-  align-items:start;
-}
-
-#copyFast{
-  min-height:105px !important;
-  max-height:42vh;
-  overflow:auto;
-}
-
-#soTrung{
-  min-height:82px !important;
-  max-height:28vh;
-  overflow:auto;
-}
-
-.grid3{
-  display:grid !important;
-  grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
-  gap:var(--px-gap) !important;
-}
-
-.grid3 label{
-  min-width:0;
-  font-size:13px;
-  line-height:1.15;
-}
-
-.grid3 textarea{
-  min-height:86px !important;
-  max-height:130px;
-  overflow:auto;
-  font-size:14px;
-  padding:6px;
-}
-
-.grid2{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:8px;
-}
-
-.splitPair label{
-  min-width:0;
-  font-size:14px;
-  line-height:1.15;
-}
-
-.splitPair textarea{
-  min-height:105px !important;
-  max-height:170px;
-  overflow:auto;
-  font-size:14px;
-  padding:6px;
-}
-
-.splitPair button{
-  font-size:14px;
-  padding:7px 5px;
-  margin-top:6px;
-}
-
-.compact-money{
-  margin-top:8px;
-  margin-bottom:8px;
-}
-
-.moneyRow input{
-  height:38px;
-  font-size:18px;
-}
-
-.settings{
-  grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
-}
-
-.result-input-panel textarea,
-.panel:has(#xoaMn) textarea{
-  resize:none;
-}
-
-@media(max-width:760px){
-  .topGrid{
-    grid-template-columns:1fr;
-  }
-
-  .grid3{
-    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
-    gap:5px !important;
-  }
-
-  .grid3 label{
-    font-size:12px;
-  }
-
-  .grid3 textarea{
-    min-height:78px !important;
-    max-height:118px;
-    font-size:12px;
-    padding:5px;
-  }
-
-  .grid2{
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-    gap:6px;
-  }
-
-  .splitPair label{
-    font-size:12px;
-  }
-
-  .splitPair textarea{
-    min-height:96px !important;
-    max-height:150px;
-    font-size:12px;
-    padding:5px;
-  }
-
-  #inputData{
-    min-height:118px !important;
-  }
-
-  #copyFast{
-    min-height:96px !important;
-  }
-
-  #soTrung{
-    min-height:76px !important;
-  }
-}
-
-
-/* PX-SO v0.5.12 — Auto Run */
-.auto-run-hint{
-  margin-top:6px;
-  font-weight:700;
-  color:#2f7d37;
-}
-
-/* PX-SO v0.5.13 — khóa lại bố trí web/mobile */
-.mainTop{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-  align-items:start;
-}
-.input-panel,
-.copy-panel,
-.win-panel{
-  margin:0;
-}
-.compact-money,
-.win-panel{
-  margin-top:8px;
-}
-.copy-panel textarea{
-  min-height:150px !important;
-}
-.win-panel textarea{
-  min-height:82px !important;
-}
-.xoa-panel textarea,
-.result-input-panel-visible textarea{
-  resize:none;
-}
-@media(max-width:760px){
-  .mainTop{
-    grid-template-columns:1fr;
-  }
-  .input-panel,
-  .copy-panel,
-  .compact-money,
-  .win-panel{
-    margin:8px 0;
-  }
-  .copy-panel textarea{
-    min-height:96px !important;
-  }
-  .win-panel textarea{
-    min-height:76px !important;
-  }
-}
-
-/* PX-SO v0.5.14 — chữ gọn mobile + nút lưu góc panel */
-body{
-  font-size:14px;
-}
-.app{
-  padding:6px;
-}
-header{
-  padding:8px;
-  margin-bottom:8px;
-  border-radius:8px;
-}
-h1{
-  font-size:20px;
-  line-height:1.15;
-}
-header p{
-  font-size:12px;
-}
-.panel{
-  padding:8px;
-  margin:8px 0;
-  border-radius:8px;
-}
-h2{
-  font-size:20px;
-  line-height:1.15;
-  margin-bottom:6px;
-}
-label{
-  font-size:14px;
-  line-height:1.15;
-}
-input,
-textarea{
-  border-radius:8px;
-  font-size:16px;
-}
-textarea{
-  padding:6px;
-  line-height:1.22;
-}
-button{
-  border-radius:8px;
-  font-size:15px;
-  padding:8px 6px;
-}
-.settings label{
-  font-size:13px;
-}
-.settings input{
-  font-size:16px;
-  padding:6px;
-}
-.grid2,
-.grid3,
-.settings,
-.mainTop,
-.moneyRow,
-.buttons{
-  gap:6px !important;
-}
-.grid3 label,
-.splitPair label{
-  font-size:13px;
-}
-.grid3 textarea,
-.splitPair textarea{
-  font-size:16px !important;
-  padding:5px;
-}
-.splitPair button{
-  font-size:15px;
-  padding:8px 5px;
-}
-.panel-title-row{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:8px;
-  margin-bottom:6px;
-}
-.panel-title-row h2{
-  margin:0;
-  margin-right:auto;
-}
-.save-mini{
-  width:auto;
-  min-width:56px;
-  margin:0;
-  padding:6px 10px;
-  border-radius:8px;
-  font-size:14px;
-  line-height:1;
-  white-space:nowrap;
-}
-.save-mini.saved{
-  background:#2f7d37;
-}
-.gray-mini{
-  background:#666;
-}
-@media(max-width:760px){
-  .app{
-    padding:6px;
-  }
-  h1{
-    font-size:19px;
-  }
-  h2{
-    font-size:20px;
-  }
-  label{
-    font-size:13px;
-  }
-  .grid3 label,
-  .splitPair label{
-    font-size:12px;
-  }
-  .grid3 textarea{
-    min-height:78px !important;
-    max-height:118px;
-    font-size:16px !important;
-  }
-  .splitPair textarea{
-    min-height:92px !important;
-    max-height:145px;
-    font-size:16px !important;
-  }
-  .copy-panel textarea,
-  #inputData{
-    font-size:16px !important;
   }
   .save-mini{
-    min-width:52px;
-    padding:6px 9px;
-    font-size:13px;
+    min-width:58px;
+    font-size:14px;
+    padding:8px 10px;
+  }
+  .setting-tile{
+    min-height:62px;
+    font-size:20px;
   }
 }
-
-/* PX-SO v0.5.17 — Copy nhanh lên đầu và cao hơn */
-.copy-panel textarea,
-#copyFast{
-  min-height:220px !important;
-  max-height:70vh !important;
-  resize:vertical !important;
-}
-@media(max-width:760px){
-  .copy-panel textarea,
-  #copyFast{
-    min-height:180px !important;
-    max-height:62vh !important;
+@media(max-width:380px){
+  .input-workspace{
+    grid-template-columns:1fr;
   }
-}
-
-/* PX-SO v0.5.21 — lưu tin nhập trong ngày */
-.daily-backup-panel textarea{
-  min-height:90px !important;
-  max-height:180px;
-  resize:vertical;
-}
-.backup-buttons{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:6px;
-}
-.backup-buttons button{
-  margin-top:8px;
-}
-@media(max-width:760px){
-  .daily-backup-panel textarea{
-    min-height:82px !important;
-    max-height:150px;
-    font-size:16px !important;
+  .action-rail{
+    grid-template-columns:repeat(2,1fr);
+  }
+  .action-rail button{
+    min-height:40px;
   }
 }

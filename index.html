@@ -3,103 +3,142 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.42</title>
-  <link rel="stylesheet" href="style.css?v=542" />
+  <title>PX-SO v0.5.40</title>
+  <link rel="stylesheet" href="style.css?v=540" />
 </head>
 <body>
   <div class="app">
-    <header>
-      <h1>PX-SO v0.5.42</h1>
-      <p>Auto-run khi nhập/dán dữ liệu; chữ gọn hơn và lưu dữ liệu theo trình duyệt.</p>
+    <header class="app-header">
+      <h1>PX-SO v0.5.40</h1>
+      <p>Giữ logic v0.5.39, đổi sang màn hình tab và vùng bung/thu theo thao tác.</p>
     </header>
 
-    <div class="topGrid mainTop">
-      <section class="panel copy-panel">
-        <h2>Copy nhanh</h2>
-        <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
-        <button onclick="copyText('copyFast')">Copy nhanh</button>
+    <nav class="region-tabs" aria-label="Chọn màn hình">
+      <button type="button" class="tab-btn active" data-tab="MN" onclick="selectWorkspace('MN')">Miền nam</button>
+      <button type="button" class="tab-btn" data-tab="MT" onclick="selectWorkspace('MT')">Miền trung</button>
+      <button type="button" class="tab-btn" data-tab="HN" onclick="selectWorkspace('HN')">Hà nội</button>
+      <button type="button" class="tab-btn" data-tab="SETTINGS" onclick="selectWorkspace('SETTINGS')">Cài đặt</button>
+    </nav>
+
+    <main id="workScreen" class="screen">
+      <section class="panel work-panel">
+        <div class="money-chips">
+          <label>Ghi:
+            <input id="ghi" readonly value="">
+          </label>
+          <label>Trúng:
+            <input id="thuong" readonly value="0">
+          </label>
+          <label>Tổng:
+            <input id="tong" readonly value="">
+          </label>
+        </div>
+
+        <div class="input-workspace">
+          <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
+          <div class="action-rail">
+            <button type="button" onclick="toggleActionPanel('copy')">Copy nhanh</button>
+            <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
+            <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
+            <button type="button" onclick="saveDayAndRun()">Lưu</button>
+            <button type="button" class="gray" onclick="clearRun()">Xóa</button>
+          </div>
+        </div>
+        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng tab MN / MT / HN được lưu riêng trong trình duyệt.</p>
       </section>
 
-      <section class="panel input-panel">
-        <h2>Vùng nhập dữ liệu</h2>
-        <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
-        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu.</p>
-        <div class="buttons">
-          <button onclick="saveDayAndRun()">LƯU NGÀY</button>
-          <button onclick="clearRun()" class="gray">XÓA NHANH</button>
+      <section id="panel-copy" class="panel action-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Copy nhanh</h2>
+          <button type="button" class="save-mini" onclick="copyText('copyFast')">Copy</button>
+        </div>
+        <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
+      </section>
+
+      <section id="panel-split" class="panel action-panel" hidden>
+        <h2>Số tách / Không tách</h2>
+        <div class="grid2 splitPair">
+          <label>Số tách
+            <textarea id="soTach" readonly></textarea>
+            <button type="button" onclick="copyText('soTach')">Copy số tách</button>
+          </label>
+          <label>Số không tách
+            <textarea id="soKhongTach" readonly></textarea>
+            <button type="button" onclick="copyText('soKhongTach')">Copy không tách</button>
+          </label>
         </div>
       </section>
-    </div>
 
-    <section class="panel compact-money">
-      <h2>Ghi / Trúng</h2>
-      <div class="moneyRow">
-        <label>Ghi:
-          <input id="ghi" readonly value="">
-        </label>
-        <label>Trúng:
-          <input id="thuong" readonly value="0">
-        </label>
-      </div>
-    </section>
+      <section id="panel-wins" class="panel action-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Số trúng</h2>
+          <button type="button" class="save-mini" onclick="copyText('soTrung')">Copy</button>
+        </div>
+        <textarea id="soTrung" readonly></textarea>
+      </section>
+    </main>
 
-    <section class="panel win-panel">
-      <h2>Số trúng</h2>
-      <textarea id="soTrung" readonly></textarea>
-      <button onclick="copyText('soTrung')">Copy số trúng</button>
-    </section>
+    <main id="settingsScreen" class="screen" hidden>
+      <section class="panel settings-menu">
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Hệ số</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('xoa')">Dãy xoá</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('results')">Kết quả</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Tin lưu trong ngày mn, mt, hn</button>
+      </section>
 
-    <section class="panel settings-panel save-panel">
-      <div class="panel-title-row">
-        <h2>Hệ số / cài đặt</h2>
-        <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
-      </div>
-      <div class="grid settings">
-        <label>Nhân <input id="rate" value="0.8"></label>
-        <label>Đá 2 đài <input id="coefDa2" value="550"></label>
-        <label>Đá 1 đài <input id="coefDa1" value="750"></label>
-        <label>Đá Hà Nội <input id="coefDaHN" value="650"></label>
-        <label>2 số <input id="coef2" value="75"></label>
-        <label>3 số <input id="coef3" value="650"></label>
-        <label>4 số <input id="coef4" value="5500"></label>
-        <label>Max 2 số <input id="max2" value="10"></label>
-        <label>Max đá <input id="maxDa" value="1"></label>
-      </div>
-    </section>
+      <section id="settings-coef" class="panel settings-panel save-panel setting-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Hệ số / cài đặt</h2>
+          <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
+        </div>
+        <div class="grid settings">
+          <label>Nhân <input id="rate" value="0.8"></label>
+          <label>Đá 2 đài <input id="coefDa2" value="550"></label>
+          <label>Đá 1 đài <input id="coefDa1" value="750"></label>
+          <label>Đá Hà Nội <input id="coefDaHN" value="650"></label>
+          <label>2 số <input id="coef2" value="75"></label>
+          <label>3 số <input id="coef3" value="650"></label>
+          <label>4 số <input id="coef4" value="5500"></label>
+          <label>Max 2 số <input id="max2" value="10"></label>
+          <label>Max đá <input id="maxDa" value="1"></label>
+        </div>
+      </section>
 
-    <section class="panel split-pair-panel">
-      <h2>Số tách / Không tách</h2>
-      <div class="grid2 splitPair">
-        <label>Số tách<textarea id="soTach" readonly></textarea><button onclick="copyText('soTach')">Copy số tách</button></label>
-        <label>Số không tách<textarea id="soKhongTach" readonly></textarea><button onclick="copyText('soKhongTach')">Copy không tách</button></label>
-      </div>
-    </section>
+      <section id="settings-xoa" class="panel xoa-panel save-panel setting-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Dãy xoá</h2>
+          <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
+        </div>
+        <div class="grid3">
+          <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
+          <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
+          <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
+        </div>
+      </section>
 
-    <section class="panel xoa-panel save-panel">
-      <div class="panel-title-row">
-        <h2>Dãy xoá</h2>
-        <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
-        <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
-      </div>
-      <div class="grid3">
-        <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
-        <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
-        <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
-      </div>
-    </section>
+      <section id="settings-results" class="panel result-input-panel-visible save-panel setting-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Vùng dán kết quả</h2>
+          <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
+        </div>
+        <div class="grid3">
+          <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN..."></textarea></label>
+          <label>Kết quả MT<textarea id="kqMt" placeholder="Dán nguyên bảng kết quả MT..."></textarea></label>
+          <label>Kết quả HN<textarea id="kqHn" placeholder="Dán nguyên bảng kết quả HN..."></textarea></label>
+        </div>
+      </section>
 
-    <section class="panel result-input-panel-visible save-panel">
-      <div class="panel-title-row">
-        <h2>Vùng dán kết quả</h2>
-        <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
-        <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
-      </div>
-      <div class="grid3">
-        <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN..."></textarea></label>
-        <label>Kết quả MT<textarea id="kqMt" placeholder="Dán nguyên bảng kết quả MT..."></textarea></label>
-        <label>Kết quả HN<textarea id="kqHn" placeholder="Dán nguyên bảng kết quả HN..."></textarea></label>
-      </div>
-    </section>
+      <section id="settings-daily" class="panel daily-backup-panel setting-panel" hidden>
+        <div class="panel-title-row">
+          <h2>Tin lưu trong ngày</h2>
+          <button type="button" class="save-mini" onclick="copyText('savedInputToday')">Copy</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearDailyInputBackup()">Xóa</button>
+        </div>
+        <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU hôm nay..."></textarea>
+      </section>
+    </main>
 
     <section class="panel parsed-results-panel" style="display:none !important;">
       <h2>Kết quả đã hiểu</h2>
@@ -108,7 +147,6 @@
 
     <section class="panel intermediate-panel" style="display:none !important;">
       <h2>Bảng trung gian</h2>
-      <p class="hint">Bảng này để cuối/kiểm lỗi: engine tách sạch từng cách ghi trước rồi mới tính tiền.</p>
       <div class="tableWrap">
         <table id="interTable">
           <thead>
@@ -128,17 +166,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <section class="panel daily-backup-panel">
-      <h2>Tin lưu trong ngày</h2>
-      <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU NGÀY hôm nay..."></textarea>
-      <div class="backup-buttons">
-        <button type="button" onclick="copyText('savedInputToday')">Copy lưu ngày</button>
-        <button type="button" class="gray" onclick="clearDailyInputBackup()">Xóa lưu ngày</button>
-      </div>
-    </section>
-
-    <footer>PX-SO v0.5.42 — rebuild from 5.39 + 5.40/5.41 fixes</footer>
+    <footer>PX-SO v0.5.40 — tab action panels</footer>
   </div>
-<script src="app.js?v=542"></script>
+<script src="app.js?v=540"></script>
 </body>
 </html>

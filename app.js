@@ -1,4 +1,4 @@
-// PX-SO v0.5.10 - rebuild sạch
+// PX-SO v0.5.40 - tab + action panels, giữ lõi xử lý v0.5.39
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -73,9 +73,13 @@ const STORAGE_KEYS = {
   settings: "pxso.v0.saved.settings",
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
-  dailyInputPrefix: "pxso.v0.dailyInput."
+  dailyInputPrefix: "pxso.v0.dailyInput.",
+  activeWorkspace: "pxso.v0.5.40.activeWorkspace",
+  lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
+  workspacePrefix: "pxso.v0.5.40.workspace."
 };
 const SETTINGS_IDS = ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"];
+let activeWorkspace = "MN";
 
 function dayIndex(){ return new Date().getDay(); }
 function dateKey(){
@@ -96,6 +100,84 @@ function debounce(fn, delay=280){
     clearTimeout(t);
     t = setTimeout(()=>fn.apply(this,args), delay);
   };
+}
+
+function workspaceKey(region=activeWorkspace){
+  return STORAGE_KEYS.workspacePrefix + region;
+}
+function saveActiveWorkspaceInput(){
+  if(!["MN","MT","HN"].includes(activeWorkspace)) return;
+  try{
+    localStorage.setItem(workspaceKey(activeWorkspace), val("inputData"));
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadWorkspaceInput(region){
+  try{
+    setVal("inputData", localStorage.getItem(workspaceKey(region)) || "");
+  }catch(e){
+    setVal("inputData", "");
+  }
+}
+function setActiveTab(tab){
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+}
+function closeActionPanels(){
+  ["copy","split","wins"].forEach(name=>{
+    const panel = el("panel-" + name);
+    if(panel) panel.hidden = true;
+  });
+}
+function toggleActionPanel(name){
+  const panel = el("panel-" + name);
+  if(!panel) return;
+  const shouldOpen = panel.hidden;
+  closeActionPanels();
+  panel.hidden = !shouldOpen;
+}
+function closeSettingsPanels(){
+  document.querySelectorAll(".setting-panel").forEach(panel=>panel.hidden = true);
+  document.querySelectorAll(".setting-tile").forEach(btn=>btn.classList.remove("active"));
+}
+function toggleSettingsPanel(name){
+  const panel = el("settings-" + name);
+  if(!panel) return;
+  const shouldOpen = panel.hidden;
+  closeSettingsPanels();
+  panel.hidden = !shouldOpen;
+  const tile = Array.from(document.querySelectorAll(".setting-tile")).find(btn => btn.getAttribute("onclick") && btn.getAttribute("onclick").includes("'" + name + "'"));
+  if(tile) tile.classList.toggle("active", shouldOpen);
+}
+function selectWorkspace(tab){
+  saveActiveWorkspaceInput();
+  const workScreen = el("workScreen");
+  const settingsScreen = el("settingsScreen");
+  activeWorkspace = tab === "SETTINGS" ? activeWorkspace : tab;
+
+  try{
+    localStorage.setItem(STORAGE_KEYS.activeWorkspace, tab);
+    if(tab !== "SETTINGS") localStorage.setItem(STORAGE_KEYS.lastWorkRegion, tab);
+  }catch(e){
+    console.error(e);
+  }
+
+  setActiveTab(tab);
+  if(tab === "SETTINGS"){
+    if(workScreen) workScreen.hidden = true;
+    if(settingsScreen) settingsScreen.hidden = false;
+    closeActionPanels();
+    return;
+  }
+
+  if(workScreen) workScreen.hidden = false;
+  if(settingsScreen) settingsScreen.hidden = true;
+  closeSettingsPanels();
+  loadWorkspaceInput(tab);
+  if(val("inputData").trim()) runAll();
+  else clearRun();
 }
 
 
@@ -149,23 +231,14 @@ function getDaisFromName(name){
   if(lower==="hn" || lower==="mb") return ["HN"];
   const found = [];
   for(const d of KNOWN_DAI){
-    if(d !== "HN" && raw.includes(d)) found.push({d, idx:raw.indexOf(d)});
+    if(d !== "HN" && raw.includes(d)) found.push(d);
   }
-  found.sort((a,b)=>a.idx-b.idx);
-  return found.length ? found.map(x=>x.d) : [raw];
+  return found.length ? found : [raw];
 }
 function detectRegionByDais(dais){
   if(dais.includes("HN")) return "HN";
   const mt = ["Pyen","Hue","Dlac","Qnam","Dnang","Khoa","Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum"];
   return dais.some(d => mt.includes(d)) ? "MT" : "MN";
-}
-function maxDaiForRegion(region){
-  if(region==="HN") return 1;
-  if(region==="MT") return 3;
-  return 4;
-}
-function capDaisByRegion(dais, region){
-  return (dais || []).slice(0, maxDaiForRegion(region));
 }
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
@@ -194,9 +267,7 @@ function resolveHeader(raw, hintDais=[]){
   else if(l==="3dmt") dais=MT_MAP[pickDayForGeneric("MT",3,hintDais)].slice(0,3);
   else dais=getDaisFromName(raw.trim());
   const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
-  const region = detectRegionByDais(dais);
-  dais = capDaisByRegion(dais, region);
-  return {raw:raw.trim(), name:dais.join(""), dais, region, mainDais:dais.slice(0,2), generic, lines:[]};
+  return {raw:raw.trim(), name:dais.join(""), dais, region:detectRegionByDais(dais), mainDais:dais.slice(0,2), generic, lines:[]};
 }
 function splitBlocks(text){
   const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
@@ -253,16 +324,6 @@ function permCount(s){
   let den=1;
   Object.values(counts).forEach(c => den *= fact(c));
   return fact(arr.length)/den;
-}
-function bdaoPermCount(s){
-  const key = String(s||"");
-  const special4 = {
-    "1011": 4,
-    "1715": 12,
-    "1390": 12
-  };
-  if(key.length===4 && special4[key] != null) return special4[key];
-  return permCount(key);
 }
 
 function parseBetLine(line){
@@ -395,8 +456,8 @@ function calcRow(row){
   }else if(t==="bdao"){
     const len = num.length;
     if(len===3) base = region==="HN" ? 23 : 17;
-    else if(len===4) base = region==="HN" ? 20 : 16;
-    qty = bdaoPermCount(num);
+    else if(len===4) base = region==="HN" ? 0 : 16;
+    qty = permCount(num);
 
   }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
     base = region==="HN" ? 4 : 2;
@@ -728,30 +789,9 @@ function findDaiInLine(line){
   }
   return null;
 }
-function splitDigitsByLen(digits, len){
-  const s = String(digits || "");
-  if(!len || s.length < len || s.length % len !== 0) return [s];
-  const out=[];
-  for(let i=0;i<s.length;i+=len) out.push(s.slice(i,i+len));
-  return out;
-}
-function hanoiPrizeLen(line){
-  const c = cleanName(line);
-  if(c.includes("db") || c.includes("dac biet")) return 5;
-  if(c.includes("giai bay")) return 2;
-  if(c.includes("giai sau")) return 3;
-  if(c.includes("giai nam")) return 4;
-  if(c.includes("giai tu")) return 4;
-  if(c.includes("giai nhat")) return 5;
-  if(c.includes("giai nhi")) return 5;
-  if(c.includes("giai ba")) return 5;
-  return null;
-}
-function parseResultText(text, defaultDai){
+function parseResultText(text){
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
-  const out={}; let cur=defaultDai || null;
-  let pendingLen=null;
-  if(cur) out[cur]=[];
+  const out={}; let cur=null;
 
   for(const line of lines){
     const dai=findDaiInLine(line);
@@ -763,17 +803,9 @@ function parseResultText(text, defaultDai){
       continue;
     }
 
-    const prizeLen = defaultDai==="HN" ? hanoiPrizeLen(line) : null;
     const nums=line.match(/\d+/g);
     if(nums && cur){
-      const len = prizeLen || pendingLen;
-      nums.forEach(n=>{
-        if(n.length<2) return;
-        splitDigitsByLen(n, len).forEach(x=>{ if(x.length>=2) out[cur].push(x); });
-      });
-      pendingLen = null;
-    }else if(prizeLen){
-      pendingLen = prizeLen;
+      nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
     }
   }
 
@@ -811,7 +843,7 @@ function parseAllResults(){
   return {
     MN:parseResultText(val("kqMn")),
     MT:parseResultText(val("kqMt")),
-    HN:parseResultText(val("kqHn"), "HN")
+    HN:parseResultText(val("kqHn"))
   };
 }
 function renderParsedResults(obj){
@@ -1017,6 +1049,7 @@ function runAll(){
     const total = totalMoney(rows);
     setVal("copyFast", buildCopyFast(blocks, total));
     setVal("ghi", money(total));
+    setVal("tong", money(total));
 
     const tk = buildTach(blocks);
     setVal("soTach", tk.tach);
@@ -1033,10 +1066,11 @@ function runAll(){
   }
 }
 function clearRun(){
-  ["inputData","copyFast","ghi","thuong","soTach","soKhongTach","soTrung","parsedResults","detail"].forEach(id=>setVal(id,""));
+  ["inputData","copyFast","ghi","tong","thuong","soTach","soKhongTach","soTrung","parsedResults","detail"].forEach(id=>setVal(id,""));
   const tbody = document.querySelector("#interTable tbody");
   if(tbody) tbody.innerHTML = "";
   setVal("thuong","0");
+  saveActiveWorkspaceInput();
 }
 async function copyText(id){
   const text = val(id);
@@ -1176,12 +1210,15 @@ window.addEventListener("DOMContentLoaded", ()=>{
   const input = el("inputData");
   if(input){
     input.addEventListener("input", ()=>{
+      saveActiveWorkspaceInput();
       autoRun();
     });
     input.addEventListener("paste", ()=>setTimeout(()=>{
+      saveActiveWorkspaceInput();
       runAll();
     }, 30));
     input.addEventListener("change", ()=>{
+      saveActiveWorkspaceInput();
       runAll();
     });
   }
@@ -1217,5 +1254,30 @@ window.addEventListener("DOMContentLoaded", ()=>{
   });
 
   parseResultsOnly();
+  let savedTab = "MN";
+  try{
+    savedTab = localStorage.getItem(STORAGE_KEYS.activeWorkspace) || "MN";
+  }catch(e){
+    savedTab = "MN";
+  }
+  if(!["MN","MT","HN","SETTINGS"].includes(savedTab)) savedTab = "MN";
+  if(savedTab === "SETTINGS"){
+    try{
+      activeWorkspace = localStorage.getItem(STORAGE_KEYS.lastWorkRegion) || "MN";
+    }catch(e){
+      activeWorkspace = "MN";
+    }
+    if(!["MN","MT","HN"].includes(activeWorkspace)) activeWorkspace = "MN";
+    loadWorkspaceInput(activeWorkspace);
+    setActiveTab("SETTINGS");
+    if(el("workScreen")) el("workScreen").hidden = true;
+    if(el("settingsScreen")) el("settingsScreen").hidden = false;
+  }else{
+    activeWorkspace = savedTab;
+    setActiveTab(savedTab);
+    if(el("workScreen")) el("workScreen").hidden = false;
+    if(el("settingsScreen")) el("settingsScreen").hidden = true;
+    loadWorkspaceInput(savedTab);
+  }
   if(val("inputData").trim()) runAll();
 });

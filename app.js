@@ -1,4 +1,4 @@
-// PX-SO v0.5.51 - task 4 khong tach compact output, keeps v0.5.50 fixes
+// PX-SO v0.5.52 - keo expansion and 15-number display for tach outputs
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.51.appTitle",
+  appTitle: "pxso.v0.5.52.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -368,9 +368,21 @@ function expandKeoToken(token){
   const a=m[1], b=m[2];
   if(a.length !== b.length) return [token];
   const start=parseInt(a,10), end=parseInt(b,10);
-  if(isNaN(start)||isNaN(end)||start>end||end-start>200) return [token];
+  if(isNaN(start)||isNaN(end)||start>end) return [token];
+  let step = 1;
+
+  if(a.slice(0, -1) !== b.slice(0, -1)){
+    let suffixLen = 0;
+    for(let i=1; i<=a.length; i++){
+      if(a.slice(-i) === b.slice(-i)) suffixLen = i;
+      else break;
+    }
+    if(suffixLen > 0) step = Math.pow(10, suffixLen);
+  }
+
+  if(Math.floor((end - start) / step) > 200) return [token];
   const out=[];
-  for(let i=start;i<=end;i++) out.push(String(i).padStart(a.length,"0"));
+  for(let i=start;i<=end;i+=step) out.push(String(i).padStart(a.length,"0"));
   return out;
 }
 function parseNums(numStr){
@@ -641,10 +653,28 @@ function renderObj(obj){
   for(const [block, lines] of Object.entries(obj)){
     if(!lines.length) continue;
     out.push(block);
-    out.push(...lines);
+    for(const line of lines){
+      out.push(...splitTachDisplayLine(line, 15));
+    }
     out.push("");
   }
   return out.join("\n").trim();
+}
+
+function splitTachDisplayLine(line, maxNums=15){
+  const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+  if(!m) return line ? [line] : [];
+
+  const nums = m[1].split(".").filter(Boolean);
+  if(nums.length <= maxNums) return [line];
+
+  const type = m[2];
+  const amount = m[3];
+  const out=[];
+  for(let i=0; i<nums.length; i+=maxNums){
+    out.push(nums.slice(i, i + maxNums).join(".") + type + amount + "n");
+  }
+  return out;
 }
 
 function scheduledDaisForRegion(region, hintDais=[]){

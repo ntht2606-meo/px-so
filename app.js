@@ -1,4 +1,4 @@
-// PX-SO v0.5.55 - rewrite from v0.5.52, today mapping and keo fix
+// PX-SO v0.5.56 - rewrite from v0.5.52, cache-bust today mapping and keo fix
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.55.appTitle",
+  appTitle: "pxso.v0.5.56.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",

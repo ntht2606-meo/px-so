@@ -1,4 +1,4 @@
-// PX-SO v0.5.49 - tree overlay panels, keeps v0.5.43 PX-SO logic
+// PX-SO v0.5.50 - tree overlay panels, keeps v0.5.43 PX-SO logic
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.49.appTitle",
+  appTitle: "pxso.v0.5.50.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -654,132 +654,211 @@ function numInXoa(num, xoaSet){
 }
 
 function buildTach(blocks){
-  const tach={}, khong={};
-  const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
-  const add=(obj,block,line)=>{
+  const tach = {}, khong = {};
+  const max2 = getNum("max2", 10);
+  const maxDa = getNum("maxDa", 1);
+
+  const add = (obj, block, line) => {
     if(!block || !line) return;
-    if(!obj[block]) obj[block]=[];
+    if(!obj[block]) obj[block] = [];
     obj[block].push(line);
   };
-  const mainDais=(row)=>{
-    if(row.region==="HN") return ["HN"];
-    const map=row.region==="MT" ? MT_MAP : MN_MAP;
-    const day=pickDayForGeneric(row.region,2,row.sourceDais||[]);
-    return (map[day]||[]).slice(0,2);
-  };
-  const isBao2Main=(row)=>{
-    const num=row.nums&&row.nums[0] ? String(row.nums[0]) : "";
-    return row.type==="b" && num.length===2 && mainDais(row).includes(row.block);
-  };
-  const isDaMainPair=(row)=>{
-    if(row.type!=="da") return false;
-    const m=mainDais(row);
-    return m.length>=2 && row.block===m[0]+m[1];
-  };
-  const isXoa=(row)=>{
-    const set=readXoaSet(row.region);
-    if(!set.size) return false;
-    return (row.nums||[]).some(n=>numInXoa(n,set));
+
+  // Dựng vùng theo miền trước, không dùng chung vùng MN / MT / HN.
+  // MN tối đa 4 đài = 10 vùng; MT tối đa 3 đài = 6 vùng; HN = 1 vùng.
+  const regionLimit = (region) => region === "MN" ? 4 : region === "MT" ? 3 : 1;
+  const regionFallback = (region) => {
+    if(region === "HN") return ["HN"];
+    const map = region === "MT" ? MT_MAP : MN_MAP;
+    const count = region === "MT" ? 3 : 4;
+    const day = pickDayForGeneric(region, count, []);
+    return (map[day] || []).slice(0, count);
   };
 
-  const rows=buildIntermediate(blocks);
-  const used=new Set();
-  const baoGroups=new Map();
+  const regionDais = {};
+  const pushDai = (region, dai) => {
+    if(!regionDais[region]) regionDais[region] = [];
+    if(!dai || regionDais[region].includes(dai)) return;
+    if(regionDais[region].length < regionLimit(region)) regionDais[region].push(dai);
+  };
 
-  // Xét Tin tách trước: lấy bao 2 số của Đài 1 và Đài 2.
-  rows.forEach((row,i)=>{
-    if(!isBao2Main(row)) return;
-    used.add(i);
-    if(isXoa(row)){
-      add(khong,row.block,row.line);
-      return;
+  for(const block of blocks || []){
+    const region = block.region || detectRegionByDais(block.dais || []);
+    if(region === "HN"){
+      pushDai("HN", "HN");
+    }else{
+      (block.dais || []).forEach(dai => pushDai(region, dai));
     }
-    const m=mainDais(row), num=String(row.nums[0]);
-    const key=row.region+"|"+m.join("+")+"|"+num;
-    if(!baoGroups.has(key)) baoGroups.set(key,{main:m,num,amount:{}});
-    const g=baoGroups.get(key);
-    g.amount[row.block]=(g.amount[row.block]||0)+row.n;
-  });
-
-  // Có cả Đài 1 + Đài 2: gom phần giao lên block ghép.
-  // Chỉ phần dư mới tách về đài riêng.
-  for(const g of baoGroups.values()){
-    const a=g.main[0], b=g.main[1];
-    let an=g.amount[a]||0, bn=g.amount[b]||0;
-    const common=Math.min(an,bn);
-
-    if(common>0){
-      const keep=Math.min(common,max2), overflow=common-keep;
-      if(keep>0) add(tach,a+b,makeLine(g.num,"b",keep));
-      if(overflow>0) add(khong,a+b,makeLine(g.num,"b",overflow));
-      an-=common; bn-=common;
-    }
-
-    const emitSingle=(dai,n)=>{
-      if(n<=0) return;
-      const keep=Math.min(n,max2), overflow=n-keep;
-      if(keep>0) add(tach,dai,makeLine(g.num,"b",keep));
-      if(overflow>0) add(khong,dai,makeLine(g.num,"b",overflow));
-    };
-    emitSingle(a,an);
-    emitSingle(b,bn);
   }
 
-  // Đá chéo đúng cặp Đài 1-2: đưa vào Tin tách và áp max đá.
-  rows.forEach((row,i)=>{
-    if(used.has(i) || !isDaMainPair(row)) return;
-    used.add(i);
+  ["MN","MT","HN"].forEach(region => {
+    if(!regionDais[region] || !regionDais[region].length){
+      regionDais[region] = regionFallback(region);
+    }
+    if(region !== "HN" && regionDais[region].length < 2){
+      regionFallback(region).forEach(dai => pushDai(region, dai));
+    }
+  });
+
+  const mainDaisForRegion = (region) => {
+    if(region === "HN") return ["HN"];
+    return (regionDais[region] || regionFallback(region)).slice(0, 2);
+  };
+
+  const isXoa = (row) => {
+    const set = readXoaSet(row.region);
+    if(!set.size) return false; // dãy xoá trống = chưa xoá gì
+    return (row.nums || []).some(n => numInXoa(n, set));
+  };
+
+
+  const outputPairForRow = (row) => {
+    const raw = String(row.raw || row.line || "");
+    const m = raw.match(/^([0-9.]+)(da|dv)[\d,.]+n$/i);
+    if(m && m[2].toLowerCase() === "da"){
+      const nums = parseNums(m[1]);
+      if(nums.length >= 2) return [nums[0], nums[1]];
+    }
+    return [row.nums[0], row.nums[1]];
+  };
+
+  const rows = buildIntermediate(blocks);
+  const used = new Set();
+
+  // 1) Bao 2 số: chỉ xét Đài 1 và Đài 2 theo vùng của miền.
+  // Có cùng số ở Đài 1 + Đài 2 thì gom lên Đài 1-2; dư mới giữ đài riêng.
+  const baoGroups = new Map();
+
+  rows.forEach((row, idx) => {
+    const num = row.nums && row.nums[0] ? String(row.nums[0]) : "";
+    const main = mainDaisForRegion(row.region);
+    const isMainBao2 = row.type === "b" && num.length === 2 && main.includes(row.block);
+    if(!isMainBao2) return;
+
+    used.add(idx);
+
     if(isXoa(row)){
-      add(khong,row.block,row.line);
+      add(khong, row.block, row.line);
       return;
     }
-    const p=sortPair(row.nums[0],row.nums[1]);
-    const keep=Math.min(row.n,maxDa), overflow=row.n-keep;
-    if(keep>0) add(tach,row.block,makeDaLine(p[0],p[1],keep));
-    if(overflow>0) add(khong,row.block,makeDaLine(p[0],p[1],overflow));
+
+    const key = row.region + "|" + main.join("+") + "|" + num;
+    if(!baoGroups.has(key)){
+      baoGroups.set(key, {region: row.region, main, num, amount: {}});
+    }
+    const group = baoGroups.get(key);
+    group.amount[row.block] = (group.amount[row.block] || 0) + row.n;
   });
 
-  // Phần còn lại vào Tin không tách.
-  rows.forEach((row,i)=>{
-    if(!used.has(i)) add(khong,row.block,row.line);
+  for(const group of baoGroups.values()){
+    const main = group.main;
+    const a = main[0], b = main[1];
+
+    if(group.region === "HN" || !b){
+      const n = group.amount[a] || 0;
+      const keep = Math.min(n, max2);
+      const over = n - keep;
+      if(keep > 0) add(tach, a, makeLine(group.num, "b", keep));
+      if(over > 0) add(khong, a, makeLine(group.num, "b", over));
+      continue;
+    }
+
+    let an = group.amount[a] || 0;
+    let bn = group.amount[b] || 0;
+    const common = Math.min(an, bn);
+
+    if(common > 0){
+      const keep = Math.min(common, max2);
+      const over = common - keep;
+      if(keep > 0) add(tach, a + b, makeLine(group.num, "b", keep));
+      if(over > 0) add(khong, a + b, makeLine(group.num, "b", over));
+      an -= common;
+      bn -= common;
+    }
+
+    const emitSingle = (dai, n) => {
+      if(n <= 0) return;
+      const keep = Math.min(n, max2);
+      const over = n - keep;
+      if(keep > 0) add(tach, dai, makeLine(group.num, "b", keep));
+      if(over > 0) add(khong, dai, makeLine(group.num, "b", over));
+    };
+    emitSingle(a, an);
+    emitSingle(b, bn);
+  }
+
+  // 2) Đá: MN/MT chỉ lấy đúng cặp Đài 1-2; HN lấy HN.
+  // Dãy xoá trống vẫn giữ theo max đá.
+  rows.forEach((row, idx) => {
+    if(used.has(idx) || row.type !== "da") return;
+    const main = mainDaisForRegion(row.region);
+    const pairBlock = row.region === "HN" ? "HN" : main[0] + main[1];
+    const isMainDa = row.region === "HN" ? row.block === "HN" : row.block === pairBlock;
+    if(!isMainDa) return;
+
+    used.add(idx);
+
+    if(isXoa(row)){
+      add(khong, row.block, row.line);
+      return;
+    }
+
+    const pair = outputPairForRow(row);
+    const keep = Math.min(row.n, maxDa);
+    const over = row.n - keep;
+    if(keep > 0) add(tach, pairBlock, makeDaLine(pair[0], pair[1], keep));
+    if(over > 0) add(khong, pairBlock, makeDaLine(pair[0], pair[1], over));
   });
 
-  // Gom Tin không tách theo block + loại + giá.
-  const compact=(obj)=>{
-    const out={};
-    const types=new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
-    for(const [block,lines] of Object.entries(obj)){
-      const groups=new Map(), order=[], other=[];
+  // 3) Phần còn lại là Không tách.
+  rows.forEach((row, idx) => {
+    if(!used.has(idx)) add(khong, row.block, row.line);
+  });
+
+  const compactByPrice = (obj) => {
+    const out = {};
+    const groupable = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
+
+    for(const [block, lines] of Object.entries(obj)){
+      const groups = new Map();
+      const order = [];
+      const other = [];
+
       for(const line of lines){
-        const m=String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\\d,.]+)n$/i);
-        if(!m || !types.has(m[2].toLowerCase())){
-          other.push(line); continue;
+        const m = String(line || "").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+        if(!m || !groupable.has(m[2].toLowerCase())){
+          other.push(line);
+          continue;
         }
-        const nums=m[1].split(".").filter(Boolean);
-        const type=m[2].toLowerCase(), n=parseAmount(m[3]);
-        const shape=Array.from(new Set(nums.map(x=>String(x).length))).sort().join(",");
-        const key=type+"|"+fmtN(n)+"|"+shape;
+
+        const nums = m[1].split(".").filter(Boolean);
+        const type = m[2].toLowerCase();
+        const n = parseAmount(m[3]);
+        const shape = Array.from(new Set(nums.map(num => String(num).length))).sort().join(",");
+        const key = type + "|" + fmtN(n) + "|" + shape;
+
         if(!groups.has(key)){
-          groups.set(key,{type,n,nums:[]});
+          groups.set(key, {type, n, nums: []});
           order.push(key);
         }
         groups.get(key).nums.push(...nums);
       }
-      const rendered=[];
+
+      const rendered = [];
       for(const key of order){
-        const g=groups.get(key);
-        const nums=sortNumsAsc(Array.from(new Set(g.nums)));
-        if(nums.length) rendered.push(makeLine(nums,g.type,g.n));
+        const g = groups.get(key);
+        const nums = sortNumsAsc(Array.from(new Set(g.nums)));
+        if(nums.length) rendered.push(makeLine(nums, g.type, g.n));
       }
       rendered.push(...other);
-      if(rendered.length) out[block]=rendered;
+      if(rendered.length) out[block] = rendered;
     }
     return out;
   };
 
   return {
-    tach:renderObj(tach),
-    khong:renderObj(compact(khong))
+    tach: renderObj(tach),
+    khong: renderObj(compactByPrice(khong))
   };
 }
 

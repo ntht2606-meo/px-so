@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.49</title>
-  <link rel="stylesheet" href="style.css?v=549" />
+  <title>PX-SO v0.5.50</title>
+  <link rel="stylesheet" href="style.css?v=550" />
 </head>
 <body>
   <div class="app">
@@ -61,7 +61,7 @@
         </div>
         <div class="panel-title-row">
           <span></span>
-          <button type="button" class="save-mini" onclick="copyText('copyFast')">Copy</button>
+          <button type="button" class="save-mini" onclick="copyText('copyFast')">In</button>
         </div>
         <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
@@ -74,11 +74,11 @@
         <div class="grid2 splitPair">
           <label>Số tách
             <textarea id="soTach" readonly></textarea>
-            <button type="button" onclick="copyText('soTach')">Copy số tách</button>
+            <button type="button" onclick="copyText('soTach')">In số tách</button>
           </label>
           <label>Số không tách
             <textarea id="soKhongTach" readonly></textarea>
-            <button type="button" onclick="copyText('soKhongTach')">Copy không tách</button>
+            <button type="button" onclick="copyText('soKhongTach')">In không tách</button>
           </label>
         </div>
       </section>
@@ -90,7 +90,7 @@
         </div>
         <div class="panel-title-row">
           <span></span>
-          <button type="button" class="save-mini" onclick="copyText('soTrung')">Copy</button>
+          <button type="button" class="save-mini" onclick="copyText('soTrung')">In</button>
         </div>
         <textarea id="soTrung" readonly></textarea>
       </section>
@@ -160,7 +160,7 @@
           <button type="button" class="back-mini" onclick="closeSettingsPanels()">← Trở về</button>
           <h2>Tin lưu trong ngày</h2>
           <div class="right-actions">
-            <button type="button" class="save-mini" onclick="copyText('savedInputToday')">Copy</button>
+            <button type="button" class="save-mini" onclick="copyText('savedInputToday')">In</button>
             <button type="button" class="save-mini gray-mini" onclick="clearDailyInputBackup()">Xóa</button>
           </div>
         </div>
@@ -236,7 +236,7 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.49 — split logic fixed</footer>
+    <footer>PX-SO v0.5.50 — split logic fixed</footer>
   </div>
 <script src="app.js?v=548"></script>
 </body>

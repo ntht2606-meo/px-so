@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.56</title>
-  <link rel="stylesheet" href="style.css?v=556" />
+  <title>PX-SO v0.5.57</title>
+  <link rel="stylesheet" href="style.css?v=557" />
 </head>
 <body>
   <div class="app">
@@ -52,6 +52,21 @@
           </div>
         </div>
         <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng tab MN / MT / HN được lưu riêng trong trình duyệt.</p>
+      </section>
+
+      <section class="panel region-data-panel">
+        <div class="panel-title-row">
+          <h2 id="regionDataTitle">Dữ liệu liên quan</h2>
+          <button type="button" class="save-mini" onclick="saveRegionRelatedData()">Lưu</button>
+        </div>
+        <div class="region-data-grid">
+          <label id="activeXoaLabel">Dãy xoá MN
+            <textarea id="activeXoaData" placeholder="Dãy xoá của miền đang chọn..."></textarea>
+          </label>
+          <label id="activeResultLabel">Kết quả MN
+            <textarea id="activeResultData" placeholder="Kết quả của miền đang chọn..."></textarea>
+          </label>
+        </div>
       </section>
 
       <section id="panel-copy" class="panel action-panel" hidden>
@@ -229,8 +244,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.56 — cache-bust, today mapping and keo fix</footer>
+    <footer>PX-SO v0.5.57 — region related inputs</footer>
   </div>
-<script src="app.js?v=556"></script>
+<script src="app.js?v=557"></script>
 </body>
 </html>

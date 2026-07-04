@@ -1,4 +1,4 @@
-// PX-SO v0.5.56 - rewrite from v0.5.52, cache-bust today mapping and keo fix
+// PX-SO v0.5.57 - region related inputs near workspace
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.56.appTitle",
+  appTitle: "pxso.v0.5.57.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -121,6 +121,46 @@ function loadWorkspaceInput(region){
   }catch(e){
     setVal("inputData", "");
   }
+}
+function regionUiName(region=activeWorkspace){
+  if(region === "MT") return "Miền trung";
+  if(region === "HN") return "Hà Nội";
+  return "Miền nam";
+}
+function regionShortName(region=activeWorkspace){
+  if(region === "MT") return "MT";
+  if(region === "HN") return "HN";
+  return "MN";
+}
+function regionRelatedIds(region=activeWorkspace){
+  if(region === "MT") return {xoa:"xoaMt", result:"kqMt"};
+  if(region === "HN") return {xoa:"xoaHn", result:"kqHn"};
+  return {xoa:"xoaMn", result:"kqMn"};
+}
+function syncRegionRelatedPanel(){
+  if(!["MN","MT","HN"].includes(activeWorkspace)) return;
+  const ids = regionRelatedIds(activeWorkspace);
+  const shortName = regionShortName(activeWorkspace);
+  const uiName = regionUiName(activeWorkspace);
+  const title = el("regionDataTitle");
+  const xoaLabel = el("activeXoaLabel");
+  const resultLabel = el("activeResultLabel");
+
+  if(title) title.textContent = "Dữ liệu liên quan " + uiName;
+  if(xoaLabel) xoaLabel.firstChild.textContent = "Dãy xoá " + shortName;
+  if(resultLabel) resultLabel.firstChild.textContent = "Kết quả " + shortName;
+  setVal("activeXoaData", val(ids.xoa));
+  setVal("activeResultData", val(ids.result));
+}
+function saveRegionRelatedData(){
+  if(!["MN","MT","HN"].includes(activeWorkspace)) return;
+  const ids = regionRelatedIds(activeWorkspace);
+  setVal(ids.xoa, val("activeXoaData"));
+  setVal(ids.result, val("activeResultData"));
+  writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
+  writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
+  parseResultsOnly();
+  runAll();
 }
 function setActiveTab(tab){
   document.querySelectorAll(".tab-btn").forEach(btn=>{
@@ -244,6 +284,7 @@ function selectWorkspace(tab){
   if(settingsScreen) settingsScreen.hidden = true;
   closeSettingsPanels();
   loadWorkspaceInput(tab);
+  syncRegionRelatedPanel();
   if(val("inputData").trim()) runAll();
   else clearRun();
 }
@@ -1543,10 +1584,14 @@ function flashSaveButton(btn){
 }
 function saveXoaData(){
   const ok = writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
-  if(ok) flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
+  if(ok){
+    syncRegionRelatedPanel();
+    flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
+  }
 }
 function clearXoaData(){
   ["xoaMn","xoaMt","xoaHn"].forEach(id=>setVal(id,""));
+  syncRegionRelatedPanel();
   try{
     localStorage.removeItem(STORAGE_KEYS.xoa);
   }catch(e){
@@ -1564,6 +1609,7 @@ function saveSettingsData(){
 function saveResultData(){
   const ok = writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
   if(ok){
+    syncRegionRelatedPanel();
     parseResultsOnly();
     runAll();
     flashSaveButton(document.querySelector(".result-input-panel-visible .save-mini"));
@@ -1571,6 +1617,7 @@ function saveResultData(){
 }
 function clearResultData(){
   ["kqMn","kqMt","kqHn","parsedResults","soTrung"].forEach(id=>setVal(id,""));
+  syncRegionRelatedPanel();
   try{
     localStorage.removeItem(STORAGE_KEYS.results);
   }catch(e){
@@ -1631,6 +1678,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   loadNewWorkData();
 
   const autoRun = debounce(runAll, 280);
+  const regionRelatedAutoSave = debounce(saveRegionRelatedData, 280);
   const newWorkAutoSave = debounce(saveNewWorkData, 280);
 
   const input = el("inputData");
@@ -1649,22 +1697,34 @@ window.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 
+  ["activeXoaData","activeResultData"].forEach(id=>{
+    const x=el(id);
+    if(x){
+      x.addEventListener("input", regionRelatedAutoSave);
+      x.addEventListener("paste", ()=>setTimeout(saveRegionRelatedData, 50));
+      x.addEventListener("change", saveRegionRelatedData);
+    }
+  });
+
   // Dán kết quả MN/MT/HN cũng tự cập nhật dò/trúng.
   ["kqMn","kqMt","kqHn"].forEach(id=>{
     const x=el(id);
     if(x){
       x.addEventListener("input", ()=>{
         parseResultsOnly();
+        syncRegionRelatedPanel();
         autoRun();
       });
       x.addEventListener("paste", ()=>{
         setTimeout(()=>{
           parseResultsOnly();
+          syncRegionRelatedPanel();
           runAll();
         },50);
       });
       x.addEventListener("change", ()=>{
         parseResultsOnly();
+        syncRegionRelatedPanel();
         runAll();
       });
     }
@@ -1717,5 +1777,6 @@ window.addEventListener("DOMContentLoaded", ()=>{
     if(el("settingsScreen")) el("settingsScreen").hidden = true;
     loadWorkspaceInput(savedTab);
   }
+  syncRegionRelatedPanel();
   if(val("inputData").trim()) runAll();
 });

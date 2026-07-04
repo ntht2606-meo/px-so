@@ -179,6 +179,17 @@ textarea{
 #inputData{
   min-height:290px;
 }
+.region-data-panel{
+  border-color:#999;
+}
+.region-data-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.region-data-grid textarea{
+  min-height:120px;
+}
 .input-workspace{
   display:grid;
   grid-template-columns:minmax(0,1fr) 112px;
@@ -372,7 +383,8 @@ footer{
   }
   .grid,
   .grid2,
-  .grid3{
+  .grid3,
+  .region-data-grid{
     grid-template-columns:1fr;
   }
   .settings{

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.57</title>
-  <link rel="stylesheet" href="style.css?v=557" />
+  <title>PX-SO v0.5.58</title>
+  <link rel="stylesheet" href="style.css?v=558" />
 </head>
 <body>
   <div class="app">
@@ -44,7 +44,7 @@
         <div class="input-workspace">
           <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
-            <button type="button" onclick="toggleActionPanel('copy')">Copy nhanh</button>
+            <button type="button" onclick="toggleActionPanel('copy')">In</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
             <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
             <button type="button" onclick="saveDayAndRun()">Lưu</button>
@@ -59,11 +59,15 @@
           <h2 id="regionDataTitle">Dữ liệu liên quan</h2>
           <button type="button" class="save-mini" onclick="saveRegionRelatedData()">Lưu</button>
         </div>
+        <div class="region-toggle-grid">
+          <button type="button" class="region-toggle-btn" onclick="toggleRegionDataBox('xoa')">Dãy xoá</button>
+          <button type="button" class="region-toggle-btn" onclick="toggleRegionDataBox('result')">Kết quả</button>
+        </div>
         <div class="region-data-grid">
-          <label id="activeXoaLabel">Dãy xoá MN
+          <label id="activeXoaLabel" class="region-data-box" hidden>Dãy xoá MN
             <textarea id="activeXoaData" placeholder="Dãy xoá của miền đang chọn..."></textarea>
           </label>
-          <label id="activeResultLabel">Kết quả MN
+          <label id="activeResultLabel" class="region-data-box" hidden>Kết quả MN
             <textarea id="activeResultData" placeholder="Kết quả của miền đang chọn..."></textarea>
           </label>
         </div>
@@ -71,9 +75,8 @@
 
       <section id="panel-copy" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <h2>Copy nhanh</h2>
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+          <h2>In</h2>
         </div>
         <div class="panel-title-row">
           <span></span>
@@ -84,9 +87,8 @@
 
       <section id="panel-split" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <h2>Số tách / Không tách</h2>
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+          <h2>Số tách / Không tách</h2>
         </div>
         <div class="grid2 splitPair">
           <label>Số tách
@@ -102,9 +104,8 @@
 
       <section id="panel-wins" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <h2>Số trúng</h2>
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+          <h2>Số trúng</h2>
         </div>
         <div class="panel-title-row">
           <span></span>
@@ -117,8 +118,6 @@
     <main id="settingsScreen" class="screen" hidden>
       <section class="panel settings-menu">
         <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Hệ số</button>
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('xoa')">Dãy xoá</button>
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('results')">Kết quả</button>
         <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Tin lưu trong ngày mn, mt, hn</button>
       </section>
 
@@ -140,31 +139,14 @@
         </div>
       </section>
 
-      <section id="settings-xoa" class="panel xoa-panel save-panel setting-panel" hidden>
-        <div class="panel-title-row">
-          <h2>Dãy xoá</h2>
-          <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
-          <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
-        </div>
-        <div class="grid3">
-          <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
-          <label>Dãy xoá MT<textarea id="xoaMt"></textarea></label>
-          <label>Dãy xoá HN<textarea id="xoaHn"></textarea></label>
-        </div>
-      </section>
-
-      <section id="settings-results" class="panel result-input-panel-visible save-panel setting-panel" hidden>
-        <div class="panel-title-row">
-          <h2>Vùng dán kết quả</h2>
-          <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
-          <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
-        </div>
-        <div class="grid3">
-          <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN..."></textarea></label>
-          <label>Kết quả MT<textarea id="kqMt" placeholder="Dán nguyên bảng kết quả MT..."></textarea></label>
-          <label>Kết quả HN<textarea id="kqHn" placeholder="Dán nguyên bảng kết quả HN..."></textarea></label>
-        </div>
-      </section>
+      <div class="hidden-data-fields" hidden>
+        <textarea id="xoaMn"></textarea>
+        <textarea id="xoaMt"></textarea>
+        <textarea id="xoaHn"></textarea>
+        <textarea id="kqMn"></textarea>
+        <textarea id="kqMt"></textarea>
+        <textarea id="kqHn"></textarea>
+      </div>
 
       <section id="settings-daily" class="panel daily-backup-panel setting-panel" hidden>
         <div class="panel-title-row">
@@ -244,8 +226,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.57 — region related inputs</footer>
+    <footer>PX-SO v0.5.58 — UI compact and DV grouping</footer>
   </div>
-<script src="app.js?v=557"></script>
+<script src="app.js?v=558"></script>
 </body>
 </html>

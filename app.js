@@ -1,6 +1,6 @@
-// PX-SO v0.5.57 - region related inputs near workspace
+// PX-SO v0.5.58 - compact UI and DV grouping
 // Input -> Bảng trung gian -> Tính tiền
-// Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
+// In: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"],
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.57.appTitle",
+  appTitle: "pxso.v0.5.58.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -151,6 +151,11 @@ function syncRegionRelatedPanel(){
   if(resultLabel) resultLabel.firstChild.textContent = "Kết quả " + shortName;
   setVal("activeXoaData", val(ids.xoa));
   setVal("activeResultData", val(ids.result));
+}
+function toggleRegionDataBox(kind){
+  const id = kind === "result" ? "activeResultLabel" : "activeXoaLabel";
+  const box = el(id);
+  if(box) box.hidden = !box.hidden;
 }
 function saveRegionRelatedData(){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
@@ -697,7 +702,7 @@ function renderObj(obj){
 }
 
 function splitTachDisplayLine(line, maxNums=15){
-  const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+  const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|b|xc)([\d,.]+)n$/i);
   if(!m) return line ? [line] : [];
 
   const nums = m[1].split(".").filter(Boolean);
@@ -1128,6 +1133,60 @@ function buildTach(blocks){
     fixed.forEach(item => setOut(item.block, item.line));
     return out;
   };
+  const compactDaPairsToDv=(obj)=>{
+    const out={};
+    const setOut=(block, line)=>{
+      if(!out[block]) out[block]=[];
+      out[block].push(line);
+    };
+    const parseDaLine=(line)=>{
+      const m = String(line||"").match(/^(\d+)\.(\d+)da([\d,.]+)n$/i);
+      if(!m) return null;
+      const pair = sortPair(m[1], m[2]);
+      return {a:pair[0], b:pair[1], n:parseAmount(m[3])};
+    };
+    const comboCount=(n)=>n*(n-1)/2;
+
+    for(const [block, lines] of Object.entries(obj)){
+      const groups={}, order=[], passthrough=[];
+      for(const line of lines){
+        const parsed = parseDaLine(line);
+        if(!parsed){
+          passthrough.push(line);
+          continue;
+        }
+        const key = fmtN(parsed.n);
+        if(!groups[key]){
+          groups[key]={n:parsed.n, pairMap:{}, pairOrder:[]};
+          order.push(key);
+        }
+        const pairKey = parsed.a + "." + parsed.b;
+        if(!groups[key].pairMap[pairKey]){
+          groups[key].pairOrder.push(pairKey);
+          groups[key].pairMap[pairKey]={a:parsed.a, b:parsed.b};
+        }else{
+          passthrough.push(line);
+        }
+      }
+
+      for(const key of order){
+        const group = groups[key];
+        const nums = sortNumsAsc(Array.from(new Set(Object.values(group.pairMap).flatMap(pair => [pair.a, pair.b]))));
+        const expected = comboCount(nums.length);
+        const hasFullDv = nums.length >= 3 && Object.keys(group.pairMap).length === expected;
+        if(hasFullDv){
+          setOut(block, makeLine(nums, "dv", group.n));
+        }else{
+          group.pairOrder.forEach(pairKey=>{
+            const pair = group.pairMap[pairKey];
+            setOut(block, makeDaLine(pair.a, pair.b, group.n));
+          });
+        }
+      }
+      passthrough.forEach(line => setOut(block, line));
+    }
+    return out;
+  };
 
   const rows = buildIntermediate(blocks);
   const usedBaoRows = new Set();
@@ -1224,7 +1283,7 @@ function buildTach(blocks){
   }
   return {
     tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),
-    khong:renderObj(compactKhongByPrice(compactKhongByDai(khong, rows)))
+    khong:renderObj(compactDaPairsToDv(compactKhongByPrice(compactKhongByDai(khong, rows))))
   };
 }
 

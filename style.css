@@ -1,4 +1,5 @@
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 body{
   margin:0;
   background:#f7f7f7;
@@ -118,7 +119,7 @@ button.gray,
   top:0;
   z-index:2;
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto auto;
+  grid-template-columns:auto minmax(0,1fr);
   gap:8px;
   align-items:center;
   background:#fff;
@@ -128,18 +129,14 @@ button.gray,
 }
 .overlay-title-row h2{
   margin:0;
+  text-align:left;
 }
-.back-mini,
-.x-mini{
+.back-mini{
   width:auto;
   margin:0;
   border-radius:9px;
   padding:8px 10px;
   font-size:15px;
-}
-.x-mini{
-  min-width:44px;
-  background:#666;
 }
 .work-panel{
   padding-bottom:8px;
@@ -181,6 +178,19 @@ textarea{
 }
 .region-data-panel{
   border-color:#999;
+}
+.region-toggle-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:8px;
+}
+.region-toggle-btn{
+  margin:0;
+  background:#fff;
+  color:#111;
+  border:2px solid #111;
+  min-height:54px;
 }
 .region-data-grid{
   display:grid;
@@ -384,7 +394,8 @@ footer{
   .grid,
   .grid2,
   .grid3,
-  .region-data-grid{
+  .region-data-grid,
+  .region-toggle-grid{
     grid-template-columns:1fr;
   }
   .settings{
@@ -404,11 +415,8 @@ footer{
   .action-panel{
     inset:6px;
   }
-  .overlay-title-row{
-    gap:6px;
-  }
-  .back-mini,
-  .x-mini{
+  .overlay-title-row{gap:6px}
+  .back-mini{
     font-size:13px;
     padding:8px 9px;
   }

@@ -1,4 +1,4 @@
-// PX-SO v0.5.49 - task 2 bao2 main-pair grouping, keeps v0.5.49 UI
+// PX-SO v0.5.50 - task 3 da main-pair max grouping, keeps v0.5.49 UI
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.49.appTitle",
+  appTitle: "pxso.v0.5.50.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -1026,17 +1026,43 @@ function buildTach(blocks){
     if(bN > 0) addSplitAmount(b, "b", group.num, bN, max2, true);
   }
 
+  // Nhiệm vụ 3: đá chéo Đài 1-2 phải gom theo đúng cặp số trước rồi mới áp max đá.
+  // Nếu xử lý từng dòng riêng, nhiều dòng cùng cặp có thể vượt maxDa mà vẫn lọt vào Tin tách.
+  const usedDaRows = new Set();
+  const daMainGroups = new Map();
+
   for(const [idx, row] of rows.entries()){
     if(usedBaoRows.has(idx)) continue;
+    if(!isDaKeepScope(row)) continue;
 
+    usedDaRows.add(idx);
+    const pair = sortPair(row.nums[0], row.nums[1]);
     const xoaSet = readXoaSet(row.region);
-    if(isDaKeepScope(row, xoaSet)){
-      const pair = sortPair(row.nums[0], row.nums[1]);
-      const keepDa = xoaSet.size===0 || !pair.some(n=>numInXoa(n, xoaSet));
-      addSplitAmount(row.block, "da", pair, row.n, maxDa, keepDa);
-    }else{
+
+    if(xoaSet.size > 0 && pair.some(n=>numInXoa(n, xoaSet))){
       add(khong, row.block, row.line);
+      continue;
     }
+
+    const key = [row.region, row.block, pair[0], pair[1]].join("|");
+    if(!daMainGroups.has(key)){
+      daMainGroups.set(key, {
+        block: row.block,
+        pair,
+        n: 0
+      });
+    }
+    const group = daMainGroups.get(key);
+    group.n += row.n;
+  }
+
+  for(const group of daMainGroups.values()){
+    addSplitAmount(group.block, "da", group.pair, group.n, maxDa, true);
+  }
+
+  for(const [idx, row] of rows.entries()){
+    if(usedBaoRows.has(idx) || usedDaRows.has(idx)) continue;
+    add(khong, row.block, row.line);
   }
   return {
     tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),

@@ -105,20 +105,26 @@ button.gray,
   padding:10px;
   margin:8px 0;
 }
-.action-panel{
+.action-panel,
+.setting-panel{
   position:fixed;
   inset:8px;
   z-index:50;
   margin:0;
   overflow:auto;
+  display:flex;
+  flex-direction:column;
   box-shadow:0 0 0 9999px rgba(0,0,0,.35);
+}
+.setting-panel{
+  z-index:55;
 }
 .overlay-title-row{
   position:sticky;
   top:0;
   z-index:2;
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto auto;
+  grid-template-columns:auto minmax(0,1fr) auto;
   gap:8px;
   align-items:center;
   background:#fff;
@@ -128,18 +134,20 @@ button.gray,
 }
 .overlay-title-row h2{
   margin:0;
+  text-align:center;
 }
-.back-mini,
-.x-mini{
+.back-mini{
   width:auto;
   margin:0;
   border-radius:9px;
   padding:8px 10px;
   font-size:15px;
 }
-.x-mini{
-  min-width:44px;
-  background:#666;
+.right-actions{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  justify-content:flex-end;
 }
 .work-panel{
   padding-bottom:8px;
@@ -395,8 +403,7 @@ footer{
   .overlay-title-row{
     gap:6px;
   }
-  .back-mini,
-  .x-mini{
+  .back-mini{
     font-size:13px;
     padding:8px 9px;
   }
@@ -429,5 +436,127 @@ footer{
   }
   .action-rail button{
     min-height:40px;
+  }
+}
+
+
+/* PX-SO v0.5.48 — tree/layer overlay tối ưu thao tác mobile */
+.action-panel textarea,
+.setting-panel textarea{
+  resize:none;
+}
+#panel-copy textarea,
+#panel-wins textarea{
+  flex:1 1 auto;
+  min-height:0 !important;
+  max-height:none !important;
+}
+#panel-copy .panel-title-row,
+#panel-wins .panel-title-row{
+  flex:0 0 auto;
+}
+#panel-split{
+  gap:0;
+}
+#panel-split .splitPair{
+  display:flex !important;
+  flex-direction:column;
+  gap:8px;
+  flex:1 1 auto;
+  min-height:0;
+}
+#panel-split .splitPair label{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 0;
+  min-height:0;
+}
+#panel-split .splitPair textarea{
+  flex:1 1 auto;
+  min-height:0 !important;
+  max-height:none !important;
+}
+#panel-split .splitPair button{
+  flex:0 0 auto;
+}
+.setting-panel .grid3{
+  flex:1 1 auto;
+  min-height:0;
+}
+.setting-panel .grid3 label{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+.setting-panel .grid3 textarea{
+  flex:1 1 auto;
+  min-height:0 !important;
+  max-height:none !important;
+}
+#settings-coef .settings{
+  flex:1 1 auto;
+  align-content:start;
+}
+#settings-daily textarea{
+  flex:1 1 auto;
+  min-height:0 !important;
+  max-height:none !important;
+}
+
+@media(max-width:760px){
+  .action-panel,
+  .setting-panel{
+    inset:6px;
+    max-height:calc(100dvh - 12px);
+  }
+  .overlay-title-row{
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:6px;
+    padding-bottom:6px;
+    margin-bottom:6px;
+  }
+  .overlay-title-row h2{
+    font-size:20px;
+    line-height:1.15;
+  }
+  .back-mini{
+    font-size:13px;
+    padding:8px 9px;
+  }
+  .right-actions{
+    gap:4px;
+  }
+  .save-mini{
+    min-width:54px;
+    font-size:13px;
+    padding:8px 8px;
+  }
+  #panel-split .splitPair{
+    gap:7px;
+  }
+  #panel-split .splitPair label{
+    font-size:16px;
+  }
+  #panel-split .splitPair textarea{
+    font-size:17px;
+  }
+  #panel-copy textarea,
+  #panel-wins textarea{
+    font-size:17px;
+  }
+  .setting-panel .grid3{
+    display:grid !important;
+    grid-template-columns:1fr;
+    gap:8px !important;
+  }
+  #settings-xoa .grid3 label,
+  #settings-results .grid3 label{
+    min-height:0;
+    flex:1 1 0;
+  }
+  #settings-xoa .grid3,
+  #settings-results .grid3{
+    display:flex !important;
+    flex-direction:column;
   }
 }

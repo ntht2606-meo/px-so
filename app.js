@@ -1,4 +1,4 @@
-// PX-SO v0.5.48 - task 1 region zone foundation, keeps v0.5.48 UI
+// PX-SO v0.5.49 - task 2 bao2 main-pair grouping, keeps v0.5.49 UI
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.48.appTitle",
+  appTitle: "pxso.v0.5.49.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -972,12 +972,65 @@ function buildTach(blocks){
   };
 
   const rows = buildIntermediate(blocks);
-  for(const row of rows){
+  const usedBaoRows = new Set();
+  const baoMainGroups = new Map();
+
+  // Nhiệm vụ 2: bao 2 số phải tách trung gian trước rồi mới gom giao Đài 1 / Đài 2.
+  // Nếu cùng số có ở Đài 1 và Đài 2, phần giao lên block Đài 1-2; phần dư mới ở đài riêng.
+  for(const [idx, row] of rows.entries()){
+    if(!isTachBaoRow(row)) continue;
+    usedBaoRows.add(idx);
+
+    const num = row.nums[0];
     const xoaSet = readXoaSet(row.region);
-    if(isTachBaoRow(row)){
-      const num = row.nums[0];
-      addSplitAmount(row.block, "b", num, row.n, max2, !numInXoa(num, xoaSet));
-    }else if(isDaKeepScope(row, xoaSet)){
+    if(numInXoa(num, xoaSet)){
+      add(khong, row.block, row.line);
+      continue;
+    }
+
+    const mainDais = scheduledMainDaisForRow(row);
+    if(mainDais.length < 2){
+      addSplitAmount(row.block, "b", num, row.n, max2, true);
+      continue;
+    }
+
+    const key = [row.region, mainDais[0], mainDais[1], num].join("|");
+    if(!baoMainGroups.has(key)){
+      baoMainGroups.set(key, {
+        region: row.region,
+        mainDais,
+        num,
+        amountByDai: {}
+      });
+    }
+
+    const group = baoMainGroups.get(key);
+    group.amountByDai[row.block] = (group.amountByDai[row.block] || 0) + row.n;
+  }
+
+  for(const group of baoMainGroups.values()){
+    const a = group.mainDais[0];
+    const b = group.mainDais[1];
+    const pairBlock = a + b;
+    let aN = group.amountByDai[a] || 0;
+    let bN = group.amountByDai[b] || 0;
+    const common = Math.min(aN, bN);
+
+    if(common > 0){
+      addSplitAmount(pairBlock, "b", group.num, common, max2, true);
+      aN = Math.round((aN - common) * 100) / 100;
+      bN = Math.round((bN - common) * 100) / 100;
+    }
+
+    if(aN > 0) addSplitAmount(a, "b", group.num, aN, max2, true);
+    if(bN > 0) addSplitAmount(b, "b", group.num, bN, max2, true);
+  }
+
+  for(const [idx, row] of rows.entries()){
+    if(usedBaoRows.has(idx)) continue;
+
+    const xoaSet = readXoaSet(row.region);
+    if(isDaKeepScope(row, xoaSet)){
       const pair = sortPair(row.nums[0], row.nums[1]);
       const keepDa = xoaSet.size===0 || !pair.some(n=>numInXoa(n, xoaSet));
       addSplitAmount(row.block, "da", pair, row.n, maxDa, keepDa);

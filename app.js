@@ -1566,13 +1566,99 @@ function calcWinners(rows, results){
 function buildWinReport(pack){
   const items = pack && pack.items ? pack.items : [];
   if(!items.length) return "";
-  const grouped = {};
+  const blockGroups = {};
+  const blockOrder = [];
+  const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
+  const parseWinLine = (line)=>{
+    const s = String(line || "");
+    const da = s.match(/^(\d+)\.(\d+)da([\d,.]+)n$/i);
+    if(da){
+      const pair = sortPair(da[1], da[2]);
+      return {kind:"da", nums:pair, type:"da", n:parseAmount(da[3])};
+    }
+
+    const normal = s.match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+    if(!normal) return null;
+    const nums = normal[1].split(".").filter(Boolean);
+    if(!nums.length) return null;
+    return {kind:"normal", nums, type:normal[2].toLowerCase(), n:parseAmount(normal[3])};
+  };
+  const addBlockGroup = (block)=>{
+    if(!blockGroups[block]){
+      blockGroups[block] = {normal:{}, normalOrder:[], da:{}, daOrder:[], other:[]};
+      blockOrder.push(block);
+    }
+    return blockGroups[block];
+  };
+
   for(const w of items){
-    if(!grouped[w.block]) grouped[w.block] = [];
-    grouped[w.block].push(`${w.line} ${money(w.amount)}`);
+    const group = addBlockGroup(w.block);
+    const parsed = parseWinLine(w.line);
+    if(!parsed){
+      group.other.push(`${w.line} ${money(w.amount)}`);
+      continue;
+    }
+
+    if(parsed.kind === "da"){
+      const key = parsed.nums.join(".");
+      if(!group.da[key]){
+        group.da[key] = {nums:parsed.nums, n:0, amount:0};
+        group.daOrder.push(key);
+      }
+      group.da[key].n += parsed.n;
+      group.da[key].amount += w.amount;
+      continue;
+    }
+
+    // Dòng thắng từ bảng trung gian thường đã là 1 số/dòng. Nếu gặp nhiều số
+    // trong cùng dòng thì chia tiền đều để vẫn gom được mà không lệch tổng.
+    const perNumAmount = w.amount / parsed.nums.length;
+    for(const num of parsed.nums){
+      const key = parsed.type + "|" + num;
+      if(!group.normal[key]){
+        group.normal[key] = {num, type:parsed.type, n:0, amount:0};
+        group.normalOrder.push(key);
+      }
+      group.normal[key].n += parsed.n;
+      group.normal[key].amount += perNumAmount;
+    }
   }
+
   const out = [];
-  for(const [block, lines] of Object.entries(grouped)){
+  for(const block of blockOrder){
+    const group = blockGroups[block];
+    const lines = [];
+    const byShape = {};
+    const shapeOrder = [];
+
+    for(const key of group.normalOrder){
+      const item = group.normal[key];
+      const shape = item.type + "|" + fmtN(item.n) + "|" + money(item.amount);
+      if(groupableTypes.has(item.type)){
+        if(!byShape[shape]){
+          byShape[shape] = {type:item.type, n:item.n, amount:0, nums:[]};
+          shapeOrder.push(shape);
+        }
+        byShape[shape].nums.push(item.num);
+        byShape[shape].amount += item.amount;
+      }else{
+        lines.push(`${makeLine(item.num, item.type, item.n)} ${money(item.amount)}`);
+      }
+    }
+
+    for(const shape of shapeOrder){
+      const item = byShape[shape];
+      const nums = sortNumsAsc(item.nums);
+      lines.push(`${makeLine(nums, item.type, item.n)} ${money(item.amount)}`);
+    }
+
+    for(const key of group.daOrder){
+      const item = group.da[key];
+      lines.push(`${makeDaLine(item.nums[0], item.nums[1], item.n)} ${money(item.amount)}`);
+    }
+
+    lines.push(...group.other);
+    if(!lines.length) continue;
     out.push(block);
     out.push(...lines);
     out.push("");

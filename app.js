@@ -1,4 +1,4 @@
-// PX-SO v0.5.51 - tree overlay panels, keeps v0.5.51 PX-SO logic
+// PX-SO v0.5.48 - task 1 region zone foundation, keeps v0.5.48 UI
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,11 +74,11 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.51.appTitle",
-  newWorkData: "pxso.v0.5.51.newWorkData",
-  activeWorkspace: "pxso.v0.5.51.activeWorkspace",
-  lastWorkRegion: "pxso.v0.5.51.lastWorkRegion",
-  workspacePrefix: "pxso.v0.5.51.workspace."
+  appTitle: "pxso.v0.5.48.appTitle",
+  newWorkData: "pxso.v0.5.45.newWorkData",
+  activeWorkspace: "pxso.v0.5.40.activeWorkspace",
+  lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
+  workspacePrefix: "pxso.v0.5.40.workspace."
 };
 const SETTINGS_IDS = ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"];
 let activeWorkspace = "MN";
@@ -318,6 +318,12 @@ function pickDayForGeneric(region, count, hintDais=[]){
   const today = dayIndex();
   const hints = (hintDais||[]).filter(Boolean);
   if(hints.length){
+    // Ưu tiên khớp toàn bộ đài trong block trước.
+    // Nếu chỉ dùng "có 1 đài trùng", 4 đài MN Tpho/Lan/Bphuoc/Hgiang
+    // có thể bị nhận nhầm sang ngày khác chỉ vì cùng có Tpho.
+    for(const [d, arr] of Object.entries(map)){
+      if(arr.length >= count && hints.every(h => arr.includes(h))) return parseInt(d,10);
+    }
     for(const [d, arr] of Object.entries(map)){
       if(arr.length >= count && hints.some(h => arr.includes(h))) return parseInt(d,10);
     }
@@ -641,6 +647,62 @@ function renderObj(obj){
   return out.join("\n").trim();
 }
 
+function scheduledDaisForRegion(region, hintDais=[]){
+  if(region === "HN") return ["HN"];
+  const map = region === "MT" ? MT_MAP : MN_MAP;
+  const maxCount = region === "MT" ? 3 : 4;
+  const hints = (hintDais || []).filter(Boolean);
+  const count = Math.min(maxCount, Math.max(1, hints.length || maxCount));
+  const day = pickDayForGeneric(region, count, hints);
+  const arr = map[day] || hints;
+  return arr.slice(0, maxCount);
+}
+
+function buildRegionZones(region, hintDais=[]){
+  const dais = scheduledDaisForRegion(region, hintDais);
+  if(region === "HN"){
+    return {
+      region,
+      dais:["HN"],
+      singles:[{key:"D1", block:"HN", dais:["HN"]}],
+      pairs:[],
+      all:[{key:"D1", block:"HN", dais:["HN"]}],
+      mainDais:["HN"],
+      mainPair:""
+    };
+  }
+
+  const singles = dais.map((dai, idx)=>({
+    key:"D" + (idx + 1),
+    block:dai,
+    dais:[dai]
+  }));
+  const pairs = [];
+  for(let i=0; i<dais.length; i++){
+    for(let j=i+1; j<dais.length; j++){
+      pairs.push({
+        key:"D" + (i + 1) + "-" + (j + 1),
+        block:dais[i] + dais[j],
+        dais:[dais[i], dais[j]]
+      });
+    }
+  }
+
+  return {
+    region,
+    dais,
+    singles,
+    pairs,
+    all:singles.concat(pairs),
+    mainDais:dais.slice(0,2),
+    mainPair:dais.length >= 2 ? dais[0] + dais[1] : ""
+  };
+}
+
+function regionZonesForRow(row){
+  return buildRegionZones(row.region || "MN", row.sourceDais || []);
+}
+
 function twoDigit(n){
   return String(n == null ? "" : n).replace(/\D/g, "").slice(-2).padStart(2, "0");
 }
@@ -654,140 +716,278 @@ function numInXoa(num, xoaSet){
 }
 
 function buildTach(blocks){
-  const tach = {}, khong = {};
-  const max2 = getNum("max2", 10);
-  const maxDa = getNum("maxDa", 1);
-
-  const add = (obj, block, line) => {
+  const tach={}, khong={};
+  const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
+  const add=(obj, block, line)=>{
     if(!block || !line) return;
-    if(!obj[block]) obj[block] = [];
+    if(!obj[block]) obj[block]=[];
     obj[block].push(line);
   };
-
-  const getZoneDais = (row) => {
-    if(row.region === "HN") return ["HN"];
-    const map = row.region === "MT" ? MT_MAP : MN_MAP;
-    const count = row.region === "MT" ? 3 : 4;
-    const day = pickDayForGeneric(row.region, count, row.sourceDais || []);
-    return (map[day] || row.sourceDais || []).slice(0, count);
+  const rebuildParts=(parts)=>{
+    if(!parts.length) return "";
+    let s = makeLine(parts[0].nums, parts[0].type, parts[0].n);
+    for(let i=1;i<parts.length;i++){
+      s += "." + parts[i].type + fmtN(parts[i].n) + "n";
+    }
+    return s;
   };
-
-  const getMainDais = (row) => getZoneDais(row).slice(0, 2);
-
-  const isMainBao2 = (row) => {
-    const num = row.nums && row.nums[0] ? String(row.nums[0]) : "";
-    return row.type === "b" &&
-      num.length === 2 &&
-      getMainDais(row).includes(row.block);
+  const addSplitAmount=(blockName, type, nums, n, maxN, isTach)=>{
+    const keepN = Math.min(n, maxN);
+    const overflowN = n - keepN;
+    if(isTach && keepN > 0) add(tach, blockName, type==="da" ? makeDaLine(nums[0],nums[1],keepN) : makeLine(nums, type, keepN));
+    if(isTach && overflowN > 0) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],overflowN) : makeLine(nums, type, overflowN));
+    if(!isTach) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],n) : makeLine(nums, type, n));
   };
+  const scheduledMainDaisForRow=(row)=>{
+    if(!row || row.region==="HN") return ["HN"];
+    return regionZonesForRow(row).mainDais;
+  };
+  // Vùng xanh để giữ tin tách:
+  // bao 2 số chỉ lấy Đài 1 / Đài 2; đá chéo chỉ lấy Đài 1-2.
+  const isTachBaoRow=(row)=>{
+    const num = row.nums && row.nums[0] ? row.nums[0] : "";
+    return row.type==="b" && String(num).length===2 && scheduledMainDaisForRow(row).includes(row.block);
+  };
+  const isTachDaRow=(row)=>{
+    if(row.type!=="da") return false;
+    const mainDais = scheduledMainDaisForRow(row);
+    if(mainDais.length < 2) return "";
+    return row.block === mainDais[0] + mainDais[1];
+  };
+  const isDaKeepScope=(row, xoaSet)=>{
+    if(row.type!=="da") return false;
 
-  const isXoa = (row) => {
-    const set = readXoaSet(row.region);
-    if(!set.size) return false;
-    return (row.nums || []).some(n => numInXoa(n, set));
+    // HN chỉ có một vùng đài, nên đá HN thuộc phạm vi giữ.
+    if(row.region==="HN") return true;
+
+    // MN/MT luôn phải qua ô điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
+    // Dãy xoá trống chỉ có nghĩa là chưa lọc số, không mở rộng sang cặp phụ.
+    return isTachDaRow(row);
+  };
+  const parseBaoLine=(line)=>{
+    const m = String(line||"").match(/^(\d{2})b([\d,.]+)n$/i);
+    if(!m) return null;
+    return {num:m[1], n:parseAmount(m[2])};
+  };
+  const addAmount=(obj, block, num, n)=>{
+    if(!obj[block]) obj[block]={};
+    obj[block][num]=(obj[block][num]||0)+n;
+  };
+  const getMainPairs=(rows)=>{
+    const seen=new Set(), out=[];
+    for(const row of rows){
+      const main = scheduledMainDaisForRow(row);
+      if(main.length < 2) continue;
+      const key = row.region + ":" + main[0] + ":" + main[1];
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push({region:row.region, a:main[0], b:main[1], pair:main[0]+main[1]});
+    }
+    return out;
+  };
+  const compactMainPairBao=(obj, rows, overflowObj, maxN)=>{
+    const bao={}, other={};
+    for(const [block, lines] of Object.entries(obj)){
+      for(const line of lines){
+        const parsed = parseBaoLine(line);
+        if(parsed) addAmount(bao, block, parsed.num, parsed.n);
+        else add(other, block, line);
+      }
+    }
+
+    const ordered={};
+    const setOut=(block, line)=>{
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(line);
+    };
+
+    for(const info of getMainPairs(rows)){
+      const aMap = bao[info.a] || {};
+      const bMap = bao[info.b] || {};
+      const nums = sortNumsAsc(Array.from(new Set(Object.keys(aMap).concat(Object.keys(bMap)))));
+      for(const num of nums){
+        const common = Math.min(aMap[num] || 0, bMap[num] || 0);
+        if(common > 0){
+          const keep = Math.min(common, maxN);
+          const overflow = common - keep;
+          if(keep > 0) setOut(info.pair, makeLine(num, "b", keep));
+          if(overflow > 0) add(overflowObj, info.pair, makeLine(num, "b", overflow));
+          aMap[num] -= common;
+          bMap[num] -= common;
+        }
+      }
+    }
+
+    for(const [block, numMap] of Object.entries(bao)){
+      for(const num of sortNumsAsc(Object.keys(numMap))){
+        const n = numMap[num] || 0;
+        if(n > 0){
+          const keep = Math.min(n, maxN);
+          const overflow = n - keep;
+          if(keep > 0) setOut(block, makeLine(num, "b", keep));
+          if(overflow > 0) add(overflowObj, block, makeLine(num, "b", overflow));
+        }
+      }
+    }
+    for(const [block, lines] of Object.entries(other)){
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(...lines);
+    }
+    return ordered;
+  };
+  const compactKhongByPrice=(obj)=>{
+    const ordered={};
+    const setOut=(block, line)=>{
+      if(!ordered[block]) ordered[block]=[];
+      ordered[block].push(line);
+    };
+    const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
+    const parseGroupableLine=(line)=>{
+      const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
+      if(!m) return null;
+      const type = m[2].toLowerCase();
+      if(!groupableTypes.has(type)) return null;
+      return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
+    };
+
+    for(const [block, lines] of Object.entries(obj)){
+      const groups={}, order=[], other=[];
+      for(const line of lines){
+        const parsed = parseGroupableLine(line);
+        if(parsed){
+          const shape = Array.from(new Set(parsed.nums.map(num => String(num).length))).sort().join(",");
+          const key = parsed.type + "|" + fmtN(parsed.n) + "|" + shape;
+          if(!groups[key]){
+            groups[key]={type:parsed.type, n:parsed.n, numMap:{}};
+            order.push(key);
+          }
+          parsed.nums.forEach(num=>{
+            groups[key].numMap[num] = (groups[key].numMap[num] || 0) + parsed.n;
+          });
+        }else{
+          other.push(line);
+        }
+      }
+
+      for(const key of order){
+        const g = groups[key];
+        const byAmount = {};
+        for(const [num, amount] of Object.entries(g.numMap)){
+          const amountKey = fmtN(amount);
+          if(!byAmount[amountKey]) byAmount[amountKey] = [];
+          byAmount[amountKey].push(num);
+        }
+        for(const amountKey of Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b))){
+          const nums = sortNumsAsc(byAmount[amountKey]);
+          if(nums.length) setOut(block, makeLine(nums, g.type, parseAmount(amountKey)));
+        }
+      }
+      other.forEach(line => setOut(block, line));
+    }
+    return ordered;
+  };
+  const compactKhongBao2ByDai=(obj, rows)=>{
+    const rank={};
+    let rankIndex=0;
+    for(const row of rows){
+      (row.sourceDais || []).forEach(dai=>{
+        if(rank[dai] == null) rank[dai] = rankIndex++;
+      });
+    }
+    KNOWN_DAI.forEach(dai=>{
+      if(rank[dai] == null) rank[dai] = rankIndex++;
+    });
+    const sortDais=(dais)=>dais.slice().sort((a,b)=>{
+      const ra = rank[a] == null ? 9999 : rank[a];
+      const rb = rank[b] == null ? 9999 : rank[b];
+      if(ra !== rb) return ra - rb;
+      return String(a).localeCompare(String(b));
+    });
+    const singleKnownDai=(block)=>{
+      const dais = getDaisFromName(block).filter(d => d && d !== "HN");
+      return dais.length === 1 ? dais[0] : "";
+    };
+    const parseBao2Line=(line)=>{
+      const m = String(line || "").match(/^([0-9.]+)b([\d,.]+)n$/i);
+      if(!m) return null;
+      const nums = m[1].split(".").filter(Boolean);
+      if(!nums.length || !nums.every(num => String(num).length === 2)) return null;
+      return {nums, n:parseAmount(m[2])};
+    };
+
+    const groups={}, order=[], passthrough=[];
+    const addGroup=(region, num, dai, n)=>{
+      const key = region + "|" + num;
+      if(!groups[key]){
+        groups[key]={region, num, amounts:{}};
+        order.push(key);
+      }
+      groups[key].amounts[dai] = (groups[key].amounts[dai] || 0) + n;
+    };
+
+    for(const [block, lines] of Object.entries(obj)){
+      const dai = singleKnownDai(block);
+      for(const line of lines){
+        const parsed = parseBao2Line(line);
+        if(!dai || !parsed){
+          passthrough.push({block, line});
+          continue;
+        }
+        const region = detectRegionByDais([dai]);
+        if(region === "HN"){
+          passthrough.push({block, line});
+          continue;
+        }
+        parsed.nums.forEach(num => addGroup(region, num, dai, parsed.n));
+      }
+    }
+
+    const out={};
+    const setOut=(block, line)=>{
+      if(!out[block]) out[block]=[];
+      out[block].push(line);
+    };
+
+    for(const key of order){
+      const group = groups[key];
+      const amounts = {...group.amounts};
+      while(true){
+        const dais = Object.keys(amounts).filter(dai => amounts[dai] > 0);
+        if(dais.length < 2) break;
+        const common = Math.min(...dais.map(dai => amounts[dai]));
+        const block = sortDais(dais).join("");
+        setOut(block, makeLine(group.num, "b", common));
+        dais.forEach(dai=>{
+          amounts[dai] = Math.round((amounts[dai] - common) * 100) / 100;
+        });
+      }
+      Object.keys(amounts)
+        .filter(dai => amounts[dai] > 0)
+        .sort((a,b)=>(rank[a] || 9999) - (rank[b] || 9999))
+        .forEach(dai => setOut(dai, makeLine(group.num, "b", amounts[dai])));
+    }
+
+    passthrough.forEach(item => setOut(item.block, item.line));
+    return out;
   };
 
   const rows = buildIntermediate(blocks);
-  const used = new Set();
-
-  /*
-    LỖI 1 FIX — Bao 2 số giao Đài 1 / Đài 2:
-    - Không xuất bao 2 số ngay sau khi thấy thuộc Đài 1 hoặc Đài 2.
-    - Gom trung gian theo: region + Đài 1-2 + số.
-    - Nếu cùng số có ở cả Đài 1 và Đài 2 => kéo phần giao lên block Đài 1-2.
-    - Phần dư mới giữ lại ở đài riêng.
-    - Dãy xoá trống => không xoá gì, vẫn áp max bao 10n.
-  */
-  const baoGroups = new Map();
-
-  rows.forEach((row, idx) => {
-    if(!isMainBao2(row)) return;
-    used.add(idx);
-
-    if(isXoa(row)){
+  for(const row of rows){
+    const xoaSet = readXoaSet(row.region);
+    if(isTachBaoRow(row)){
+      const num = row.nums[0];
+      addSplitAmount(row.block, "b", num, row.n, max2, !numInXoa(num, xoaSet));
+    }else if(isDaKeepScope(row, xoaSet)){
+      const pair = sortPair(row.nums[0], row.nums[1]);
+      const keepDa = xoaSet.size===0 || !pair.some(n=>numInXoa(n, xoaSet));
+      addSplitAmount(row.block, "da", pair, row.n, maxDa, keepDa);
+    }else{
       add(khong, row.block, row.line);
-      return;
     }
-
-    const main = getMainDais(row);
-    if(main.length < 2){
-      add(tach, row.block, row.line);
-      return;
-    }
-
-    const num = String(row.nums[0]);
-    const key = [row.region, main[0], main[1], num].join("|");
-
-    if(!baoGroups.has(key)){
-      baoGroups.set(key, {
-        region: row.region,
-        main,
-        num,
-        amount: {}
-      });
-    }
-
-    const group = baoGroups.get(key);
-    group.amount[row.block] = (group.amount[row.block] || 0) + row.n;
-  });
-
-  for(const group of baoGroups.values()){
-    const a = group.main[0];
-    const b = group.main[1];
-    let aN = group.amount[a] || 0;
-    let bN = group.amount[b] || 0;
-
-    const common = Math.min(aN, bN);
-
-    if(common > 0){
-      const keep = Math.min(common, max2);
-      const overflow = common - keep;
-
-      if(keep > 0) add(tach, a + b, makeLine(group.num, "b", keep));
-      if(overflow > 0) add(khong, a + b, makeLine(group.num, "b", overflow));
-
-      aN = Math.round((aN - common) * 100) / 100;
-      bN = Math.round((bN - common) * 100) / 100;
-    }
-
-    const emitRemain = (dai, n) => {
-      if(n <= 0) return;
-      const keep = Math.min(n, max2);
-      const overflow = n - keep;
-
-      if(keep > 0) add(tach, dai, makeLine(group.num, "b", keep));
-      if(overflow > 0) add(khong, dai, makeLine(group.num, "b", overflow));
-    };
-
-    emitRemain(a, aN);
-    emitRemain(b, bN);
   }
-
-  // Những dòng còn lại giữ nguyên theo logic hiện tại, chưa sửa trong bản lỗi 1.
-  rows.forEach((row, idx) => {
-    if(used.has(idx)) return;
-
-    if(row.type === "da"){
-      const main = getMainDais(row);
-      const mainPair = main.length >= 2 ? main[0] + main[1] : "";
-      if(mainPair && row.block === mainPair && !isXoa(row)){
-        const pair = sortPair(row.nums[0], row.nums[1]);
-        const keep = Math.min(row.n, maxDa);
-        const overflow = row.n - keep;
-        if(keep > 0) add(tach, row.block, makeDaLine(pair[0], pair[1], keep));
-        if(overflow > 0) add(khong, row.block, makeDaLine(pair[0], pair[1], overflow));
-      }else{
-        add(khong, row.block, row.line);
-      }
-      return;
-    }
-
-    add(khong, row.block, row.line);
-  });
-
   return {
-    tach: renderObj(tach),
-    khong: renderObj(khong)
+    tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),
+    khong:renderObj(compactKhongByPrice(compactKhongBao2ByDai(khong, rows)))
   };
 }
 

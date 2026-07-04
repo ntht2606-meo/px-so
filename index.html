@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.51</title>
-  <link rel="stylesheet" href="style.css?v=551" />
+  <title>PX-SO v0.5.48</title>
+  <link rel="stylesheet" href="style.css?v=548" />
 </head>
 <body>
   <div class="app">
@@ -44,7 +44,7 @@
         <div class="input-workspace">
           <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
-            <button type="button" onclick="toggleActionPanel('copy')">In</button>
+            <button type="button" onclick="toggleActionPanel('copy')">Copy nhanh</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
             <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
             <button type="button" onclick="saveDayAndRun()">Lưu</button>
@@ -56,41 +56,44 @@
 
       <section id="panel-copy" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeActionPanels()">← Trở về</button>
-          <h2>In</h2>
+          <h2>Copy nhanh</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
         </div>
         <div class="panel-title-row">
           <span></span>
-          <button type="button" class="save-mini" onclick="copyText('copyFast')">In</button>
+          <button type="button" class="save-mini" onclick="copyText('copyFast')">Copy</button>
         </div>
         <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
 
       <section id="panel-split" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeActionPanels()">← Trở về</button>
           <h2>Số tách / Không tách</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
         </div>
         <div class="grid2 splitPair">
           <label>Số tách
             <textarea id="soTach" readonly></textarea>
-            <button type="button" onclick="copyText('soTach')">In số tách</button>
+            <button type="button" onclick="copyText('soTach')">Copy số tách</button>
           </label>
           <label>Số không tách
             <textarea id="soKhongTach" readonly></textarea>
-            <button type="button" onclick="copyText('soKhongTach')">In không tách</button>
+            <button type="button" onclick="copyText('soKhongTach')">Copy không tách</button>
           </label>
         </div>
       </section>
 
       <section id="panel-wins" class="panel action-panel" hidden>
         <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeActionPanels()">← Trở về</button>
           <h2>Số trúng</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
         </div>
         <div class="panel-title-row">
           <span></span>
-          <button type="button" class="save-mini" onclick="copyText('soTrung')">In</button>
+          <button type="button" class="save-mini" onclick="copyText('soTrung')">Copy</button>
         </div>
         <textarea id="soTrung" readonly></textarea>
       </section>
@@ -105,8 +108,7 @@
       </section>
 
       <section id="settings-coef" class="panel settings-panel save-panel setting-panel" hidden>
-        <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeSettingsPanels()">← Trở về</button>
+        <div class="panel-title-row">
           <h2>Hệ số / cài đặt</h2>
           <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
         </div>
@@ -124,13 +126,10 @@
       </section>
 
       <section id="settings-xoa" class="panel xoa-panel save-panel setting-panel" hidden>
-        <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeSettingsPanels()">← Trở về</button>
+        <div class="panel-title-row">
           <h2>Dãy xoá</h2>
-          <div class="right-actions">
-            <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
-            <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
-          </div>
+          <button type="button" class="save-mini" onclick="saveXoaData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearXoaData()">Xóa</button>
         </div>
         <div class="grid3">
           <label>Dãy xoá MN<textarea id="xoaMn"></textarea></label>
@@ -140,13 +139,10 @@
       </section>
 
       <section id="settings-results" class="panel result-input-panel-visible save-panel setting-panel" hidden>
-        <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeSettingsPanels()">← Trở về</button>
+        <div class="panel-title-row">
           <h2>Vùng dán kết quả</h2>
-          <div class="right-actions">
-            <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
-            <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
-          </div>
+          <button type="button" class="save-mini" onclick="saveResultData()">Lưu</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearResultData()">Xóa</button>
         </div>
         <div class="grid3">
           <label>Kết quả MN<textarea id="kqMn" placeholder="Dán nguyên bảng kết quả MN..."></textarea></label>
@@ -156,13 +152,10 @@
       </section>
 
       <section id="settings-daily" class="panel daily-backup-panel setting-panel" hidden>
-        <div class="overlay-title-row">
-          <button type="button" class="back-mini" onclick="closeSettingsPanels()">← Trở về</button>
+        <div class="panel-title-row">
           <h2>Tin lưu trong ngày</h2>
-          <div class="right-actions">
-            <button type="button" class="save-mini" onclick="copyText('savedInputToday')">In</button>
-            <button type="button" class="save-mini gray-mini" onclick="clearDailyInputBackup()">Xóa</button>
-          </div>
+          <button type="button" class="save-mini" onclick="copyText('savedInputToday')">Copy</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearDailyInputBackup()">Xóa</button>
         </div>
         <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU hôm nay..."></textarea>
       </section>
@@ -236,7 +229,7 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.51 — split logic fixed</footer>
+    <footer>PX-SO v0.5.48 — task 1 region zones</footer>
   </div>
 <script src="app.js?v=548"></script>
 </body>

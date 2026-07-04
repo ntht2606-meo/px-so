@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.48</title>
-  <link rel="stylesheet" href="style.css?v=548" />
+  <title>PX-SO v0.5.49</title>
+  <link rel="stylesheet" href="style.css?v=549" />
 </head>
 <body>
   <div class="app">
@@ -44,7 +44,7 @@
         <div class="input-workspace">
           <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
-            <button type="button" onclick="toggleActionPanel('copy')">Copy nhanh</button>
+            <button type="button" onclick="toggleActionPanel('copy')">In</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
             <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
             <button type="button" onclick="saveDayAndRun()">Lưu</button>
@@ -57,7 +57,7 @@
       <section id="panel-copy" class="panel action-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">← Trở về</button>
-          <h2>Copy nhanh</h2>
+          <h2>In</h2>
         </div>
         <div class="panel-title-row">
           <span></span>
@@ -236,7 +236,7 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.48 — tree overlay panels</footer>
+    <footer>PX-SO v0.5.49 — split logic fixed</footer>
   </div>
 <script src="app.js?v=548"></script>
 </body>

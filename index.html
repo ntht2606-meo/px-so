@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>PX-SO v0.5.46</title>
-  <link rel="stylesheet" href="style.css?v=546" />
+  <title>PX-SO v0.5.47</title>
+  <link rel="stylesheet" href="style.css?v=547" />
 </head>
 <body>
   <div class="app">
@@ -55,15 +55,24 @@
       </section>
 
       <section id="panel-copy" class="panel action-panel" hidden>
-        <div class="panel-title-row">
+        <div class="overlay-title-row">
           <h2>Copy nhanh</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+        </div>
+        <div class="panel-title-row">
+          <span></span>
           <button type="button" class="save-mini" onclick="copyText('copyFast')">Copy</button>
         </div>
         <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
 
       <section id="panel-split" class="panel action-panel" hidden>
-        <h2>Số tách / Không tách</h2>
+        <div class="overlay-title-row">
+          <h2>Số tách / Không tách</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+        </div>
         <div class="grid2 splitPair">
           <label>Số tách
             <textarea id="soTach" readonly></textarea>
@@ -77,8 +86,13 @@
       </section>
 
       <section id="panel-wins" class="panel action-panel" hidden>
-        <div class="panel-title-row">
+        <div class="overlay-title-row">
           <h2>Số trúng</h2>
+          <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
+          <button type="button" class="x-mini" onclick="closeActionPanels()">×</button>
+        </div>
+        <div class="panel-title-row">
+          <span></span>
           <button type="button" class="save-mini" onclick="copyText('soTrung')">Copy</button>
         </div>
         <textarea id="soTrung" readonly></textarea>
@@ -215,8 +229,8 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>PX-SO v0.5.46 — editable header</footer>
+    <footer>PX-SO v0.5.47 — overlay panels</footer>
   </div>
-<script src="app.js?v=546"></script>
+<script src="app.js?v=547"></script>
 </body>
 </html>

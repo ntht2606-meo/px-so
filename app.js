@@ -1,4 +1,4 @@
-// PX-SO v0.5.46 - editable header, keeps v0.5.43 PX-SO logic
+// PX-SO v0.5.47 - overlay action panels, keeps v0.5.43 PX-SO logic
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.46.appTitle",
+  appTitle: "pxso.v0.5.47.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",

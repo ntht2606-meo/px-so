@@ -105,6 +105,42 @@ button.gray,
   padding:10px;
   margin:8px 0;
 }
+.action-panel{
+  position:fixed;
+  inset:8px;
+  z-index:50;
+  margin:0;
+  overflow:auto;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.35);
+}
+.overlay-title-row{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  gap:8px;
+  align-items:center;
+  background:#fff;
+  border-bottom:2px solid #111;
+  padding:0 0 8px;
+  margin-bottom:8px;
+}
+.overlay-title-row h2{
+  margin:0;
+}
+.back-mini,
+.x-mini{
+  width:auto;
+  margin:0;
+  border-radius:9px;
+  padding:8px 10px;
+  font-size:15px;
+}
+.x-mini{
+  min-width:44px;
+  background:#666;
+}
 .work-panel{
   padding-bottom:8px;
 }
@@ -352,6 +388,17 @@ footer{
   .panel-title-row{
     grid-template-columns:minmax(0,1fr) auto auto;
     gap:6px;
+  }
+  .action-panel{
+    inset:6px;
+  }
+  .overlay-title-row{
+    gap:6px;
+  }
+  .back-mini,
+  .x-mini{
+    font-size:13px;
+    padding:8px 9px;
   }
   .save-mini{
     min-width:58px;

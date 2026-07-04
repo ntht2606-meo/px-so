@@ -1,4 +1,4 @@
-// PX-SO v0.5.52 - keo expansion and 15-number display for tach outputs
+// PX-SO v0.5.54 - today mapping for generic headers and keo fix
 // Input -> Bảng trung gian -> Tính tiền
 // Copy nhanh: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
 
@@ -74,7 +74,7 @@ const STORAGE_KEYS = {
   xoa: "pxso.v0.saved.xoa",
   results: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
-  appTitle: "pxso.v0.5.52.appTitle",
+  appTitle: "pxso.v0.5.54.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
   activeWorkspace: "pxso.v0.5.40.activeWorkspace",
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
@@ -283,6 +283,7 @@ function cleanName(s){
 function normalizeLine(s){
   return (s||"").trim()
     .replace(/\s+/g,"")
+    .replace(/kéo/gi,"keo")
     .replace(/đá/gi,"da")
     .replace(/đầu/gi,"dau")
     .replace(/đuôi|đui/gi,"duoi")
@@ -316,20 +317,10 @@ function isHeader(line){
 function pickDayForGeneric(region, count, hintDais=[]){
   const map = region==="MT" ? MT_MAP : MN_MAP;
   const today = dayIndex();
-  const hints = (hintDais||[]).filter(Boolean);
-  if(hints.length){
-    // Ưu tiên khớp toàn bộ đài trong block trước.
-    // Nếu chỉ dùng "có 1 đài trùng", 4 đài MN Tpho/Lan/Bphuoc/Hgiang
-    // có thể bị nhận nhầm sang ngày khác chỉ vì cùng có Tpho.
-    for(const [d, arr] of Object.entries(map)){
-      if(arr.length >= count && hints.every(h => arr.includes(h))) return parseInt(d,10);
-    }
-    for(const [d, arr] of Object.entries(map)){
-      if(arr.length >= count && hints.some(h => arr.includes(h))) return parseInt(d,10);
-    }
-  }
-  return today;
+  if(map[today] && map[today].length >= count) return today;
+  return Object.keys(map).map(Number).find(day => map[day] && map[day].length >= count) ?? today;
 }
+
 function resolveHeader(raw, hintDais=[]){
   const l = normalizeLine(raw).toLowerCase();
   let dais;

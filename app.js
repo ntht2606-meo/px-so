@@ -830,361 +830,60 @@ function numInXoa(num, xoaSet){
 }
 
 function buildTach(blocks){
-  const tach={}, khong={};
   const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
-  const add=(obj, block, line)=>{
-    if(!block || !line) return;
-    if(!obj[block]) obj[block]=[];
-    obj[block].push(line);
+  const tach=[], khong=[];
+  const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dau","duoi"];
+  const typeRank = {};
+  typeOrder.forEach((type, idx)=>{ typeRank[type] = idx; });
+
+  const rowNumKey = row => (row.nums || []).join(".");
+  const cloneRow = (row, n, block=row.block)=>({
+    ...row,
+    block,
+    n,
+    nums:(row.nums || []).slice()
+  });
+  const pushRow = (list, row, n=row.n, block=row.block)=>{
+    if(!row || !block || !(n > 0)) return;
+    list.push(cloneRow(row, Math.round(n * 100) / 100, block));
   };
-  const rebuildParts=(parts)=>{
-    if(!parts.length) return "";
-    let s = makeLine(parts[0].nums, parts[0].type, parts[0].n);
-    for(let i=1;i<parts.length;i++){
-      s += "." + parts[i].type + fmtN(parts[i].n) + "n";
-    }
-    return s;
+  const pushSplit = (row, n, maxN, block=row.block)=>{
+    const keep = Math.min(n, maxN);
+    const overflow = Math.round((n - keep) * 100) / 100;
+    if(keep > 0) pushRow(tach, row, keep, block);
+    if(overflow > 0) pushRow(khong, row, overflow, block);
   };
-  const addSplitAmount=(blockName, type, nums, n, maxN, isTach)=>{
-    const keepN = Math.min(n, maxN);
-    const overflowN = n - keepN;
-    if(isTach && keepN > 0) add(tach, blockName, type==="da" ? makeDaLine(nums[0],nums[1],keepN) : makeLine(nums, type, keepN));
-    if(isTach && overflowN > 0) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],overflowN) : makeLine(nums, type, overflowN));
-    if(!isTach) add(khong, blockName, type==="da" ? makeDaLine(nums[0],nums[1],n) : makeLine(nums, type, n));
+  const mainDaisForRow = row => row.region === "HN" ? ["HN"] : (row.sourceDais || []).slice(0,2);
+  const mainPairForRow = row => {
+    const main = mainDaisForRow(row);
+    return main.length >= 2 ? main[0] + main[1] : "";
   };
-  const scheduledMainDaisForRow=(row)=>{
-    if(!row || row.region==="HN") return ["HN"];
-    return regionZonesForRow(row).mainDais;
+  const hasXoa = row => {
+    const xoaSet = readXoaSet(row.region);
+    return xoaSet.size > 0 && (row.nums || []).some(num => numInXoa(num, xoaSet));
   };
-  // Vùng xanh để giữ tin tách:
-  // bao 2 số chỉ lấy Đài 1 / Đài 2; đá chéo chỉ lấy Đài 1-2.
-  const isTachBaoRow=(row)=>{
+  const isBao2Scope = row => {
     const num = row.nums && row.nums[0] ? row.nums[0] : "";
-    return row.type==="b" && String(num).length===2 && scheduledMainDaisForRow(row).includes(row.block);
+    return row.type === "b" && String(num).length === 2 && mainDaisForRow(row).includes(row.block);
   };
-  const isTachDaRow=(row)=>{
-    if(row.type!=="da") return false;
-    const mainDais = scheduledMainDaisForRow(row);
-    if(mainDais.length < 2) return "";
-    return row.block === mainDais[0] + mainDais[1];
+  const isDaScope = row => {
+    if(row.type !== "da") return false;
+    if(row.region === "HN") return true;
+    return row.block === mainPairForRow(row);
   };
-  const isDaKeepScope=(row, xoaSet)=>{
-    if(row.type!=="da") return false;
-
-    // HN chỉ có một vùng đài, nên đá HN thuộc phạm vi giữ.
-    if(row.region==="HN") return true;
-
-    // MN/MT luôn phải qua đúng vùng điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
-    // Dãy xoá trống chỉ có nghĩa là chưa lọc số, không mở rộng sang cặp phụ.
-    return isTachDaRow(row);
+  const blockDais = block => {
+    const found = getDaisFromName(block).filter(Boolean);
+    return found.length ? found : [block];
   };
-  const parseBaoLine=(line)=>{
-    const m = String(line||"").match(/^(\d{2})b([\d,.]+)n$/i);
-    if(!m) return null;
-    return {num:m[1], n:parseAmount(m[2])};
-  };
-  const addAmount=(obj, block, num, n)=>{
-    if(!obj[block]) obj[block]={};
-    obj[block][num]=(obj[block][num]||0)+n;
-  };
-  const getMainPairs=(rows)=>{
-    const seen=new Set(), out=[];
-    for(const row of rows){
-      const main = scheduledMainDaisForRow(row);
-      if(main.length < 2) continue;
-      const key = row.region + ":" + main[0] + ":" + main[1];
-      if(seen.has(key)) continue;
-      seen.add(key);
-      out.push({region:row.region, a:main[0], b:main[1], pair:main[0]+main[1]});
-    }
-    return out;
-  };
-  const compactMainPairBao=(obj, rows, overflowObj, maxN)=>{
-    const bao={}, other={};
-    for(const [block, lines] of Object.entries(obj)){
-      for(const line of lines){
-        const parsed = parseBaoLine(line);
-        if(parsed) addAmount(bao, block, parsed.num, parsed.n);
-        else add(other, block, line);
-      }
-    }
-
-    const ordered={};
-    const setOut=(block, line)=>{
-      if(!ordered[block]) ordered[block]=[];
-      ordered[block].push(line);
-    };
-
-    for(const info of getMainPairs(rows)){
-      const aMap = bao[info.a] || {};
-      const bMap = bao[info.b] || {};
-      const nums = sortNumsAsc(Array.from(new Set(Object.keys(aMap).concat(Object.keys(bMap)))));
-      for(const num of nums){
-        const common = Math.min(aMap[num] || 0, bMap[num] || 0);
-        if(common > 0){
-          const keep = Math.min(common, maxN);
-          const overflow = common - keep;
-          if(keep > 0) setOut(info.pair, makeLine(num, "b", keep));
-          if(overflow > 0) add(overflowObj, info.pair, makeLine(num, "b", overflow));
-          aMap[num] -= common;
-          bMap[num] -= common;
-        }
-      }
-    }
-
-    for(const [block, numMap] of Object.entries(bao)){
-      for(const num of sortNumsAsc(Object.keys(numMap))){
-        const n = numMap[num] || 0;
-        if(n > 0){
-          const keep = Math.min(n, maxN);
-          const overflow = n - keep;
-          if(keep > 0) setOut(block, makeLine(num, "b", keep));
-          if(overflow > 0) add(overflowObj, block, makeLine(num, "b", overflow));
-        }
-      }
-    }
-    for(const [block, lines] of Object.entries(other)){
-      if(!ordered[block]) ordered[block]=[];
-      ordered[block].push(...lines);
-    }
-    return ordered;
-  };
-  const compactKhongByPrice=(obj)=>{
-    const ordered={};
-    const setOut=(block, line)=>{
-      if(!ordered[block]) ordered[block]=[];
-      ordered[block].push(line);
-    };
-    const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
-    const parseGroupableLine=(line)=>{
-      const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
-      if(!m) return null;
-      const type = m[2].toLowerCase();
-      if(!groupableTypes.has(type)) return null;
-      return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
-    };
-    const parseSameNumberChain=(line)=>{
-      const s = String(line || "");
-      const m = s.match(/^(\d+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)+)$/i);
-      if(!m) return null;
-      const num = m[1];
-      const suffix = m[2];
-      const parts = [];
-      const re = /(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n/ig;
-      let part;
-      while((part = re.exec(suffix)) !== null){
-        const type = part[1].toLowerCase();
-        if(!groupableTypes.has(type)) return null;
-        parts.push({type, n:parseAmount(part[2])});
-      }
-      if(parts.length < 2) return null;
-      const key = String(num).length + "|" + parts.map(item => item.type + ":" + fmtN(item.n)).join("|");
-      return {num, key, parts};
-    };
-    const renderSameNumberChain=(nums, parts)=>{
-      const suffix = parts.map(item => item.type + fmtN(item.n) + "n").join(".");
-      return nums.join(".") + suffix;
-    };
-
-    for(const [block, lines] of Object.entries(obj)){
-      const groups={}, order=[], chainGroups={}, chainOrder=[], other=[];
-      for(const line of lines){
-        const parsed = parseGroupableLine(line);
-        if(parsed){
-          const shape = Array.from(new Set(parsed.nums.map(num => String(num).length))).sort().join(",");
-          const key = parsed.type + "|" + fmtN(parsed.n) + "|" + shape;
-          if(!groups[key]){
-            groups[key]={type:parsed.type, n:parsed.n, numMap:{}, numOrder:[]};
-            order.push(key);
-          }
-          parsed.nums.forEach(num=>{
-            if(groups[key].numMap[num] == null) groups[key].numOrder.push(num);
-            groups[key].numMap[num] = (groups[key].numMap[num] || 0) + parsed.n;
-          });
-        }else{
-          const chained = parseSameNumberChain(line);
-          if(chained){
-            if(!chainGroups[chained.key]){
-              chainGroups[chained.key]={parts:chained.parts, nums:[], numMap:{}};
-              chainOrder.push(chained.key);
-            }
-            if(!chainGroups[chained.key].numMap[chained.num]){
-              chainGroups[chained.key].numMap[chained.num] = true;
-              chainGroups[chained.key].nums.push(chained.num);
-            }
-          }else{
-            other.push(line);
-          }
-        }
-      }
-
-      chainOrder.forEach(key=>{
-        const group = chainGroups[key];
-        if(group.nums.length) setOut(block, renderSameNumberChain(group.nums, group.parts));
-      });
-      for(const key of order){
-        const g = groups[key];
-        const byAmount = {};
-        for(const [num, amount] of Object.entries(g.numMap)){
-          const amountKey = fmtN(amount);
-          if(!byAmount[amountKey]) byAmount[amountKey] = [];
-          byAmount[amountKey].push(num);
-        }
-        for(const amountKey of Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b))){
-          const keep = new Set(byAmount[amountKey]);
-          const nums = g.numOrder.filter(num => keep.has(num));
-          if(nums.length) setOut(block, makeLine(nums, g.type, parseAmount(amountKey)));
-        }
-      }
-      other.forEach(line => setOut(block, line));
-    }
-    return ordered;
-  };
-  const compactKhongBao2ByDai=(obj, rows)=>{
-    const rank={};
-    let rankIndex=0;
-    for(const row of rows){
-      (row.sourceDais || []).forEach(dai=>{
-        if(rank[dai] == null) rank[dai] = rankIndex++;
-      });
-    }
-    KNOWN_DAI.forEach(dai=>{
-      if(rank[dai] == null) rank[dai] = rankIndex++;
-    });
-    const sortDais=(dais)=>dais.slice().sort((a,b)=>{
-      const ra = rank[a] == null ? 9999 : rank[a];
-      const rb = rank[b] == null ? 9999 : rank[b];
-      if(ra !== rb) return ra - rb;
-      return String(a).localeCompare(String(b));
-    });
-    const singleKnownDai=(block)=>{
-      const dais = getDaisFromName(block).filter(d => d && d !== "HN");
-      return dais.length === 1 ? dais[0] : "";
-    };
-    const parseBao2Line=(line)=>{
-      const m = String(line || "").match(/^([0-9.]+)b([\d,.]+)n$/i);
-      if(!m) return null;
-      const nums = m[1].split(".").filter(Boolean);
-      if(!nums.length || !nums.every(num => String(num).length === 2)) return null;
-      return {nums, n:parseAmount(m[2])};
-    };
-
-    const groups={}, order=[], passthrough=[];
-    const addGroup=(region, num, dai, n)=>{
-      const key = region + "|" + num;
-      if(!groups[key]){
-        groups[key]={region, num, amounts:{}};
-        order.push(key);
-      }
-      groups[key].amounts[dai] = (groups[key].amounts[dai] || 0) + n;
-    };
-
-    for(const [block, lines] of Object.entries(obj)){
-      const dai = singleKnownDai(block);
-      for(const line of lines){
-        const parsed = parseBao2Line(line);
-        if(!dai || !parsed){
-          passthrough.push({block, line});
-          continue;
-        }
-        const region = detectRegionByDais([dai]);
-        if(region === "HN"){
-          passthrough.push({block, line});
-          continue;
-        }
-        parsed.nums.forEach(num => addGroup(region, num, dai, parsed.n));
-      }
-    }
-
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-
-    for(const key of order){
-      const group = groups[key];
-      const amounts = {...group.amounts};
-      while(true){
-        const dais = Object.keys(amounts).filter(dai => amounts[dai] > 0);
-        if(dais.length < 2) break;
-        const common = Math.min(...dais.map(dai => amounts[dai]));
-        const block = sortDais(dais).join("");
-        setOut(block, makeLine(group.num, "b", common));
-        dais.forEach(dai=>{
-          amounts[dai] = Math.round((amounts[dai] - common) * 100) / 100;
-        });
-      }
-      Object.keys(amounts)
-        .filter(dai => amounts[dai] > 0)
-        .sort((a,b)=>(rank[a] || 9999) - (rank[b] || 9999))
-        .forEach(dai => setOut(dai, makeLine(group.num, "b", amounts[dai])));
-    }
-
-    passthrough.forEach(item => setOut(item.block, item.line));
-    return out;
-  };
-  const groupableKhongTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
-  const parseKhongGroupableLine=(line)=>{
-    const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n$/i);
-    if(!m) return null;
-    const type = m[2].toLowerCase();
-    if(!groupableKhongTypes.has(type)) return null;
-    return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
-  };
-  const compactByNumber=(obj)=>{
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-    const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"];
-    const typeRank = {};
-    typeOrder.forEach((type, idx)=>{ typeRank[type] = idx; });
-
-    for(const [block, lines] of Object.entries(obj)){
-      const groups={}, numOrder=[], passthrough=[];
-      for(const line of lines){
-        const parsed = parseKhongGroupableLine(line);
-        if(!parsed){
-          passthrough.push(line);
-          continue;
-        }
-        for(const num of parsed.nums){
-          if(!groups[num]){
-            groups[num]={types:{}, typeOrder:[]};
-            numOrder.push(num);
-          }
-          if(groups[num].types[parsed.type] == null){
-            groups[num].types[parsed.type]=0;
-            groups[num].typeOrder.push(parsed.type);
-          }
-          groups[num].types[parsed.type] += parsed.n;
-        }
-      }
-
-      for(const num of numOrder){
-        const group = groups[num];
-        const types = group.typeOrder.slice().sort((a,b)=>(typeRank[a] ?? 999) - (typeRank[b] ?? 999));
-        const parts = types.map((type, idx)=>{
-          const line = makeLine(num, type, group.types[type]);
-          return idx === 0 ? line : line.replace(String(num), "");
-        });
-        if(parts.length) setOut(block, parts.join("."));
-      }
-      passthrough.forEach(line => setOut(block, line));
-    }
-    return out;
-  };
-  const blockToDais=(block)=>{
-    const dais = getDaisFromName(block).filter(Boolean);
-    if(dais.length) return dais;
-    return [block];
-  };
-  const makeDaiRank=(rows)=>{
+  const makeRank = rows => {
     const rank={};
     let i=0;
-    for(const row of rows){
+    for(const block of blocks){
+      (block.dais || []).forEach(dai=>{
+        if(rank[dai] == null) rank[dai] = i++;
+      });
+    }
+    for(const row of rows || []){
       (row.sourceDais || []).forEach(dai=>{
         if(rank[dai] == null) rank[dai] = i++;
       });
@@ -1194,250 +893,299 @@ function buildTach(blocks){
     });
     return rank;
   };
-  const sortDaisByRank=(dais, rank)=>{
-    return (dais || []).slice().sort((a,b)=>{
-      const ra = rank[a] == null ? 9999 : rank[a];
-      const rb = rank[b] == null ? 9999 : rank[b];
-      if(ra !== rb) return ra - rb;
-      return String(a).localeCompare(String(b));
-    });
+  const sortDaisByRank = (dais, rank) => (dais || []).slice().sort((a,b)=>{
+    const ra = rank[a] == null ? 9999 : rank[a];
+    const rb = rank[b] == null ? 9999 : rank[b];
+    if(ra !== rb) return ra - rb;
+    return String(a).localeCompare(String(b));
+  });
+  const combineBlocks = (blockList, rank) => {
+    const set = new Set();
+    blockList.forEach(block => blockDais(block).forEach(dai => set.add(dai)));
+    return sortDaisByRank(Array.from(set), rank).join("");
   };
-  const compactKhongByDai=(obj, rows)=>{
-    const rank = makeDaiRank(rows);
-    const mainPairByKey = {};
-    for(const row of rows || []){
-      const num = row.nums && row.nums[0] ? row.nums[0] : "";
-      if(!num || !groupableKhongTypes.has(row.type)) continue;
-      if(!row.sourceDais || row.sourceDais.length < 2) continue;
-      const key = [row.type, num, String(num).length].join("|");
-      if(!mainPairByKey[key]) mainPairByKey[key] = row.sourceDais.slice(0, 2);
-    }
-    const grouped={}, groupOrder=[], fixed=[];
-    const addGroup=(key, block, num, type, n)=>{
-      if(!grouped[key]){
-        grouped[key]={num, type, amounts:{}, mainPair:mainPairByKey[key] || []};
-        groupOrder.push(key);
-      }
-      grouped[key].amounts[block] = (grouped[key].amounts[block] || 0) + n;
-    };
-
-    for(const [block, lines] of Object.entries(obj)){
-      const dais = blockToDais(block);
-      for(const line of lines){
-        const parsed = parseKhongGroupableLine(line);
-        if(!parsed || dais.length !== 1){
-          fixed.push({block, line});
-          continue;
-        }
-        for(const num of parsed.nums){
-          const key = [parsed.type, num, String(num).length].join("|");
-          addGroup(key, block, num, parsed.type, parsed.n);
-        }
-      }
-    }
-
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-
-    for(const key of groupOrder){
-      const group = grouped[key];
-      const amounts = {...group.amounts};
-
-      const mainPair = (group.mainPair || []).filter(block => amounts[block] > 0);
-      if(mainPair.length >= 2){
-        const a = mainPair[0];
-        const b = mainPair[1];
-        const common = Math.min(amounts[a] || 0, amounts[b] || 0);
-        if(common > 0){
-          setOut(group.mainPair.join(""), makeLine(group.num, group.type, common));
-          amounts[a] = Math.round((amounts[a] - common) * 100) / 100;
-          amounts[b] = Math.round((amounts[b] - common) * 100) / 100;
-        }
-      }
-
-      while(true){
-        const blocks = Object.keys(amounts).filter(block => amounts[block] > 0);
-        if(blocks.length < 2) break;
-        const pair = blocks.sort((a,b)=>{
-          const da = sortDaisByRank(blockToDais(a), rank)[0] || a;
-          const db = sortDaisByRank(blockToDais(b), rank)[0] || b;
-          return (rank[da] || 9999) - (rank[db] || 9999);
-        }).slice(0,2);
-        const common = Math.min(...pair.map(block => amounts[block]));
-        const dais = sortDaisByRank(pair.flatMap(blockToDais), rank);
-        const combinedBlock = dais.join("");
-        setOut(combinedBlock, makeLine(group.num, group.type, common));
-        pair.forEach(block=>{
-          amounts[block] = Math.round((amounts[block] - common) * 100) / 100;
-        });
-      }
-      Object.keys(amounts)
-        .filter(block => amounts[block] > 0)
-        .sort((a,b)=>{
-          const da = sortDaisByRank(blockToDais(a), rank)[0] || a;
-          const db = sortDaisByRank(blockToDais(b), rank)[0] || b;
-          return (rank[da] || 9999) - (rank[db] || 9999);
-        })
-        .forEach(block => setOut(block, makeLine(group.num, group.type, amounts[block])));
-    }
-
-    fixed.forEach(item => setOut(item.block, item.line));
-    return out;
+  const numSortValue = num => parseInt(String(num || "").replace(/\D/g,""), 10) || 0;
+  const compareNum = (a,b) => {
+    const la = String(a || "").replace(/\D/g,"").length;
+    const lb = String(b || "").replace(/\D/g,"").length;
+    if(la !== lb) return la - lb;
+    const na = numSortValue(a), nb = numSortValue(b);
+    if(na !== nb) return na - nb;
+    return String(a).localeCompare(String(b));
   };
-  const compactDaPairsToDv=(obj)=>{
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-    const parseDaLine=(line)=>{
-      const m = String(line||"").match(/^(\d+)\.(\d+)da([\d,.]+)n$/i);
-      if(!m) return null;
-      const pair = sortPair(m[1], m[2]);
-      return {a:pair[0], b:pair[1], n:parseAmount(m[3])};
-    };
-    const comboCount=(n)=>n*(n-1)/2;
+  const comboCount = n => n * (n - 1) / 2;
 
-    for(const [block, lines] of Object.entries(obj)){
-      const groups={}, order=[], passthrough=[];
-      for(const line of lines){
-        const parsed = parseDaLine(line);
-        if(!parsed){
-          passthrough.push(line);
-          continue;
-        }
-        const key = fmtN(parsed.n);
-        if(!groups[key]){
-          groups[key]={n:parsed.n, pairMap:{}, pairOrder:[]};
-          order.push(key);
-        }
-        const pairKey = parsed.a + "." + parsed.b;
-        if(!groups[key].pairMap[pairKey]){
-          groups[key].pairOrder.push(pairKey);
-          groups[key].pairMap[pairKey]={a:parsed.a, b:parsed.b};
-        }else{
-          passthrough.push(line);
-        }
-      }
-
-      for(const key of order){
-        const group = groups[key];
-        const nums = sortNumsAsc(Array.from(new Set(Object.values(group.pairMap).flatMap(pair => [pair.a, pair.b]))));
-        const expected = comboCount(nums.length);
-        const hasFullDv = nums.length >= 3 && Object.keys(group.pairMap).length === expected;
-        if(hasFullDv){
-          setOut(block, makeLine(nums, "dv", group.n));
-        }else{
-          group.pairOrder.forEach(pairKey=>{
-            const pair = group.pairMap[pairKey];
-            setOut(block, makeDaLine(pair.a, pair.b, group.n));
-          });
-        }
-      }
-      passthrough.forEach(line => setOut(block, line));
-    }
-    return out;
-  };
-
-  const rows = buildIntermediate(blocks);
-  const usedBaoRows = new Set();
-  const baoMainGroups = new Map();
-
-  // Nhiệm vụ 2: bao 2 số phải tách trung gian trước rồi mới gom giao Đài 1 / Đài 2.
-  // Nếu cùng số có ở Đài 1 và Đài 2, phần giao lên block Đài 1-2; phần dư mới ở đài riêng.
-  for(const [idx, row] of rows.entries()){
-    if(!isTachBaoRow(row)) continue;
-    usedBaoRows.add(idx);
-
-    const num = row.nums[0];
-    const xoaSet = readXoaSet(row.region);
-    if(numInXoa(num, xoaSet)){
-      add(khong, row.block, row.line);
-      continue;
-    }
-
-    const mainDais = scheduledMainDaisForRow(row);
-    if(mainDais.length < 2){
-      addSplitAmount(row.block, "b", num, row.n, max2, true);
-      continue;
-    }
-
-    const key = [row.region, mainDais[0], mainDais[1], num].join("|");
-    if(!baoMainGroups.has(key)){
-      baoMainGroups.set(key, {
-        region: row.region,
-        mainDais,
-        num,
-        amountByDai: {}
+  const buildAtomicRows = () => {
+    const rows=[];
+    const addAtomic = (block, sourceBlock, sourceDais, region, nums, type, n, rawLine) => {
+      rows.push({
+        block,
+        sourceBlock,
+        sourceDais:(sourceDais || []).slice(),
+        nums:(nums || []).slice(),
+        type,
+        n,
+        region,
+        raw:rawLine
       });
-    }
+    };
 
-    const group = baoMainGroups.get(key);
-    group.amountByDai[row.block] = (group.amountByDai[row.block] || 0) + row.n;
+    for(const block of blocks){
+      for(const rawLine of block.lines){
+        const parts = parseBetLine(rawLine);
+        if(!parts) continue;
+        for(const part of parts){
+          const type = part.type;
+          const nums = part.nums || [];
+          if(type === "dv"){
+            const numPairs = uniquePairs(pairNumbers(nums));
+            const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
+            for(const dp of daiPairs){
+              const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
+              for(const np of numPairs){
+                addAtomic(bname, block.name, block.dais, block.region, sortPair(np[0], np[1]), "da", part.n, rawLine);
+              }
+            }
+          }else if(type === "da"){
+            const pair = sortPair(nums[0], nums[1]);
+            const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
+            for(const dp of daiPairs){
+              const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
+              addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
+            }
+          }else{
+            const outTypes = type === "dd" ? ["dau","duoi"] : [type];
+            for(const dai of block.dais){
+              for(const num of nums){
+                outTypes.forEach(outType=>{
+                  addAtomic(dai, block.name, block.dais, block.region, [num], outType, part.n, rawLine);
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+    return rows;
+  };
+
+  const atomicRows = buildAtomicRows();
+  const used = new Set();
+  const baoGroups = new Map();
+  const daGroups = new Map();
+
+  for(const [idx, row] of atomicRows.entries()){
+    if(hasXoa(row)){
+      used.add(idx);
+      pushRow(khong, row);
+      continue;
+    }
+    if(isBao2Scope(row)){
+      used.add(idx);
+      const main = mainDaisForRow(row);
+      if(main.length < 2){
+        pushSplit(row, row.n, max2);
+        continue;
+      }
+      const key = [row.region, main[0], main[1], row.nums[0]].join("|");
+      if(!baoGroups.has(key)){
+        baoGroups.set(key, {row, main, amounts:{}});
+      }
+      const group = baoGroups.get(key);
+      group.amounts[row.block] = (group.amounts[row.block] || 0) + row.n;
+      continue;
+    }
+    if(isDaScope(row)){
+      used.add(idx);
+      const pair = sortPair(row.nums[0], row.nums[1]);
+      const key = [row.region, row.block, pair[0], pair[1]].join("|");
+      if(!daGroups.has(key)){
+        daGroups.set(key, {...row, nums:pair, n:0});
+      }
+      daGroups.get(key).n += row.n;
+    }
   }
 
-  for(const group of baoMainGroups.values()){
-    const a = group.mainDais[0];
-    const b = group.mainDais[1];
-    const pairBlock = a + b;
-    let aN = group.amountByDai[a] || 0;
-    let bN = group.amountByDai[b] || 0;
+  for(const group of baoGroups.values()){
+    const a = group.main[0], b = group.main[1];
+    let aN = group.amounts[a] || 0;
+    let bN = group.amounts[b] || 0;
     const common = Math.min(aN, bN);
-
     if(common > 0){
-      addSplitAmount(pairBlock, "b", group.num, common, max2, true);
+      pushSplit(group.row, common, max2, a + b);
       aN = Math.round((aN - common) * 100) / 100;
       bN = Math.round((bN - common) * 100) / 100;
     }
-
-    if(aN > 0) addSplitAmount(a, "b", group.num, aN, max2, true);
-    if(bN > 0) addSplitAmount(b, "b", group.num, bN, max2, true);
+    if(aN > 0) pushSplit(group.row, aN, max2, a);
+    if(bN > 0) pushSplit(group.row, bN, max2, b);
   }
 
-  // Nhiệm vụ 3: đá chéo Đài 1-2 phải gom theo đúng cặp số trước rồi mới áp max đá.
-  // Nếu xử lý từng dòng riêng, nhiều dòng cùng cặp có thể vượt maxDa mà vẫn lọt vào Tin tách.
-  const usedDaRows = new Set();
-  const daMainGroups = new Map();
+  for(const group of daGroups.values()){
+    pushSplit(group, group.n, maxDa);
+  }
 
-  for(const [idx, row] of rows.entries()){
-    if(usedBaoRows.has(idx)) continue;
-    if(!isDaKeepScope(row)) continue;
+  for(const [idx, row] of atomicRows.entries()){
+    if(!used.has(idx)) pushRow(khong, row);
+  }
 
-    usedDaRows.add(idx);
-    const pair = sortPair(row.nums[0], row.nums[1]);
-    const xoaSet = readXoaSet(row.region);
-
-    if(xoaSet.size > 0 && pair.some(n=>numInXoa(n, xoaSet))){
-      add(khong, row.block, row.line);
-      continue;
+  const renderRows = rows => {
+    const rank = makeRank(rows);
+    const agg = new Map();
+    for(const row of rows){
+      const key = [row.block, rowNumKey(row), row.type].join("|");
+      if(!agg.has(key)){
+        agg.set(key, {
+          block:row.block,
+          nums:(row.nums || []).slice(),
+          type:row.type,
+          n:0
+        });
+      }
+      agg.get(key).n += row.n;
     }
 
-    const key = [row.region, row.block, pair[0], pair[1]].join("|");
-    if(!daMainGroups.has(key)){
-      daMainGroups.set(key, {
-        block: row.block,
-        pair,
-        n: 0
+    const bySignature = new Map();
+    for(const row of agg.values()){
+      row.n = Math.round(row.n * 100) / 100;
+      const key = [rowNumKey(row), row.type, fmtN(row.n)].join("|");
+      if(!bySignature.has(key)){
+        bySignature.set(key, {
+          nums:row.nums,
+          type:row.type,
+          n:row.n,
+          blocks:[]
+        });
+      }
+      bySignature.get(key).blocks.push(row.block);
+    }
+
+    const groupedByBlock = {};
+    const addOut = (block, item) => {
+      if(!groupedByBlock[block]) groupedByBlock[block] = [];
+      groupedByBlock[block].push(item);
+    };
+
+    for(const item of bySignature.values()){
+      const block = combineBlocks(item.blocks, rank);
+      addOut(block, item);
+    }
+
+    const renderNormalLine = items => {
+      const sorted = items.slice().sort((a,b)=>(typeRank[a.type] ?? 999) - (typeRank[b.type] ?? 999));
+      if(!sorted.length) return "";
+      const num = sorted[0].nums[0];
+      let line = makeLine(num, sorted[0].type, sorted[0].n);
+      for(let i=1; i<sorted.length; i++){
+        line += "." + sorted[i].type + fmtN(sorted[i].n) + "n";
+      }
+      return line;
+    };
+    const renderDaLines = items => {
+      const byAmount = {};
+      items.forEach(item => {
+        const key = fmtN(item.n);
+        if(!byAmount[key]) byAmount[key] = [];
+        byAmount[key].push(sortPair(item.nums[0], item.nums[1]));
       });
+      const lines=[];
+      Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b)).forEach(key=>{
+        const pairs = uniquePairs(byAmount[key]);
+        const nums = sortNumsAsc(Array.from(new Set(pairs.flat())));
+        const isFullDv = nums.length >= 3 && pairs.length === comboCount(nums.length);
+        if(isFullDv){
+          lines.push(makeLine(nums, "dv", parseAmount(key)));
+        }else{
+          pairs.forEach(pair => lines.push(makeDaLine(pair[0], pair[1], parseAmount(key))));
+        }
+      });
+      return lines;
+    };
+
+    const explicitSourceOrder = {};
+    blocks.forEach((block, idx)=>{
+      if(!block.generic && explicitSourceOrder[block.name] == null) explicitSourceOrder[block.name] = idx;
+    });
+    const blockNames = Object.keys(groupedByBlock).sort((a,b)=>{
+      const ae = explicitSourceOrder[a], be = explicitSourceOrder[b];
+      if(ae != null || be != null){
+        if(ae == null) return 1;
+        if(be == null) return -1;
+        return ae - be;
+      }
+      const ad = blockDais(a), bd = blockDais(b);
+      if(ad.length !== bd.length) return ad.length - bd.length;
+      const ar = Math.min(...ad.map(d => rank[d] ?? 9999));
+      const br = Math.min(...bd.map(d => rank[d] ?? 9999));
+      if(ar !== br) return ar - br;
+      return a.localeCompare(b);
+    });
+
+    const out=[];
+    for(const block of blockNames){
+      const items = groupedByBlock[block];
+      const normalGroups = {};
+      const daItems = [];
+      items.forEach(item => {
+        if(item.type === "da") daItems.push(item);
+        else{
+          const key = item.nums[0];
+          if(!normalGroups[key]) normalGroups[key] = [];
+          normalGroups[key].push(item);
+        }
+      });
+
+      const lines=[];
+      const normalLineItems = [];
+      const singleShapeGroups = {};
+      Object.keys(normalGroups).forEach(num => {
+        const groupItems = normalGroups[num];
+        if(groupItems.length > 1){
+          const line = renderNormalLine(groupItems);
+          if(line) normalLineItems.push({line, num});
+          return;
+        }
+        const item = groupItems[0];
+        const key = [item.type, fmtN(item.n), String(item.nums[0]).length].join("|");
+        if(!singleShapeGroups[key]){
+          singleShapeGroups[key] = {
+            type:item.type,
+            n:item.n,
+            nums:[]
+          };
+        }
+        singleShapeGroups[key].nums.push(item.nums[0]);
+      });
+
+      Object.values(singleShapeGroups).forEach(group => {
+        const nums = group.nums.slice().sort(compareNum);
+        if(nums.length){
+          normalLineItems.push({
+            line:makeLine(nums, group.type, group.n),
+            num:nums[0]
+          });
+        }
+      });
+      normalLineItems
+        .sort((a,b)=>compareNum(a.num, b.num))
+        .forEach(item => lines.push(item.line));
+      lines.push(...renderDaLines(daItems).sort((a,b)=>{
+        const pa = (a.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
+        const pb = (b.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
+        if((pa[0] || 0) !== (pb[0] || 0)) return (pa[0] || 0) - (pb[0] || 0);
+        return (pa[1] || 0) - (pb[1] || 0);
+      }));
+
+      if(!lines.length) continue;
+      out.push(block);
+      lines.forEach(line => out.push(...splitTachDisplayLine(line, 15)));
+      out.push("");
     }
-    const group = daMainGroups.get(key);
-    group.n += row.n;
-  }
+    return out.join("\n").trim();
+  };
 
-  for(const group of daMainGroups.values()){
-    addSplitAmount(group.block, "da", group.pair, group.n, maxDa, true);
-  }
-
-  for(const [idx, row] of rows.entries()){
-    if(usedBaoRows.has(idx) || usedDaRows.has(idx)) continue;
-    add(khong, row.block, row.line);
-  }
   return {
-    tach:renderObj(compactDaPairsToDv(compactKhongByPrice(compactByNumber(compactMainPairBao(tach, rows, khong, max2))))),
-    khong:renderObj(compactDaPairsToDv(compactKhongByPrice(compactByNumber(compactKhongByDai(khong, rows)))))
+    tach:renderRows(tach),
+    khong:renderRows(khong)
   };
 }
 

@@ -372,9 +372,15 @@ function getDaisFromName(name){
   if(lower==="hn" || lower==="mb") return ["HN"];
   const found = [];
   for(const d of KNOWN_DAI){
-    if(d !== "HN" && raw.includes(d)) found.push(d);
+    if(d === "HN") continue;
+    const idx = lower.indexOf(d.toLowerCase());
+    if(idx >= 0) found.push({d, idx});
   }
-  return found.length ? found : [raw];
+  found.sort((a,b)=>{
+    if(a.idx !== b.idx) return a.idx - b.idx;
+    return b.d.length - a.d.length;
+  });
+  return found.length ? found.map(item => item.d) : [raw];
 }
 function detectRegionByDais(dais){
   if(dais.includes("HN")) return "HN";
@@ -856,7 +862,10 @@ function buildTach(blocks){
     // HN chỉ có một vùng đài, nên đá HN thuộc phạm vi giữ.
     if(row.region==="HN") return true;
 
-    // MN/MT luôn phải qua ô điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
+    // Miền Trung giữ đá ở Số không tách; Số tách chỉ lấy bao 2 số theo dãy xoá.
+    if(row.region==="MT") return false;
+
+    // MN luôn phải qua ô điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
     // Dãy xoá trống chỉ có nghĩa là chưa lọc số, không mở rộng sang cặp phụ.
     return isTachDaRow(row);
   };

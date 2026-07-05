@@ -1812,17 +1812,27 @@ function clearResultData(){
   runAll();
 }
 function saveDailyInputBackup(){
-  const text = val("inputData");
-  if(!text.trim()) return;
+  const text = val("inputData").trim();
+  if(!text) return "empty";
   try{
     const old = localStorage.getItem(dailyInputKey()) || "";
+    const entries = old.trim() ? old.trim().split(/\n\n---\n\n/) : [];
+    const lastEntry = entries.length ? entries[entries.length - 1].replace(/^#\d+\n/, "").trim() : "";
+
+    if(lastEntry === text){
+      setVal("savedInputToday", old);
+      return "duplicate";
+    }
+
     const nextIndex = old.trim() ? old.split(/\n\n---\n\n/).length + 1 : 1;
-    const entry = `#${nextIndex}\n${text.trim()}`;
+    const entry = `#${nextIndex}\n${text}`;
     const next = old.trim() ? old.trim() + "\n\n---\n\n" + entry : entry;
     localStorage.setItem(dailyInputKey(), next);
     setVal("savedInputToday", next);
+    return "saved";
   }catch(e){
     console.error(e);
+    return "error";
   }
 }
 function loadDailyInputBackup(){
@@ -1838,9 +1848,9 @@ function saveDayAndRun(btn){
     alert("Chưa có dữ liệu để lưu ngày");
     return;
   }
-  saveDailyInputBackup();
+  const saveStatus = saveDailyInputBackup();
   runAll();
-  flashActionButton(btn, "Đã lưu", "Lưu");
+  flashActionButton(btn, saveStatus === "duplicate" ? "Đã lưu rồi" : "Đã lưu", "Lưu");
 }
 function clearDailyInputBackup(){
   try{

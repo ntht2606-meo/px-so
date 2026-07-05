@@ -874,10 +874,7 @@ function buildTach(blocks){
     // HN chỉ có một vùng đài, nên đá HN thuộc phạm vi giữ.
     if(row.region==="HN") return true;
 
-    // Miền Trung giữ đá ở Số không tách; Số tách chỉ lấy bao 2 số theo dãy xoá.
-    if(row.region==="MT") return false;
-
-    // MN luôn phải qua ô điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
+    // MN/MT luôn phải qua đúng vùng điều kiện: chỉ cặp Đài 1-2 mới được áp max đá.
     // Dãy xoá trống chỉ có nghĩa là chưa lọc số, không mở rộng sang cặp phụ.
     return isTachDaRow(row);
   };

@@ -1707,9 +1707,26 @@ async function copyText(id){
   const text = val(id);
   try{
     await navigator.clipboard.writeText(text);
+    return true;
   }catch(e){
     alert("Không copy tự động được, anh bôi đen rồi copy thủ công nhé");
+    return false;
   }
+}
+function flashActionButton(btn, text, fallback){
+  if(!btn) return;
+  const old = btn.textContent || fallback || "";
+  btn.textContent = text;
+  btn.classList.add("saved");
+  setTimeout(()=>{
+    btn.textContent = old || fallback || "";
+    btn.classList.remove("saved");
+  }, 900);
+}
+async function copyPrintFast(btn){
+  if(val("inputData").trim()) runAll();
+  const ok = await copyText("copyFast");
+  if(ok) flashActionButton(btn, "Đã copy", "In");
 }
 
 function readStorage(key){

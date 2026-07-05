@@ -941,9 +941,31 @@ function buildTach(blocks){
       if(!groupableTypes.has(type)) return null;
       return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
     };
+    const parseSameNumberChain=(line)=>{
+      const s = String(line || "");
+      const m = s.match(/^(\d+)((?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)+)$/i);
+      if(!m) return null;
+      const num = m[1];
+      const suffix = m[2];
+      const parts = [];
+      const re = /(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)([\d,.]+)n/ig;
+      let part;
+      while((part = re.exec(suffix)) !== null){
+        const type = part[1].toLowerCase();
+        if(!groupableTypes.has(type)) return null;
+        parts.push({type, n:parseAmount(part[2])});
+      }
+      if(parts.length < 2) return null;
+      const key = String(num).length + "|" + parts.map(item => item.type + ":" + fmtN(item.n)).join("|");
+      return {num, key, parts};
+    };
+    const renderSameNumberChain=(nums, parts)=>{
+      const suffix = parts.map(item => item.type + fmtN(item.n) + "n").join(".");
+      return nums.join(".") + suffix;
+    };
 
     for(const [block, lines] of Object.entries(obj)){
-      const groups={}, order=[], sameNumberFirst=[], other=[];
+      const groups={}, order=[], chainGroups={}, chainOrder=[], other=[];
       for(const line of lines){
         const parsed = parseGroupableLine(line);
         if(parsed){
@@ -958,13 +980,26 @@ function buildTach(blocks){
             groups[key].numMap[num] = (groups[key].numMap[num] || 0) + parsed.n;
           });
         }else{
-          const parts = parseBetLine(line);
-          if(parts && parts.length > 1) sameNumberFirst.push(line);
-          else other.push(line);
+          const chained = parseSameNumberChain(line);
+          if(chained){
+            if(!chainGroups[chained.key]){
+              chainGroups[chained.key]={parts:chained.parts, nums:[], numMap:{}};
+              chainOrder.push(chained.key);
+            }
+            if(!chainGroups[chained.key].numMap[chained.num]){
+              chainGroups[chained.key].numMap[chained.num] = true;
+              chainGroups[chained.key].nums.push(chained.num);
+            }
+          }else{
+            other.push(line);
+          }
         }
       }
 
-      sameNumberFirst.forEach(line => setOut(block, line));
+      chainOrder.forEach(key=>{
+        const group = chainGroups[key];
+        if(group.nums.length) setOut(block, renderSameNumberChain(group.nums, group.parts));
+      });
       for(const key of order){
         const g = groups[key];
         const byAmount = {};

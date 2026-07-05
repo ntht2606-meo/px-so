@@ -941,26 +941,32 @@ function buildTach(blocks){
       if(!groupableTypes.has(type)) return null;
       return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
     };
+    const isSameNumberCompactLine=(line)=>{
+      return /^(\d+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)+$/i.test(String(line || ""));
+    };
 
     for(const [block, lines] of Object.entries(obj)){
-      const groups={}, order=[], other=[];
+      const groups={}, order=[], sameNumberFirst=[], other=[];
       for(const line of lines){
         const parsed = parseGroupableLine(line);
         if(parsed){
           const shape = Array.from(new Set(parsed.nums.map(num => String(num).length))).sort().join(",");
           const key = parsed.type + "|" + fmtN(parsed.n) + "|" + shape;
           if(!groups[key]){
-            groups[key]={type:parsed.type, n:parsed.n, numMap:{}};
+            groups[key]={type:parsed.type, n:parsed.n, numMap:{}, numOrder:[]};
             order.push(key);
           }
           parsed.nums.forEach(num=>{
+            if(groups[key].numMap[num] == null) groups[key].numOrder.push(num);
             groups[key].numMap[num] = (groups[key].numMap[num] || 0) + parsed.n;
           });
         }else{
-          other.push(line);
+          if(isSameNumberCompactLine(line)) sameNumberFirst.push(line);
+          else other.push(line);
         }
       }
 
+      sameNumberFirst.forEach(line => setOut(block, line));
       for(const key of order){
         const g = groups[key];
         const byAmount = {};
@@ -970,13 +976,57 @@ function buildTach(blocks){
           byAmount[amountKey].push(num);
         }
         for(const amountKey of Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b))){
-          const nums = sortNumsAsc(byAmount[amountKey]);
+          const keep = new Set(byAmount[amountKey]);
+          const nums = g.numOrder.filter(num => keep.has(num));
           if(nums.length) setOut(block, makeLine(nums, g.type, parseAmount(amountKey)));
         }
       }
       other.forEach(line => setOut(block, line));
     }
     return ordered;
+  };
+  const compactByNumber=(obj)=>{
+    const out={};
+    const setOut=(block, line)=>{
+      if(!out[block]) out[block]=[];
+      out[block].push(line);
+    };
+    const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"];
+    const typeRank = Object.fromEntries(typeOrder.map((type, idx)=>[type, idx]));
+
+    for(const [block, lines] of Object.entries(obj)){
+      const groups={}, numOrder=[], other=[];
+      for(const line of lines){
+        const parsed = parseKhongGroupableLine(line);
+        if(!parsed){
+          other.push(line);
+          continue;
+        }
+        for(const num of parsed.nums){
+          if(!groups[num]){
+            groups[num]={num, types:{}, typeOrder:[]};
+            numOrder.push(num);
+          }
+          if(groups[num].types[parsed.type] == null){
+            groups[num].typeOrder.push(parsed.type);
+            groups[num].types[parsed.type]=0;
+          }
+          groups[num].types[parsed.type] += parsed.n;
+        }
+      }
+
+      for(const num of numOrder){
+        const group = groups[num];
+        const types = group.typeOrder.slice().sort((a,b)=>(typeRank[a] ?? 999) - (typeRank[b] ?? 999));
+        const parts = types.map((type, idx)=>{
+          const line = makeLine(num, type, group.types[type]);
+          return idx === 0 ? line : line.replace(String(num), "");
+        });
+        if(parts.length) setOut(block, parts.join("."));
+      }
+      other.forEach(line => setOut(block, line));
+    }
+    return out;
   };
   const compactKhongBao2ByDai=(obj, rows)=>{
     const rank={};
@@ -1098,10 +1148,18 @@ function buildTach(blocks){
   };
   const compactKhongByDai=(obj, rows)=>{
     const rank = makeDaiRank(rows);
+    const mainPairByKey = {};
+    for(const row of rows || []){
+      const num = row.nums && row.nums[0] ? row.nums[0] : "";
+      if(!num || !groupableKhongTypes.has(row.type)) continue;
+      if(!row.sourceDais || row.sourceDais.length < 2) continue;
+      const key = [row.type, num, String(num).length].join("|");
+      if(!mainPairByKey[key]) mainPairByKey[key] = row.sourceDais.slice(0,2);
+    }
     const grouped={}, groupOrder=[], fixed=[];
     const addGroup=(key, block, num, type, n)=>{
       if(!grouped[key]){
-        grouped[key]={num, type, amounts:{}};
+        grouped[key]={num, type, amounts:{}, mainPair:mainPairByKey[key] || []};
         groupOrder.push(key);
       }
       grouped[key].amounts[block] = (grouped[key].amounts[block] || 0) + n;
@@ -1131,14 +1189,32 @@ function buildTach(blocks){
     for(const key of groupOrder){
       const group = grouped[key];
       const amounts = {...group.amounts};
+
+      const mainPair = (group.mainPair || []).filter(block => amounts[block] > 0);
+      if(mainPair.length >= 2){
+        const a = mainPair[0];
+        const b = mainPair[1];
+        const common = Math.min(amounts[a] || 0, amounts[b] || 0);
+        if(common > 0){
+          setOut(group.mainPair.join(""), makeLine(group.num, group.type, common));
+          amounts[a] = Math.round((amounts[a] - common) * 100) / 100;
+          amounts[b] = Math.round((amounts[b] - common) * 100) / 100;
+        }
+      }
+
       while(true){
         const blocks = Object.keys(amounts).filter(block => amounts[block] > 0);
         if(blocks.length < 2) break;
-        const common = Math.min(...blocks.map(block => amounts[block]));
-        const dais = sortDaisByRank(blocks.flatMap(blockToDais), rank);
+        const pair = blocks.sort((a,b)=>{
+          const da = sortDaisByRank(blockToDais(a), rank)[0] || a;
+          const db = sortDaisByRank(blockToDais(b), rank)[0] || b;
+          return (rank[da] || 9999) - (rank[db] || 9999);
+        }).slice(0,2);
+        const common = Math.min(...pair.map(block => amounts[block]));
+        const dais = sortDaisByRank(pair.flatMap(blockToDais), rank);
         const combinedBlock = dais.join("");
         setOut(combinedBlock, makeLine(group.num, group.type, common));
-        blocks.forEach(block=>{
+        pair.forEach(block=>{
           amounts[block] = Math.round((amounts[block] - common) * 100) / 100;
         });
       }
@@ -1304,8 +1380,8 @@ function buildTach(blocks){
     add(khong, row.block, row.line);
   }
   return {
-    tach:renderObj(compactMainPairBao(tach, rows, khong, max2)),
-    khong:renderObj(compactDaPairsToDv(compactKhongByPrice(compactKhongByDai(khong, rows))))
+    tach:renderObj(compactDaPairsToDv(compactKhongByPrice(compactByNumber(compactMainPairBao(tach, rows, khong, max2))))),
+    khong:renderObj(compactDaPairsToDv(compactKhongByPrice(compactByNumber(compactKhongByDai(khong, rows)))))
   };
 }
 
@@ -1817,9 +1893,8 @@ function saveDailyInputBackup(){
   try{
     const old = localStorage.getItem(dailyInputKey()) || "";
     const entries = old.trim() ? old.trim().split(/\n\n---\n\n/) : [];
-    const lastEntry = entries.length ? entries[entries.length - 1].replace(/^#\d+\n/, "").trim() : "";
-
-    if(lastEntry === text){
+    const last = entries.length ? entries[entries.length - 1].replace(/^#\d+\n/, "").trim() : "";
+    if(last === text){
       setVal("savedInputToday", old);
       return "duplicate";
     }

@@ -95,6 +95,10 @@ function dateKey(){
 function el(id){ return document.getElementById(id); }
 function val(id){ return (el(id)?.value || ""); }
 function setVal(id, v){ if(el(id)) el(id).value = v == null ? "" : String(v); }
+function scrollTextTop(id){
+  const x = el(id);
+  if(x && typeof x.scrollTop === "number") x.scrollTop = 0;
+}
 
 function debounce(fn, delay=280){
   let t;
@@ -394,6 +398,14 @@ function isHeader(line){
 }
 function pickDayForGeneric(region, count, hintDais=[]){
   const map = region==="MT" ? MT_MAP : MN_MAP;
+  const hints = (hintDais || []).filter(Boolean);
+  if(hints.length){
+    for(const [d, arr] of Object.entries(map)){
+      if(arr.length >= count && hints.every(dai => arr.includes(dai))){
+        return parseInt(d,10);
+      }
+    }
+  }
   const today = dayIndex();
   if(map[today] && map[today].length >= count) return today;
 
@@ -1807,6 +1819,8 @@ function runAll(){
     const tk = buildTach(blocks);
     setVal("soTach", tk.tach);
     setVal("soKhongTach", tk.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
 
     // CHẠY không hiện chuẩn hóa kết quả. Chỉ dò ngầm nếu đã có dữ liệu kết quả.
     const resultObj = parseAllResults();
@@ -1814,6 +1828,7 @@ function runAll(){
     setVal("thuong", winPack.total ? money(winPack.total) : "0");
     setVal("tong", money(total - winPack.total));
     setVal("soTrung", buildWinReport(winPack));
+    scrollTextTop("soTrung");
   }catch(err){
     console.error(err);
     setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));

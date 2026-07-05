@@ -22,11 +22,27 @@ body{
 .header-title-input{
   font-size:13px;
 }
-.header-title-input input{
+.header-title-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 86px;
+  gap:8px;
+  align-items:center;
   margin-top:4px;
+}
+.header-title-input input{
   text-align:left;
   font-size:18px;
   font-weight:800;
+}
+.header-save-btn{
+  min-height:42px;
+  margin:0;
+  padding:8px 10px;
+  font-size:16px;
+  border-radius:8px;
+}
+.header-save-btn.saved{
+  background:#2d7d35;
 }
 .main-tabs{
   display:grid;
@@ -353,6 +369,15 @@ footer{
   .app{padding:6px}
   .app-header{
     padding:8px;
+  }
+  .header-title-row{
+    grid-template-columns:minmax(0,1fr) 74px;
+    gap:6px;
+  }
+  .header-save-btn{
+    min-height:38px;
+    padding:7px 8px;
+    font-size:14px;
   }
   h1{font-size:20px}
   h2{font-size:20px}

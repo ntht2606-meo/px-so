@@ -201,6 +201,10 @@ function saveAppTitle(){
     console.error(e);
   }
 }
+function saveAppTitleNote(btn){
+  saveAppTitle();
+  flashActionButton(btn, "Đã lưu", "Lưu");
+}
 function loadAppTitle(){
   try{
     const title = localStorage.getItem(STORAGE_KEYS.appTitle);

@@ -4,13 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5589" />
+  <link rel="stylesheet" href="style.css?v=5590" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <label class="header-title-input">Tên web / ghi chú
-        <input id="appTitleInput" value="Web công việc" oninput="saveAppTitle()" />
+        <span class="header-title-row">
+          <input id="appTitleInput" value="Web công việc" oninput="saveAppTitle()" />
+          <button type="button" class="header-save-btn" onclick="saveAppTitleNote(this)">Lưu</button>
+        </span>
       </label>
     </header>
 
@@ -237,6 +240,6 @@
 
     <footer>PX-SO v0.5.58 — UI compact and DV grouping</footer>
   </div>
-<script src="app.js?v=5589"></script>
+<script src="app.js?v=5590"></script>
 </body>
 </html>

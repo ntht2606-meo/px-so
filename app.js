@@ -941,9 +941,6 @@ function buildTach(blocks){
       if(!groupableTypes.has(type)) return null;
       return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
     };
-    const isSameNumberCompactLine=(line)=>{
-      return /^(\d+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n(?:\.(?:bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|b|xc)[\d,.]+n)+$/i.test(String(line || ""));
-    };
 
     for(const [block, lines] of Object.entries(obj)){
       const groups={}, order=[], sameNumberFirst=[], other=[];
@@ -961,7 +958,8 @@ function buildTach(blocks){
             groups[key].numMap[num] = (groups[key].numMap[num] || 0) + parsed.n;
           });
         }else{
-          if(isSameNumberCompactLine(line)) sameNumberFirst.push(line);
+          const parts = parseBetLine(line);
+          if(parts && parts.length > 1) sameNumberFirst.push(line);
           else other.push(line);
         }
       }
@@ -984,49 +982,6 @@ function buildTach(blocks){
       other.forEach(line => setOut(block, line));
     }
     return ordered;
-  };
-  const compactByNumber=(obj)=>{
-    const out={};
-    const setOut=(block, line)=>{
-      if(!out[block]) out[block]=[];
-      out[block].push(line);
-    };
-    const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"];
-    const typeRank = Object.fromEntries(typeOrder.map((type, idx)=>[type, idx]));
-
-    for(const [block, lines] of Object.entries(obj)){
-      const groups={}, numOrder=[], other=[];
-      for(const line of lines){
-        const parsed = parseKhongGroupableLine(line);
-        if(!parsed){
-          other.push(line);
-          continue;
-        }
-        for(const num of parsed.nums){
-          if(!groups[num]){
-            groups[num]={num, types:{}, typeOrder:[]};
-            numOrder.push(num);
-          }
-          if(groups[num].types[parsed.type] == null){
-            groups[num].typeOrder.push(parsed.type);
-            groups[num].types[parsed.type]=0;
-          }
-          groups[num].types[parsed.type] += parsed.n;
-        }
-      }
-
-      for(const num of numOrder){
-        const group = groups[num];
-        const types = group.typeOrder.slice().sort((a,b)=>(typeRank[a] ?? 999) - (typeRank[b] ?? 999));
-        const parts = types.map((type, idx)=>{
-          const line = makeLine(num, type, group.types[type]);
-          return idx === 0 ? line : line.replace(String(num), "");
-        });
-        if(parts.length) setOut(block, parts.join("."));
-      }
-      other.forEach(line => setOut(block, line));
-    }
-    return out;
   };
   const compactKhongBao2ByDai=(obj, rows)=>{
     const rank={};
@@ -1120,6 +1075,50 @@ function buildTach(blocks){
     if(!groupableKhongTypes.has(type)) return null;
     return {nums:m[1].split(".").filter(Boolean), type, n:parseAmount(m[3])};
   };
+  const compactByNumber=(obj)=>{
+    const out={};
+    const setOut=(block, line)=>{
+      if(!out[block]) out[block]=[];
+      out[block].push(line);
+    };
+    const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"];
+    const typeRank = {};
+    typeOrder.forEach((type, idx)=>{ typeRank[type] = idx; });
+
+    for(const [block, lines] of Object.entries(obj)){
+      const groups={}, numOrder=[], passthrough=[];
+      for(const line of lines){
+        const parsed = parseKhongGroupableLine(line);
+        if(!parsed){
+          passthrough.push(line);
+          continue;
+        }
+        for(const num of parsed.nums){
+          if(!groups[num]){
+            groups[num]={types:{}, typeOrder:[]};
+            numOrder.push(num);
+          }
+          if(groups[num].types[parsed.type] == null){
+            groups[num].types[parsed.type]=0;
+            groups[num].typeOrder.push(parsed.type);
+          }
+          groups[num].types[parsed.type] += parsed.n;
+        }
+      }
+
+      for(const num of numOrder){
+        const group = groups[num];
+        const types = group.typeOrder.slice().sort((a,b)=>(typeRank[a] ?? 999) - (typeRank[b] ?? 999));
+        const parts = types.map((type, idx)=>{
+          const line = makeLine(num, type, group.types[type]);
+          return idx === 0 ? line : line.replace(String(num), "");
+        });
+        if(parts.length) setOut(block, parts.join("."));
+      }
+      passthrough.forEach(line => setOut(block, line));
+    }
+    return out;
+  };
   const blockToDais=(block)=>{
     const dais = getDaisFromName(block).filter(Boolean);
     if(dais.length) return dais;
@@ -1154,7 +1153,7 @@ function buildTach(blocks){
       if(!num || !groupableKhongTypes.has(row.type)) continue;
       if(!row.sourceDais || row.sourceDais.length < 2) continue;
       const key = [row.type, num, String(num).length].join("|");
-      if(!mainPairByKey[key]) mainPairByKey[key] = row.sourceDais.slice(0,2);
+      if(!mainPairByKey[key]) mainPairByKey[key] = row.sourceDais.slice(0, 2);
     }
     const grouped={}, groupOrder=[], fixed=[];
     const addGroup=(key, block, num, type, n)=>{

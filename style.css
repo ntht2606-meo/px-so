@@ -220,6 +220,9 @@ textarea{
   margin:0;
   font-size:15px;
 }
+.action-rail button.saved{
+  background:#2d7d35;
+}
 .panel-title-row{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto auto;

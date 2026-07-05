@@ -1832,7 +1832,7 @@ function loadDailyInputBackup(){
     setVal("savedInputToday", "");
   }
 }
-function saveDayAndRun(){
+function saveDayAndRun(btn){
   if(!val("inputData").trim()){
     clearRun();
     alert("Chưa có dữ liệu để lưu ngày");
@@ -1840,6 +1840,7 @@ function saveDayAndRun(){
   }
   saveDailyInputBackup();
   runAll();
+  flashActionButton(btn, "Đã lưu", "Lưu");
 }
 function clearDailyInputBackup(){
   try{

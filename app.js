@@ -1677,6 +1677,21 @@ async function copyPrintFast(btn){
   const ok = await copyText("copyFast");
   if(ok) flashActionButton(btn, "Đã copy", "In");
 }
+function splitPrintOverlayText(text){
+  const lines = String(text || "").split(/\n/);
+  let amount = "";
+  let end = lines.length - 1;
+  while(end >= 0 && !lines[end].trim()) end--;
+  if(end >= 0 && /^-?[\d.,]+k$/i.test(lines[end].trim())){
+    amount = lines[end].trim();
+    lines.splice(end, 1);
+    while(lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  }
+  return {
+    body:lines.join("\n").trimEnd(),
+    amount
+  };
+}
 function openPrintOverlay(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
@@ -1686,9 +1701,16 @@ function openPrintOverlay(btn){
     return;
   }
   const output = el("printOverlayText");
+  const amount = el("printOverlayAmount");
   const overlay = el("printOverlay");
-  if(output) output.textContent = text;
+  const view = splitPrintOverlayText(text);
+  if(output) output.textContent = view.body;
+  if(amount){
+    amount.textContent = view.amount;
+    amount.hidden = !view.amount;
+  }
   if(overlay){
+    overlay.dataset.copyText = text;
     overlay.hidden = false;
     overlay.scrollTop = 0;
   }
@@ -1699,7 +1721,7 @@ function closePrintOverlay(){
   if(overlay) overlay.hidden = true;
 }
 async function copyPrintOverlay(btn){
-  const text = (el("printOverlayText")?.textContent || "").trim();
+  const text = (el("printOverlay")?.dataset.copyText || el("printOverlayText")?.textContent || "").trim();
   if(!text){
     alert("Chưa có dữ liệu để copy");
     return;

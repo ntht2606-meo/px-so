@@ -744,7 +744,7 @@ function splitCopyLineOriginal(rawLine, maxLen=24){
   return out;
 }
 function buildCopyFast(blocks, total){
-  const out=[todayLabel(), ""];
+  const out=[todayLabel() + " " + roundedMoney(total), ""];
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of block.lines){
@@ -752,7 +752,6 @@ function buildCopyFast(blocks, total){
     }
     out.push("");
   }
-  out.push(roundedMoney(total));
   return out.join("\n").trim();
 }
 
@@ -1678,27 +1677,39 @@ async function copyPrintFast(btn){
   if(ok) flashActionButton(btn, "Đã copy", "In");
 }
 function splitPrintOverlayText(text){
-  const raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd();
-  const m = raw.match(/(?:^|\n)\s*(-?[\d.,]+k)\s*$/i);
-  let body = raw;
+  const lines = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const moneyLine = s => /^-?[\d.,]+k$/i.test(String(s || "").trim());
   let amount = "";
-  if(m){
-    body = raw.slice(0, m.index).trimEnd();
-    amount = m[1].trim();
-  }else{
-    amount = val("ghi").trim();
+
+  let last = lines.length - 1;
+  while(last >= 0 && !lines[last].trim()) last--;
+  if(last >= 0 && moneyLine(lines[last])){
+    amount = lines[last].trim();
+    lines.splice(last, 1);
+    while(lines.length && !lines[lines.length - 1].trim()) lines.pop();
   }
-  const lines = body.split(/\n/);
+
   let date = "";
   let first = 0;
   while(first < lines.length && !lines[first].trim()) first++;
   if(first < lines.length && /^ngày\b/i.test(lines[first].trim())){
-    date = lines[first].trim();
+    const firstLine = lines[first].trim();
+    const headAmount = firstLine.match(/^(.*?)(?:\s+)(-?[\d.,]+k)$/i);
+    if(headAmount){
+      date = headAmount[1].trim();
+      if(!amount) amount = headAmount[2].trim();
+    }else{
+      date = firstLine;
+    }
     lines.splice(first, 1);
   }
+  if(!amount) amount = val("ghi").trim();
+
+  while(lines.length && !lines[0].trim()) lines.shift();
+  while(lines.length && !lines[lines.length - 1].trim()) lines.pop();
   return {
     date,
-    body:lines.join("\n").trimStart(),
+    body:lines.join("\n"),
     amount
   };
 }

@@ -369,6 +369,33 @@ function parseAmount(s){
   return parseFloat(String(s||"0").replace(",",".")) || 0;
 }
 
+function orderDaisBySchedule(dais){
+  const list = (dais || []).filter(Boolean);
+  if(list.length <= 1) return list.slice();
+
+  const candidates = [];
+  [MN_MAP, MT_MAP].forEach(map=>{
+    Object.values(map).forEach(arr=>{
+      if(list.every(dai => arr.includes(dai))){
+        candidates.push(arr);
+      }
+    });
+  });
+  if(!candidates.length) return list.slice();
+
+  candidates.sort((a,b)=>{
+    if(a.length !== b.length) return a.length - b.length;
+    return 0;
+  });
+  const order = candidates[0];
+  return list.slice().sort((a,b)=>{
+    const ai = order.indexOf(a);
+    const bi = order.indexOf(b);
+    if(ai !== bi) return ai - bi;
+    return 0;
+  });
+}
+
 function getDaisFromName(name){
   if(!name) return [];
   const raw = name.trim();
@@ -384,7 +411,7 @@ function getDaisFromName(name){
     if(a.idx !== b.idx) return a.idx - b.idx;
     return b.d.length - a.d.length;
   });
-  return found.length ? found.map(item => item.d) : [raw];
+  return found.length ? orderDaisBySchedule(found.map(item => item.d)) : [raw];
 }
 function detectRegionByDais(dais){
   if(dais.includes("HN")) return "HN";
@@ -1159,22 +1186,15 @@ function buildTach(blocks){
       return lines;
     };
 
-    const explicitSourceOrder = {};
-    blocks.forEach((block, idx)=>{
-      if(!block.generic && explicitSourceOrder[block.name] == null) explicitSourceOrder[block.name] = idx;
-    });
     const blockNames = Object.keys(groupedByBlock).sort((a,b)=>{
-      const ae = explicitSourceOrder[a], be = explicitSourceOrder[b];
-      if(ae != null || be != null){
-        if(ae == null) return 1;
-        if(be == null) return -1;
-        return ae - be;
-      }
       const ad = blockDais(a), bd = blockDais(b);
       if(ad.length !== bd.length) return ad.length - bd.length;
-      const ar = Math.min(...ad.map(d => rank[d] ?? 9999));
-      const br = Math.min(...bd.map(d => rank[d] ?? 9999));
-      if(ar !== br) return ar - br;
+      const len = Math.max(ad.length, bd.length);
+      for(let i=0; i<len; i++){
+        const ar = rank[ad[i]] ?? 9999;
+        const br = rank[bd[i]] ?? 9999;
+        if(ar !== br) return ar - br;
+      }
       return a.localeCompare(b);
     });
 

@@ -1606,63 +1606,7 @@ function flashActionButton(btn, text, fallback){
     btn.classList.remove("saved");
   }, 900);
 }
-let lastPrintImageDataUrl = "";
-
-function openCopyPanel(){
-  closeActionPanels();
-  const panel = el("panel-copy");
-  if(panel) panel.hidden = false;
-}
-function showPrintImageDataUrl(dataUrl){
-  lastPrintImageDataUrl = dataUrl;
-  const img = el("printImagePreview");
-  const box = el("printImageBox");
-  if(img) img.src = dataUrl;
-  if(box) box.hidden = false;
-  openCopyPanel();
-  setTimeout(()=>{
-    const target = el("printImageBox");
-    if(target && target.scrollIntoView){
-      try{
-        target.scrollIntoView({block:"start", behavior:"smooth"});
-      }catch(e){
-        target.scrollIntoView();
-      }
-    }
-  }, 50);
-}
-function openPrintImage(){
-  if(!lastPrintImageDataUrl){
-    alert("Chưa có ảnh. Anh bấm Tạo lại hoặc nút In trước.");
-    return;
-  }
-  const win = window.open("");
-  if(!win){
-    alert("Safari đang chặn mở ảnh. Anh xem ảnh ngay trong khung bên dưới.");
-    return;
-  }
-  win.document.write(`<img src="${lastPrintImageDataUrl}" style="width:100%;max-width:384px;height:auto;display:block;margin:0 auto;background:#fff;">`);
-  win.document.close();
-}
-function downloadPrintImageDataUrl(){
-  if(!lastPrintImageDataUrl) return false;
-  const a = document.createElement("a");
-  a.href = lastPrintImageDataUrl;
-  a.download = `pxso-in-${dateKey()}.png`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  return true;
-}
-function savePrintImage(btn){
-  if(!lastPrintImageDataUrl){
-    copyPrintFast(btn);
-    return;
-  }
-  const ok = downloadPrintImageDataUrl();
-  flashActionButton(btn, ok ? "Đã lưu" : "Lỗi lưu", "Lưu ảnh");
-}
-function copyPrintFast(btn){
+async function copyPrintFast(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
   const text = val("copyFast").trim();
@@ -1671,16 +1615,8 @@ function copyPrintFast(btn){
     return;
   }
 
-  try{
-    const dataUrl = makePrintImageDataUrl(text);
-    showPrintImageDataUrl(dataUrl);
-    downloadPrintImageDataUrl();
-    flashActionButton(btn, "Đã tạo ảnh", "In");
-  }catch(e){
-    console.error(e);
-    flashActionButton(btn, "Lỗi ảnh", "In");
-    alert("Chưa tạo được ảnh. Em đã chặn copy text để không sai luồng In.");
-  }
+  const ok = await copyText("copyFast");
+  if(ok) flashActionButton(btn, "Đã copy", "In");
 }
 
 function wrapPrintLine(line, ctx, maxWidth){

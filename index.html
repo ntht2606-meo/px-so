@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5601" />
+  <link rel="stylesheet" href="style.css?v=5603" />
 </head>
 <body>
   <div class="app">
@@ -90,13 +90,9 @@
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
           <h2>In</h2>
         </div>
-        <div class="panel-title-row print-actions-row">
-          <button type="button" class="save-mini" onclick="copyPrintFast(this)">Tạo lại</button>
-          <button type="button" class="save-mini" onclick="savePrintImage(this)">Lưu ảnh</button>
-          <button type="button" class="save-mini" onclick="openPrintImage()">Mở ảnh</button>
-        </div>
-        <div id="printImageBox" class="print-image-box" hidden>
-          <img id="printImagePreview" alt="Ảnh in trắng đen" />
+        <div class="panel-title-row">
+          <span></span>
+          <button type="button" class="save-mini" onclick="copyPrintFast(this)">Copy</button>
         </div>
         <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
@@ -244,6 +240,6 @@
 
     <footer>PX-SO v0.5.58 — UI compact and DV grouping</footer>
   </div>
-  <script src="app.js?v=5601"></script>
+  <script src="app.js?v=5603"></script>
 </body>
 </html>

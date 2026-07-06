@@ -1232,7 +1232,56 @@ function buildTach(blocks){
       }
       return line;
     };
-    const renderDaLines = items => {
+    const combinationsOf = (arr, size) => {
+      const out=[];
+      const walk = (start, picked) => {
+        if(picked.length === size){
+          out.push(picked.slice());
+          return;
+        }
+        for(let i=start; i<arr.length; i++){
+          picked.push(arr[i]);
+          walk(i + 1, picked);
+          picked.pop();
+        }
+      };
+      walk(0, []);
+      return out;
+    };
+    const compactHnDaPairs = (pairs, amount) => {
+      const remaining = new Map();
+      uniquePairs(pairs).forEach(pair => remaining.set(pair.join("."), pair));
+      const lines=[];
+      const findFullDvNums = () => {
+        const nums = sortNumsAsc(Array.from(new Set(Array.from(remaining.values()).flat())));
+        for(let size=nums.length; size>=3; size--){
+          for(const combo of combinationsOf(nums, size)){
+            const needed = pairNumbers(combo).map(pair => sortPair(pair[0], pair[1]).join("."));
+            if(needed.every(key => remaining.has(key))) return combo;
+          }
+        }
+        return null;
+      };
+
+      while(true){
+        const combo = findFullDvNums();
+        if(!combo) break;
+        lines.push(makeLine(combo, "dv", amount));
+        pairNumbers(combo).forEach(pair => {
+          remaining.delete(sortPair(pair[0], pair[1]).join("."));
+        });
+      }
+
+      Array.from(remaining.values())
+        .sort((a,b)=>{
+          const a0=numSortValue(a[0]), b0=numSortValue(b[0]);
+          if(a0 !== b0) return a0 - b0;
+          return numSortValue(a[1]) - numSortValue(b[1]);
+        })
+        .forEach(pair => lines.push(makeDaLine(pair[0], pair[1], amount)));
+      return lines;
+    };
+    const renderDaLines = (items, block) => {
       const byAmount = {};
       items.forEach(item => {
         const key = fmtN(item.n);
@@ -1242,6 +1291,10 @@ function buildTach(blocks){
       const lines=[];
       Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b)).forEach(key=>{
         const pairs = uniquePairs(byAmount[key]);
+        if(block === "HN"){
+          lines.push(...compactHnDaPairs(pairs, parseAmount(key)));
+          return;
+        }
         const nums = sortNumsAsc(Array.from(new Set(pairs.flat())));
         const isFullDv = nums.length >= 3 && pairs.length === comboCount(nums.length);
         if(isFullDv){
@@ -1313,12 +1366,17 @@ function buildTach(blocks){
       normalLineItems
         .sort((a,b)=>compareNum(a.num, b.num))
         .forEach(item => lines.push(item.line));
-      lines.push(...renderDaLines(daItems).sort((a,b)=>{
+      const daLines = renderDaLines(daItems, block);
+      if(block === "HN"){
+        lines.push(...daLines);
+      }else{
+        lines.push(...daLines.sort((a,b)=>{
         const pa = (a.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
         const pb = (b.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
         if((pa[0] || 0) !== (pb[0] || 0)) return (pa[0] || 0) - (pb[0] || 0);
         return (pa[1] || 0) - (pb[1] || 0);
-      }));
+        }));
+      }
 
       if(!lines.length) continue;
       out.push(compactThreeDaiLabel(block));

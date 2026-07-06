@@ -418,6 +418,17 @@ function detectRegionByDais(dais){
   const mt = ["Pyen","Hue","Dlac","Qnam","Dnang","Khoa","Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum"];
   return dais.some(d => mt.includes(d)) ? "MT" : "MN";
 }
+function compactThreeDaiLabel(block){
+  const dais = getDaisFromName(block).filter(Boolean);
+  if(dais.length !== 3) return block;
+  const region = detectRegionByDais(dais);
+  if(region === "HN") return block;
+  const map = region === "MT" ? MT_MAP : MN_MAP;
+  const key = region === "MT" ? "3dmt" : "3dmn";
+  return Object.values(map).some(arr =>
+    arr.length >= 3 && dais.every((dai, idx) => dai === arr[idx])
+  ) ? key : block;
+}
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
   if(/^(hn|mb|2dmn|3dmn|4dmn|2dmt|3dmt)$/.test(l)) return true;
@@ -1254,7 +1265,7 @@ function buildTach(blocks){
       }));
 
       if(!lines.length) continue;
-      out.push(block);
+      out.push(compactThreeDaiLabel(block));
       lines.forEach(line => out.push(...splitTachDisplayLine(line, 15)));
       out.push("");
     }

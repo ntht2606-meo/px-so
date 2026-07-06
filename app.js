@@ -781,11 +781,46 @@ function splitCopyLineOriginal(rawLine, maxLen=20){
   if(cur.length) out.push(cur.join(".") + suffix);
   return out;
 }
+function groupDuplicateSuffixLines(lines){
+  const out=[];
+  const groups={};
+  (lines || []).forEach(rawLine => {
+    const line = normalizeLine(rawLine);
+    const m = line.match(/^(\d+(?:\.\d+)*)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
+    if(!m){
+      if(line) out.push(line);
+      return;
+    }
+    const nums = m[1].split(".").filter(Boolean);
+    const suffix = m[2];
+    const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
+    const lens = new Set(nums.map(num => String(num).length));
+    if(firstType === "da" || firstType === "dv" || lens.size !== 1){
+      out.push(line);
+      return;
+    }
+    const key = [nums[0].length, suffix.toLowerCase()].join("|");
+    if(!groups[key]){
+      groups[key] = { index:out.length, suffix, nums:[] };
+      out.push(null);
+    }
+    groups[key].nums.push(...nums);
+  });
+  Object.values(groups).forEach(group => {
+    const nums = group.nums.slice().sort((a,b)=>{
+      const na=parseInt(a,10), nb=parseInt(b,10);
+      if(na !== nb) return na - nb;
+      return String(a).localeCompare(String(b));
+    });
+    out[group.index] = nums.join(".") + group.suffix;
+  });
+  return out.filter(Boolean);
+}
 function buildCopyFast(blocks, total){
   const out=[todayLabel() + " " + roundedMoney(total), ""];
   for(const block of blocks){
     out.push(block.name);
-    for(const rawLine of block.lines){
+    for(const rawLine of groupDuplicateSuffixLines(block.lines)){
       out.push(...splitCopyLineOriginal(rawLine, 20));
     }
     out.push("");
@@ -798,7 +833,7 @@ function renderObj(obj){
   for(const [block, lines] of Object.entries(obj)){
     if(!lines.length) continue;
     out.push(block);
-    for(const line of lines){
+    for(const line of groupDuplicateSuffixLines(lines)){
       out.push(...splitTachDisplayLine(line, 20));
     }
     out.push("");
@@ -1287,7 +1322,7 @@ function buildTach(blocks){
 
       if(!lines.length) continue;
       out.push(compactThreeDaiLabel(block));
-      lines.forEach(line => out.push(...splitTachDisplayLine(line, 20)));
+      groupDuplicateSuffixLines(lines).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
       out.push("");
     }
     return out.join("\n").trim();

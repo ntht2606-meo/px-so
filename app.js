@@ -1606,10 +1606,222 @@ function flashActionButton(btn, text, fallback){
     btn.classList.remove("saved");
   }, 900);
 }
+let lastPrintImageFile = null;
+let lastPrintImageAsset = null;
+
+function openCopyPanel(){
+  closeActionPanels();
+  const panel = el("panel-copy");
+  if(panel) panel.hidden = false;
+}
+function showPrintImagePreview(asset){
+  lastPrintImageAsset = asset;
+  lastPrintImageFile = asset.file;
+  const img = el("printImagePreview");
+  const box = el("printImageBox");
+  if(img) img.src = asset.dataUrl;
+  if(box) box.hidden = false;
+  openCopyPanel();
+}
 async function copyPrintFast(btn){
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
-  const ok = await copyText("copyFast");
-  if(ok) flashActionButton(btn, "Đã copy", "In");
+  const text = val("copyFast").trim();
+  if(!text){
+    alert("Chưa có dữ liệu để in");
+    return;
+  }
+
+  try{
+    const asset = await makePrintImageAsset(text);
+    showPrintImagePreview(asset);
+    flashActionButton(btn, "Đã tạo ảnh", "In");
+  }catch(e){
+    console.error(e);
+    flashActionButton(btn, "Lỗi ảnh", "In");
+    alert("Chưa tạo được ảnh. Anh gửi em màn lỗi này, em kiểm tiếp đúng phần tạo ảnh.");
+  }
+}
+async function shareLastPrintImage(btn){
+  if(!lastPrintImageAsset){
+    await copyPrintFast(btn);
+  }
+  if(!lastPrintImageFile) return;
+
+  try{
+    const shared = await sharePrintImage(lastPrintImageFile);
+    if(shared){
+      flashActionButton(btn, "Đã mở", "Chia sẻ");
+      return;
+    }
+    downloadFile(lastPrintImageFile);
+    flashActionButton(btn, "Đã tải", "Chia sẻ");
+  }catch(e){
+    console.error(e);
+    downloadFile(lastPrintImageFile);
+    flashActionButton(btn, "Đã tải", "Chia sẻ");
+  }
+}
+function downloadLastPrintImage(btn){
+  if(!lastPrintImageAsset){
+    copyPrintFast(btn);
+    return;
+  }
+  downloadFile(lastPrintImageFile);
+  flashActionButton(btn, "Đã tải", "Tải ảnh");
+}
+
+function wrapPrintLine(line, ctx, maxWidth){
+  const s = String(line || "");
+  if(!s) return [""];
+  if(ctx.measureText(s).width <= maxWidth) return [s];
+
+  const bet = s.match(/^([0-9.]+)([a-z][a-z0-9,.]*(?:n)(?:\.[a-z][a-z0-9,.]*(?:n))*)$/i);
+  if(bet){
+    const nums = bet[1].split(".").filter(Boolean);
+    const suffix = bet[2];
+    const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
+    const isLongDa = firstType === "da" || firstType === "dv";
+    const out = [];
+    let i = 0;
+    while(i < nums.length){
+      let best = i;
+      for(let j = i; j < nums.length; j++){
+        const finalLine = j === nums.length - 1;
+        const candidate = nums.slice(i, j + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix);
+        if(ctx.measureText(candidate).width <= maxWidth) best = j;
+        else break;
+      }
+      const finalLine = best === nums.length - 1;
+      out.push(nums.slice(i, best + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix));
+      i = best + 1;
+    }
+    return out;
+  }
+
+  const out = [];
+  let cur = "";
+  for(const ch of s){
+    const next = cur + ch;
+    if(cur && ctx.measureText(next).width > maxWidth){
+      out.push(cur);
+      cur = ch;
+    }else{
+      cur = next;
+    }
+  }
+  if(cur) out.push(cur);
+  return out;
+}
+
+function printImageLines(text, ctx, maxWidth){
+  const rawLines = String(text || "").split(/\n/);
+  const out = [];
+  rawLines.forEach(line=>{
+    const wrapped = wrapPrintLine(line.trimEnd(), ctx, maxWidth);
+    out.push(...wrapped);
+  });
+  return out;
+}
+
+function canvasToBlob(canvas){
+  return new Promise((resolve, reject)=>{
+    if(!canvas.toBlob){
+      reject(new Error("Trình duyệt không hỗ trợ canvas.toBlob"));
+      return;
+    }
+    canvas.toBlob(blob=>{
+      if(blob) resolve(blob);
+      else reject(new Error("Không tạo được ảnh in"));
+    }, "image/png");
+  });
+}
+
+function dataUrlToBlob(dataUrl){
+  const parts = dataUrl.split(",");
+  const mime = (parts[0].match(/:(.*?);/) || [,"image/png"])[1];
+  const raw = atob(parts[1] || "");
+  const bytes = new Uint8Array(raw.length);
+  for(let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return new Blob([bytes], {type:mime});
+}
+function makeNamedImageFile(blob, name){
+  try{
+    return new File([blob], name, {type:"image/png"});
+  }catch(e){
+    blob.name = name;
+    return blob;
+  }
+}
+
+async function makePrintImageAsset(text){
+  const width = 384;
+  const marginX = 12;
+  const marginY = 12;
+  const fontSize = 33;
+  const lineHeight = 40;
+  const probe = document.createElement("canvas");
+  const pctx = probe.getContext("2d");
+  if(!pctx) throw new Error("Không mở được canvas đo chữ");
+  pctx.font = `${fontSize}px Arial, sans-serif`;
+  const lines = printImageLines(text, pctx, width - marginX * 2);
+  const height = Math.max(80, marginY * 2 + lines.length * lineHeight);
+
+  const canvas = document.createElement("canvas");
+  const scale = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
+
+  const ctx = canvas.getContext("2d");
+  if(!ctx) throw new Error("Không mở được canvas tạo ảnh");
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#000";
+  ctx.font = `${fontSize}px Arial, sans-serif`;
+  ctx.textBaseline = "top";
+
+  lines.forEach((line, idx)=>{
+    ctx.fillText(line, marginX, marginY + idx * lineHeight);
+  });
+
+  const name = `pxso-in-${dateKey()}.png`;
+  const dataUrl = canvas.toDataURL("image/png");
+  let blob;
+  try{
+    blob = await canvasToBlob(canvas);
+  }catch(e){
+    blob = dataUrlToBlob(dataUrl);
+  }
+  return {
+    dataUrl,
+    file: makeNamedImageFile(blob, name)
+  };
+}
+
+async function sharePrintImage(file){
+  if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
+    await navigator.share({
+      files:[file],
+      title:"PX-SO in ảnh",
+      text:"Ảnh in PX-SO"
+    });
+    return true;
+  }
+  return false;
+}
+
+function downloadFile(file){
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name || "pxso-in.png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
 function readStorage(key){

@@ -1102,9 +1102,31 @@ function buildTach(blocks){
       groupedByBlock[block].push(item);
     };
 
+    const canCombineSignatureBlocks = item => {
+      if(item.type !== "da" || item.blocks.length <= 1) return true;
+
+      const pairSet = new Set();
+      const daiSet = new Set();
+      for(const block of item.blocks){
+        const dais = blockDais(block);
+        if(dais.length !== 2) return false;
+        const pair = sortDaisByRank(dais, rank);
+        pairSet.add(pair.join("|"));
+        pair.forEach(dai => daiSet.add(dai));
+      }
+
+      const unionDais = sortDaisByRank(Array.from(daiSet), rank);
+      if(unionDais.length <= 2) return true;
+      return pairDais(unionDais).every(pair => pairSet.has(pair.join("|")));
+    };
+
     for(const item of bySignature.values()){
-      const block = combineBlocks(item.blocks, rank);
-      addOut(block, item);
+      if(canCombineSignatureBlocks(item)){
+        const block = combineBlocks(item.blocks, rank);
+        addOut(block, item);
+      }else{
+        item.blocks.forEach(block => addOut(block, {...item, blocks:[block]}));
+      }
     }
 
     const renderNormalLine = items => {

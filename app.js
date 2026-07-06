@@ -1678,18 +1678,17 @@ async function copyPrintFast(btn){
   if(ok) flashActionButton(btn, "Đã copy", "In");
 }
 function splitPrintOverlayText(text){
-  const lines = String(text || "").split(/\n/);
-  let amount = "";
-  let end = lines.length - 1;
-  while(end >= 0 && !lines[end].trim()) end--;
-  if(end >= 0 && /^-?[\d.,]+k$/i.test(lines[end].trim())){
-    amount = lines[end].trim();
-    lines.splice(end, 1);
-    while(lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd();
+  const m = raw.match(/(?:^|\n)\s*(-?[\d.,]+k)\s*$/i);
+  if(m){
+    return {
+      body:raw.slice(0, m.index).trimEnd(),
+      amount:m[1].trim()
+    };
   }
   return {
-    body:lines.join("\n").trimEnd(),
-    amount
+    body:raw,
+    amount:val("ghi").trim()
   };
 }
 function openPrintOverlay(btn){

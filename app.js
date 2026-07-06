@@ -1,6 +1,6 @@
 // PX-SO v0.5.58 - compact UI and DV grouping
 // Input -> Bảng trung gian -> Tính tiền
-// In: chuẩn tên đài, gom đồng giá, xuống dòng <=24 ký tự
+// In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"],
@@ -730,7 +730,7 @@ function roundedMoney(n){
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
-function splitCopyLineOriginal(rawLine, maxLen=24){
+function splitCopyLineOriginal(rawLine, maxLen=20){
   const s = normalizeLine(rawLine);
   if(!s || s.length <= maxLen) return s ? [s] : [];
 
@@ -786,7 +786,7 @@ function buildCopyFast(blocks, total){
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of block.lines){
-      out.push(...splitCopyLineOriginal(rawLine, 24));
+      out.push(...splitCopyLineOriginal(rawLine, 20));
     }
     out.push("");
   }
@@ -799,39 +799,60 @@ function renderObj(obj){
     if(!lines.length) continue;
     out.push(block);
     for(const line of lines){
-      out.push(...splitTachDisplayLine(line, 15));
+      out.push(...splitTachDisplayLine(line, 20));
     }
     out.push("");
   }
   return out.join("\n").trim();
 }
 
-function splitTachDisplayLine(line, maxNums=15){
+function splitTachDisplayLine(line, maxLen=20){
   const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|b|xc)([\d,.]+)n$/i);
   if(!m) return line ? [line] : [];
 
   const nums = m[1].split(".").filter(Boolean);
-  if(nums.length <= maxNums) return [line];
+  if(String(line).length <= maxLen) return [line];
 
   const type = m[2];
   const amount = m[3];
+  const suffix = type + amount + "n";
   const isDv = type.toLowerCase() === "dv";
   if(isDv){
     const chunks=[];
-    for(let i=0; i<nums.length; i+=maxNums){
-      chunks.push(nums.slice(i, i + maxNums));
+    let cur=[];
+    for(let i=0; i<nums.length; i++){
+      const num = nums[i];
+      const isLastNum = i === nums.length - 1;
+      const next = cur.concat([num]);
+      const test = next.join(".") + (isLastNum ? suffix : ".");
+      if(cur.length && test.length > maxLen){
+        chunks.push(cur);
+        cur=[num];
+      }else{
+        cur.push(num);
+      }
     }
+    if(cur.length) chunks.push(cur);
     const last = chunks.length - 1;
     if(last > 0 && chunks[last].length === 1 && chunks[last - 1].length > 1){
       chunks[last].unshift(chunks[last - 1].pop());
     }
-    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? type + amount + "n" : "."));
+    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? suffix : "."));
   }
 
   const out=[];
-  for(let i=0; i<nums.length; i+=maxNums){
-    out.push(nums.slice(i, i + maxNums).join(".") + type + amount + "n");
+  let cur=[];
+  for(const num of nums){
+    const next = cur.concat([num]);
+    const test = next.join(".") + suffix;
+    if(cur.length && test.length > maxLen){
+      out.push(cur.join(".") + suffix);
+      cur=[num];
+    }else{
+      cur.push(num);
+    }
   }
+  if(cur.length) out.push(cur.join(".") + suffix);
   return out;
 }
 
@@ -1266,7 +1287,7 @@ function buildTach(blocks){
 
       if(!lines.length) continue;
       out.push(compactThreeDaiLabel(block));
-      lines.forEach(line => out.push(...splitTachDisplayLine(line, 15)));
+      lines.forEach(line => out.push(...splitTachDisplayLine(line, 20)));
       out.push("");
     }
     return out.join("\n").trim();

@@ -282,6 +282,49 @@ textarea{
 #copyFast{
   min-height:210px;
 }
+.print-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  overflow:auto;
+  min-height:100vh;
+  min-height:100dvh;
+  padding:10px;
+  background:#fff;
+}
+.print-overlay-bar{
+  display:grid;
+  grid-template-columns:1fr 88px;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.print-overlay-bar .back-mini,
+.print-overlay-bar .save-mini{
+  min-height:42px;
+  margin:0;
+}
+.print-sheet{
+  width:100%;
+  max-width:430px;
+  min-height:calc(100vh - 70px);
+  min-height:calc(100dvh - 70px);
+  margin:0 auto;
+  padding:22px 18px;
+  border:3px solid #111;
+  background:#fff;
+}
+#printOverlayText{
+  margin:0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  color:#000;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:32px;
+  font-weight:800;
+  line-height:1.22;
+  letter-spacing:0;
+}
 #soTrung{
   min-height:150px;
 }
@@ -418,6 +461,16 @@ footer{
     font-size:22px;
     font-weight:800;
     line-height:1.28;
+  }
+  .print-overlay{
+    padding:8px;
+  }
+  .print-sheet{
+    padding:20px 16px;
+  }
+  #printOverlayText{
+    font-size:30px;
+    line-height:1.22;
   }
   .input-workspace{
     grid-template-columns:minmax(0,1fr) 92px;

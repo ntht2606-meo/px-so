@@ -1618,6 +1618,40 @@ async function copyPrintFast(btn){
   const ok = await copyText("copyFast");
   if(ok) flashActionButton(btn, "Đã copy", "In");
 }
+function openPrintOverlay(btn){
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if(val("inputData").trim()) runAll();
+  const text = val("copyFast").trim();
+  if(!text){
+    alert("Chưa có dữ liệu để in");
+    return;
+  }
+  const output = el("printOverlayText");
+  const overlay = el("printOverlay");
+  if(output) output.textContent = text;
+  if(overlay){
+    overlay.hidden = false;
+    overlay.scrollTop = 0;
+  }
+  if(btn) flashActionButton(btn, "Đã mở", "In");
+}
+function closePrintOverlay(){
+  const overlay = el("printOverlay");
+  if(overlay) overlay.hidden = true;
+}
+async function copyPrintOverlay(btn){
+  const text = (el("printOverlayText")?.textContent || "").trim();
+  if(!text){
+    alert("Chưa có dữ liệu để copy");
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    flashActionButton(btn, "Đã copy", "Copy");
+  }catch(e){
+    alert("Không copy tự động được, anh bôi đen rồi copy thủ công nhé");
+  }
+}
 
 function wrapPrintLine(line, ctx, maxWidth){
   const s = String(line || "");

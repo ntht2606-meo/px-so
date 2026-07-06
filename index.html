@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5603" />
+  <link rel="stylesheet" href="style.css?v=5604" />
 </head>
 <body>
   <div class="app">
@@ -47,7 +47,7 @@
         <div class="input-workspace">
           <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
-            <button type="button" onclick="copyPrintFast(this)">In</button>
+            <button type="button" onclick="openPrintOverlay(this)">In</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
             <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
             <button type="button" onclick="openRegionDataPanel('xoa')">Dãy xoá</button>
@@ -240,6 +240,15 @@
 
     <footer>PX-SO v0.5.58 — UI compact and DV grouping</footer>
   </div>
-  <script src="app.js?v=5603"></script>
+  <section id="printOverlay" class="print-overlay" hidden>
+    <div class="print-overlay-bar">
+      <button type="button" class="back-mini" onclick="closePrintOverlay()">Quay về</button>
+      <button type="button" class="save-mini" onclick="copyPrintOverlay(this)">Copy</button>
+    </div>
+    <div class="print-sheet">
+      <pre id="printOverlayText"></pre>
+    </div>
+  </section>
+  <script src="app.js?v=5604"></script>
 </body>
 </html>

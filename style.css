@@ -249,11 +249,10 @@ textarea{
   margin:0;
 }
 .print-actions-row{
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
 }
 .print-actions-row .save-mini{
   min-width:0;
-  padding:8px 6px;
 }
 .save-mini{
   width:auto;
@@ -289,7 +288,6 @@ textarea{
   border:2px solid #111;
   border-radius:10px;
   background:#f2f2f2;
-  text-align:center;
 }
 .print-image-box img{
   display:block;
@@ -297,7 +295,7 @@ textarea{
   max-width:384px;
   height:auto;
   margin:0 auto;
-  border:1px solid #ccc;
+  border:1px solid #bbb;
   background:#fff;
 }
 #soTrung{

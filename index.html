@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5599" />
+  <link rel="stylesheet" href="style.css?v=5600" />
 </head>
 <body>
   <div class="app">
@@ -91,14 +91,13 @@
           <h2>In</h2>
         </div>
         <div class="panel-title-row print-actions-row">
-          <button type="button" class="save-mini" onclick="copyPrintFast(this)">Tạo ảnh</button>
-          <button type="button" class="save-mini" onclick="shareLastPrintImage(this)">Chia sẻ</button>
-          <button type="button" class="save-mini gray-mini" onclick="downloadLastPrintImage(this)">Tải ảnh</button>
+          <button type="button" class="save-mini" onclick="copyPrintFast(this)">Tạo lại</button>
+          <button type="button" class="save-mini" onclick="openPrintImage()">Mở ảnh</button>
         </div>
-        <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
         <div id="printImageBox" class="print-image-box" hidden>
           <img id="printImagePreview" alt="Ảnh in trắng đen" />
         </div>
+        <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên đài, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
 
       <section id="panel-split" class="panel action-panel" hidden>
@@ -244,6 +243,6 @@
 
     <footer>PX-SO v0.5.58 — UI compact and DV grouping</footer>
   </div>
-  <script src="app.js?v=5599"></script>
+  <script src="app.js?v=5600"></script>
 </body>
 </html>

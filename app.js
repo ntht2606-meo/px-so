@@ -1606,24 +1606,45 @@ function flashActionButton(btn, text, fallback){
     btn.classList.remove("saved");
   }, 900);
 }
-let lastPrintImageFile = null;
-let lastPrintImageAsset = null;
+let lastPrintImageDataUrl = "";
 
 function openCopyPanel(){
   closeActionPanels();
   const panel = el("panel-copy");
   if(panel) panel.hidden = false;
 }
-function showPrintImagePreview(asset){
-  lastPrintImageAsset = asset;
-  lastPrintImageFile = asset.file;
+function showPrintImageDataUrl(dataUrl){
+  lastPrintImageDataUrl = dataUrl;
   const img = el("printImagePreview");
   const box = el("printImageBox");
-  if(img) img.src = asset.dataUrl;
+  if(img) img.src = dataUrl;
   if(box) box.hidden = false;
   openCopyPanel();
+  setTimeout(()=>{
+    const target = el("printImageBox");
+    if(target && target.scrollIntoView){
+      try{
+        target.scrollIntoView({block:"start", behavior:"smooth"});
+      }catch(e){
+        target.scrollIntoView();
+      }
+    }
+  }, 50);
 }
-async function copyPrintFast(btn){
+function openPrintImage(){
+  if(!lastPrintImageDataUrl){
+    alert("Chưa có ảnh. Anh bấm Tạo lại hoặc nút In trước.");
+    return;
+  }
+  const win = window.open("");
+  if(!win){
+    alert("Safari đang chặn mở ảnh. Anh xem ảnh ngay trong khung bên dưới.");
+    return;
+  }
+  win.document.write(`<img src="${lastPrintImageDataUrl}" style="width:100%;max-width:384px;height:auto;display:block;margin:0 auto;background:#fff;">`);
+  win.document.close();
+}
+function copyPrintFast(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
   const text = val("copyFast").trim();
@@ -1633,42 +1654,14 @@ async function copyPrintFast(btn){
   }
 
   try{
-    const asset = await makePrintImageAsset(text);
-    showPrintImagePreview(asset);
+    const dataUrl = makePrintImageDataUrl(text);
+    showPrintImageDataUrl(dataUrl);
     flashActionButton(btn, "Đã tạo ảnh", "In");
   }catch(e){
     console.error(e);
     flashActionButton(btn, "Lỗi ảnh", "In");
-    alert("Chưa tạo được ảnh. Anh gửi em màn lỗi này, em kiểm tiếp đúng phần tạo ảnh.");
+    alert("Chưa tạo được ảnh. Em đã chặn copy text để không sai luồng In.");
   }
-}
-async function shareLastPrintImage(btn){
-  if(!lastPrintImageAsset){
-    await copyPrintFast(btn);
-  }
-  if(!lastPrintImageFile) return;
-
-  try{
-    const shared = await sharePrintImage(lastPrintImageFile);
-    if(shared){
-      flashActionButton(btn, "Đã mở", "Chia sẻ");
-      return;
-    }
-    downloadFile(lastPrintImageFile);
-    flashActionButton(btn, "Đã tải", "Chia sẻ");
-  }catch(e){
-    console.error(e);
-    downloadFile(lastPrintImageFile);
-    flashActionButton(btn, "Đã tải", "Chia sẻ");
-  }
-}
-function downloadLastPrintImage(btn){
-  if(!lastPrintImageAsset){
-    copyPrintFast(btn);
-    return;
-  }
-  downloadFile(lastPrintImageFile);
-  flashActionButton(btn, "Đã tải", "Tải ảnh");
 }
 
 function wrapPrintLine(line, ctx, maxWidth){
@@ -1724,37 +1717,7 @@ function printImageLines(text, ctx, maxWidth){
   return out;
 }
 
-function canvasToBlob(canvas){
-  return new Promise((resolve, reject)=>{
-    if(!canvas.toBlob){
-      reject(new Error("Trình duyệt không hỗ trợ canvas.toBlob"));
-      return;
-    }
-    canvas.toBlob(blob=>{
-      if(blob) resolve(blob);
-      else reject(new Error("Không tạo được ảnh in"));
-    }, "image/png");
-  });
-}
-
-function dataUrlToBlob(dataUrl){
-  const parts = dataUrl.split(",");
-  const mime = (parts[0].match(/:(.*?);/) || [,"image/png"])[1];
-  const raw = atob(parts[1] || "");
-  const bytes = new Uint8Array(raw.length);
-  for(let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-  return new Blob([bytes], {type:mime});
-}
-function makeNamedImageFile(blob, name){
-  try{
-    return new File([blob], name, {type:"image/png"});
-  }catch(e){
-    blob.name = name;
-    return blob;
-  }
-}
-
-async function makePrintImageAsset(text){
+function makePrintImageDataUrl(text){
   const width = 384;
   const marginX = 12;
   const marginY = 12;
@@ -1762,7 +1725,49 @@ async function makePrintImageAsset(text){
   const lineHeight = 40;
   const probe = document.createElement("canvas");
   const pctx = probe.getContext("2d");
-  if(!pctx) throw new Error("Không mở được canvas đo chữ");
+  if(!pctx) throw new Error("Không tạo được canvas đo chữ");
+  pctx.font = `${fontSize}px Arial, sans-serif`;
+  const lines = printImageLines(text, pctx, width - marginX * 2);
+  const height = Math.max(80, marginY * 2 + lines.length * lineHeight);
+
+  const canvas = document.createElement("canvas");
+  const scale = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+
+  const ctx = canvas.getContext("2d");
+  if(!ctx) throw new Error("Không tạo được canvas ảnh");
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#000";
+  ctx.font = `${fontSize}px Arial, sans-serif`;
+  ctx.textBaseline = "top";
+
+  lines.forEach((line, idx)=>{
+    ctx.fillText(line, marginX, marginY + idx * lineHeight);
+  });
+
+  return canvas.toDataURL("image/png");
+}
+
+function canvasToBlob(canvas){
+  return new Promise((resolve, reject)=>{
+    canvas.toBlob(blob=>{
+      if(blob) resolve(blob);
+      else reject(new Error("Không tạo được ảnh in"));
+    }, "image/png");
+  });
+}
+
+async function makePrintImageFile(text){
+  const width = 384;
+  const marginX = 12;
+  const marginY = 12;
+  const fontSize = 33;
+  const lineHeight = 40;
+  const probe = document.createElement("canvas");
+  const pctx = probe.getContext("2d");
   pctx.font = `${fontSize}px Arial, sans-serif`;
   const lines = printImageLines(text, pctx, width - marginX * 2);
   const height = Math.max(80, marginY * 2 + lines.length * lineHeight);
@@ -1775,7 +1780,6 @@ async function makePrintImageAsset(text){
   canvas.style.height = height + "px";
 
   const ctx = canvas.getContext("2d");
-  if(!ctx) throw new Error("Không mở được canvas tạo ảnh");
   ctx.scale(scale, scale);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
@@ -1787,18 +1791,8 @@ async function makePrintImageAsset(text){
     ctx.fillText(line, marginX, marginY + idx * lineHeight);
   });
 
-  const name = `pxso-in-${dateKey()}.png`;
-  const dataUrl = canvas.toDataURL("image/png");
-  let blob;
-  try{
-    blob = await canvasToBlob(canvas);
-  }catch(e){
-    blob = dataUrlToBlob(dataUrl);
-  }
-  return {
-    dataUrl,
-    file: makeNamedImageFile(blob, name)
-  };
+  const blob = await canvasToBlob(canvas);
+  return new File([blob], `pxso-in-${dateKey()}.png`, {type:"image/png"});
 }
 
 async function sharePrintImage(file){

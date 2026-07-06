@@ -1644,6 +1644,24 @@ function openPrintImage(){
   win.document.write(`<img src="${lastPrintImageDataUrl}" style="width:100%;max-width:384px;height:auto;display:block;margin:0 auto;background:#fff;">`);
   win.document.close();
 }
+function downloadPrintImageDataUrl(){
+  if(!lastPrintImageDataUrl) return false;
+  const a = document.createElement("a");
+  a.href = lastPrintImageDataUrl;
+  a.download = `pxso-in-${dateKey()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return true;
+}
+function savePrintImage(btn){
+  if(!lastPrintImageDataUrl){
+    copyPrintFast(btn);
+    return;
+  }
+  const ok = downloadPrintImageDataUrl();
+  flashActionButton(btn, ok ? "Đã lưu" : "Lỗi lưu", "Lưu ảnh");
+}
 function copyPrintFast(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
@@ -1656,6 +1674,7 @@ function copyPrintFast(btn){
   try{
     const dataUrl = makePrintImageDataUrl(text);
     showPrintImageDataUrl(dataUrl);
+    downloadPrintImageDataUrl();
     flashActionButton(btn, "Đã tạo ảnh", "In");
   }catch(e){
     console.error(e);

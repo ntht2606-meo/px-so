@@ -1680,15 +1680,26 @@ async function copyPrintFast(btn){
 function splitPrintOverlayText(text){
   const raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd();
   const m = raw.match(/(?:^|\n)\s*(-?[\d.,]+k)\s*$/i);
+  let body = raw;
+  let amount = "";
   if(m){
-    return {
-      body:raw.slice(0, m.index).trimEnd(),
-      amount:m[1].trim()
-    };
+    body = raw.slice(0, m.index).trimEnd();
+    amount = m[1].trim();
+  }else{
+    amount = val("ghi").trim();
+  }
+  const lines = body.split(/\n/);
+  let date = "";
+  let first = 0;
+  while(first < lines.length && !lines[first].trim()) first++;
+  if(first < lines.length && /^ngày\b/i.test(lines[first].trim())){
+    date = lines[first].trim();
+    lines.splice(first, 1);
   }
   return {
-    body:raw,
-    amount:val("ghi").trim()
+    date,
+    body:lines.join("\n").trimStart(),
+    amount
   };
 }
 function openPrintOverlay(btn){
@@ -1700,14 +1711,18 @@ function openPrintOverlay(btn){
     return;
   }
   const output = el("printOverlayText");
+  const date = el("printOverlayDate");
   const amount = el("printOverlayAmount");
+  const head = el("printOverlayHead");
   const overlay = el("printOverlay");
   const view = splitPrintOverlayText(text);
+  if(date) date.textContent = view.date;
   if(output) output.textContent = view.body;
   if(amount){
     amount.textContent = view.amount;
     amount.hidden = !view.amount;
   }
+  if(head) head.hidden = !(view.date || view.amount);
   if(overlay){
     overlay.dataset.copyText = text;
     overlay.hidden = false;

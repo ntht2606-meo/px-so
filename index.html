@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5610" />
+  <link rel="stylesheet" href="style.css?v=5611" />
 </head>
 <body>
   <div class="app">
@@ -246,10 +246,13 @@
       <button type="button" class="save-mini" onclick="copyPrintOverlay(this)">Copy</button>
     </div>
     <div class="print-sheet">
-      <span id="printOverlayAmount" class="print-overlay-amount"></span>
+      <div id="printOverlayHead" class="print-overlay-head">
+        <span id="printOverlayDate"></span>
+        <span id="printOverlayAmount"></span>
+      </div>
       <pre id="printOverlayText"></pre>
     </div>
   </section>
-  <script src="app.js?v=5610"></script>
+  <script src="app.js?v=5611"></script>
 </body>
 </html>

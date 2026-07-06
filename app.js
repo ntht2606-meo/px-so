@@ -1047,16 +1047,11 @@ function buildTach(blocks){
 
   const buildAtomicRows = () => {
     const rows=[];
-    const sourceLines=[];
-    let sourceSeq = 0;
     const addAtomic = (block, sourceBlock, sourceDais, region, nums, type, n, rawLine) => {
       rows.push({
         block,
         sourceBlock,
         sourceDais:(sourceDais || []).slice(),
-        sourceKey:currentSource ? currentSource.key : "",
-        sourceOrder:currentSource ? currentSource.order : -1,
-        sourceLine:rawLine,
         nums:(nums || []).slice(),
         type,
         n,
@@ -1067,15 +1062,6 @@ function buildTach(blocks){
 
     for(const block of blocks){
       for(const rawLine of block.lines){
-        var currentSource = {
-          key:String(sourceSeq++),
-          order:sourceLines.length,
-          block:block.name,
-          line:rawLine,
-          region:block.region,
-          dais:(block.dais || []).slice()
-        };
-        sourceLines.push(currentSource);
         const parts = parseBetLine(rawLine);
         if(!parts) continue;
         for(const part of parts){
@@ -1110,13 +1096,10 @@ function buildTach(blocks){
         }
       }
     }
-    rows.sourceLines = sourceLines;
     return rows;
   };
 
   const atomicRows = buildAtomicRows();
-  const sourceLines = atomicRows.sourceLines || [];
-  const sourceChanged = new Set();
   const used = new Set();
   const baoGroups = new Map();
   const daGroups = new Map();
@@ -1129,7 +1112,6 @@ function buildTach(blocks){
     }
     if(isBao2Scope(row)){
       used.add(idx);
-      if(row.sourceKey) sourceChanged.add(row.sourceKey);
       const main = mainDaisForRow(row);
       if(main.length < 2){
         pushSplit(row, row.n, max2);
@@ -1145,7 +1127,6 @@ function buildTach(blocks){
     }
     if(isDaScope(row)){
       used.add(idx);
-      if(row.sourceKey) sourceChanged.add(row.sourceKey);
       const pair = sortPair(row.nums[0], row.nums[1]);
       const key = [row.region, row.block, pair[0], pair[1]].join("|");
       if(!daGroups.has(key)){
@@ -1405,73 +1386,9 @@ function buildTach(blocks){
     return out.join("\n").trim();
   };
 
-  const renderOriginalBlocks = sourceItems => {
-    const out=[];
-    let curBlock = "";
-    for(const item of sourceItems){
-      if(!item || !item.block || !item.line) continue;
-      if(item.block !== curBlock){
-        if(out.length) out.push("");
-        out.push(compactThreeDaiLabel(item.block));
-        curBlock = item.block;
-      }
-      out.push(...splitCopyLineOriginal(item.line, 20));
-    }
-    return out.join("\n").trim();
-  };
-  const parseRenderedBlocks = text => {
-    const entries=[];
-    let cur=null;
-    String(text || "").split(/\n/).forEach(raw=>{
-      const line = raw.trim();
-      if(!line){
-        cur = null;
-        return;
-      }
-      if(!cur){
-        cur = {block:line, lines:[]};
-        entries.push(cur);
-      }else{
-        cur.lines.push(line);
-      }
-    });
-    return entries;
-  };
-  const renderKhongRows = rows => {
-    if(!sourceChanged.size) return renderOriginalBlocks(sourceLines);
-
-    const untouched = sourceLines.filter(item => !sourceChanged.has(item.key));
-    const changedRows = rows.filter(row => row.sourceKey && sourceChanged.has(row.sourceKey));
-    const changedEntries = parseRenderedBlocks(renderRows(changedRows));
-
-    const blockMap = new Map();
-    const addLine = (block, line) => {
-      if(!block || !line) return;
-      const key = compactThreeDaiLabel(block);
-      if(!blockMap.has(key)) blockMap.set(key, []);
-      blockMap.get(key).push(line);
-    };
-
-    untouched.forEach(item => {
-      splitCopyLineOriginal(item.line, 20).forEach(line => addLine(item.block, line));
-    });
-    changedEntries.forEach(entry => {
-      entry.lines.forEach(line => addLine(entry.block, line));
-    });
-
-    const out=[];
-    for(const [block, lines] of blockMap.entries()){
-      if(!lines.length) continue;
-      out.push(block);
-      lines.forEach(line => out.push(line));
-      out.push("");
-    }
-    return out.join("\n").trim();
-  };
-
   return {
     tach:renderRows(tach),
-    khong:renderKhongRows(khong)
+    khong:renderRows(khong)
   };
 }
 

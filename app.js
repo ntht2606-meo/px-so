@@ -1043,8 +1043,6 @@ function buildTach(blocks){
     if(na !== nb) return na - nb;
     return String(a).localeCompare(String(b));
   };
-  const comboCount = n => n * (n - 1) / 2;
-
   const buildAtomicRows = () => {
     const rows=[];
     const addAtomic = (block, sourceBlock, sourceDais, region, nums, type, n, rawLine) => {
@@ -1248,7 +1246,7 @@ function buildTach(blocks){
       walk(0, []);
       return out;
     };
-    const compactHnDaPairs = (pairs, amount) => {
+    const compactDaPairsToDv = (pairs, amount) => {
       const remaining = new Map();
       uniquePairs(pairs).forEach(pair => remaining.set(pair.join("."), pair));
       const lines=[];
@@ -1291,17 +1289,7 @@ function buildTach(blocks){
       const lines=[];
       Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b)).forEach(key=>{
         const pairs = uniquePairs(byAmount[key]);
-        if(block === "HN"){
-          lines.push(...compactHnDaPairs(pairs, parseAmount(key)));
-          return;
-        }
-        const nums = sortNumsAsc(Array.from(new Set(pairs.flat())));
-        const isFullDv = nums.length >= 3 && pairs.length === comboCount(nums.length);
-        if(isFullDv){
-          lines.push(makeLine(nums, "dv", parseAmount(key)));
-        }else{
-          pairs.forEach(pair => lines.push(makeDaLine(pair[0], pair[1], parseAmount(key))));
-        }
+        lines.push(...compactDaPairsToDv(pairs, parseAmount(key)));
       });
       return lines;
     };

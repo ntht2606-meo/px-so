@@ -890,11 +890,11 @@ function buildTach(blocks){
     if(keep > 0) pushRow(tach, row, keep, block);
     if(overflow > 0) pushRow(khong, row, overflow, block);
   };
-  const mainDaisForRow = row => row.region === "HN" ? ["HN"] : (row.sourceDais || []).slice(0,2);
-  const mainPairForRow = row => {
-    const main = mainDaisForRow(row);
-    return main.length >= 2 ? main[0] + main[1] : "";
+  const mainDaisForRow = row => {
+    if(row.region === "HN") return ["HN"];
+    return regionZonesForRow(row).mainDais || [];
   };
+  const mainPairForRow = row => row.region === "HN" ? "" : (regionZonesForRow(row).mainPair || "");
   const hasXoa = row => {
     const xoaSet = readXoaSet(row.region);
     return xoaSet.size > 0 && (row.nums || []).some(num => numInXoa(num, xoaSet));

@@ -705,6 +705,30 @@ function splitCopyLineOriginal(rawLine, maxLen=24){
   const suffix = m[2];
   if(nums.length < 2) return [s];
 
+  const dvSuffix = suffix.match(/^dv[\d,.]+n$/i);
+  if(dvSuffix){
+    const chunks=[];
+    let cur=[];
+    for(let i=0; i<nums.length; i++){
+      const num = nums[i];
+      const isLastNum = i === nums.length - 1;
+      const nextNums = cur.concat([num]);
+      const test = nextNums.join(".") + (isLastNum ? suffix : ".");
+      if(cur.length && test.length > maxLen){
+        chunks.push(cur);
+        cur=[num];
+      }else{
+        cur.push(num);
+      }
+    }
+    if(cur.length) chunks.push(cur);
+    const last = chunks.length - 1;
+    if(last > 0 && chunks[last].length === 1 && chunks[last - 1].length > 1){
+      chunks[last].unshift(chunks[last - 1].pop());
+    }
+    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? suffix : "."));
+  }
+
   const out=[];
   let cur=[];
   for(const num of nums){
@@ -754,6 +778,19 @@ function splitTachDisplayLine(line, maxNums=15){
 
   const type = m[2];
   const amount = m[3];
+  const isDv = type.toLowerCase() === "dv";
+  if(isDv){
+    const chunks=[];
+    for(let i=0; i<nums.length; i+=maxNums){
+      chunks.push(nums.slice(i, i + maxNums));
+    }
+    const last = chunks.length - 1;
+    if(last > 0 && chunks[last].length === 1 && chunks[last - 1].length > 1){
+      chunks[last].unshift(chunks[last - 1].pop());
+    }
+    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? type + amount + "n" : "."));
+  }
+
   const out=[];
   for(let i=0; i<nums.length; i+=maxNums){
     out.push(nums.slice(i, i + maxNums).join(".") + type + amount + "n");

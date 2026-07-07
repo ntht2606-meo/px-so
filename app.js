@@ -1504,8 +1504,14 @@ function parseResultText(text, fallbackDai=""){
   const shaped={};
   for(const [dai, numsRaw] of Object.entries(out)){
     const nums = numsRaw.filter(Boolean);
-    const first = nums.length ? nums[0] : "";
-    const last = nums.length ? nums[nums.length-1] : "";
+    const firstByLen = len => nums.find(n => String(n).length >= len) || "";
+    const lastByLen = len => nums.slice().reverse().find(n => String(n).length >= len) || "";
+    const first2 = firstByLen(2);
+    const last2 = lastByLen(2);
+    const first3 = firstByLen(3);
+    const last3 = lastByLen(3);
+    const first4 = firstByLen(4);
+    const last4 = lastByLen(4);
 
     shaped[dai]={
       full: nums,
@@ -1516,12 +1522,12 @@ function parseResultText(text, fallbackDai=""){
       bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
 
       // Đầu/Đuôi = vị trí kết quả, dùng để dò dd/dau/duoi và xc/xcdau/xcduoi.
-      dau2: first ? [first.slice(-2)] : [],
-      duoi2: last ? [last.slice(-2)] : [],
-      dau3: first && first.length>=3 ? [first.slice(-3)] : [],
-      duoi3: last && last.length>=3 ? [last.slice(-3)] : [],
-      dau4: first && first.length>=4 ? [first.slice(-4)] : [],
-      duoi4: last && last.length>=4 ? [last.slice(-4)] : []
+      dau2: first2 ? [first2.slice(-2)] : [],
+      duoi2: last2 ? [last2.slice(-2)] : [],
+      dau3: first3 ? [first3.slice(-3)] : [],
+      duoi3: last3 ? [last3.slice(-3)] : [],
+      dau4: first4 ? [first4.slice(-4)] : [],
+      duoi4: last4 ? [last4.slice(-4)] : []
     };
 
     // Alias cũ để không làm gãy các phần đang đúng.

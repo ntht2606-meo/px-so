@@ -1281,32 +1281,100 @@ function buildTach(blocks){
       }
       return line;
     };
-    const combinationsOf = (arr, size) => {
-      const out=[];
-      const walk = (start, picked) => {
-        if(picked.length === size){
-          out.push(picked.slice());
-          return;
-        }
-        for(let i=start; i<arr.length; i++){
-          picked.push(arr[i]);
-          walk(i + 1, picked);
-          picked.pop();
-        }
-      };
-      walk(0, []);
-      return out;
-    };
     const compactDaPairsToDv = (pairs, amount) => {
       const remaining = new Map();
-      uniquePairs(pairs).forEach(pair => remaining.set(pair.join("."), pair));
+      const pairKey = pair => sortPair(pair[0], pair[1]).join(".");
+      uniquePairs(pairs).forEach(pair => remaining.set(pairKey(pair), sortPair(pair[0], pair[1])));
       const lines=[];
-      const findFullDvNums = () => {
-        const nums = sortNumsAsc(Array.from(new Set(Array.from(remaining.values()).flat())));
+      const hasPair = (a,b) => remaining.has(pairKey([a,b]));
+      const isComplete = nums => pairNumbers(nums).every(pair => hasPair(pair[0], pair[1]));
+      const removeClique = nums => {
+        pairNumbers(nums).forEach(pair => remaining.delete(pairKey(pair)));
+      };
+
+      const findComponents = () => {
+        const adj = new Map();
+        const addNode = n => {
+          if(!adj.has(n)) adj.set(n, new Set());
+        };
+        for(const pair of remaining.values()){
+          addNode(pair[0]);
+          addNode(pair[1]);
+          adj.get(pair[0]).add(pair[1]);
+          adj.get(pair[1]).add(pair[0]);
+        }
+
+        const seen = new Set();
+        const comps = [];
+        for(const n of sortNumsAsc(Array.from(adj.keys()))){
+          if(seen.has(n)) continue;
+          const stack=[n], comp=[];
+          seen.add(n);
+          while(stack.length){
+            const cur=stack.pop();
+            comp.push(cur);
+            for(const next of adj.get(cur) || []){
+              if(!seen.has(next)){
+                seen.add(next);
+                stack.push(next);
+              }
+            }
+          }
+          comps.push(sortNumsAsc(comp));
+        }
+        return comps;
+      };
+
+      const findCliqueInSmallComponent = nums => {
         for(let size=nums.length; size>=3; size--){
-          for(const combo of combinationsOf(nums, size)){
-            const needed = pairNumbers(combo).map(pair => sortPair(pair[0], pair[1]).join("."));
-            if(needed.every(key => remaining.has(key))) return combo;
+          let found=null;
+          const picked=[];
+          const walk = start => {
+            if(found) return;
+            if(picked.length === size){
+              if(isComplete(picked)) found = picked.slice();
+              return;
+            }
+            for(let i=start; i<nums.length; i++){
+              picked.push(nums[i]);
+              walk(i + 1);
+              picked.pop();
+              if(found) return;
+            }
+          };
+          walk(0);
+          if(found) return found;
+        }
+        return null;
+      };
+
+      const findTriangleInLargeComponent = nums => {
+        for(let i=0; i<nums.length; i++){
+          for(let j=i+1; j<nums.length; j++){
+            if(!hasPair(nums[i], nums[j])) continue;
+            for(let k=j+1; k<nums.length; k++){
+              if(hasPair(nums[i], nums[k]) && hasPair(nums[j], nums[k])){
+                return [nums[i], nums[j], nums[k]];
+              }
+            }
+          }
+        }
+        return null;
+      };
+
+      const findFullDvNums = () => {
+        const comps = findComponents()
+          .filter(comp => comp.length >= 3)
+          .sort((a,b) => b.length - a.length || compareNum(a[0], b[0]));
+
+        for(const nums of comps){
+          if(isComplete(nums)) return nums;
+          if(nums.length <= 9){
+            const clique = findCliqueInSmallComponent(nums);
+            if(clique) return clique;
+          }else{
+            const triangle = findTriangleInLargeComponent(nums);
+            if(triangle) return triangle;
           }
         }
         return null;
@@ -1316,9 +1384,7 @@ function buildTach(blocks){
         const combo = findFullDvNums();
         if(!combo) break;
         lines.push(makeLine(combo, "dv", amount));
-        pairNumbers(combo).forEach(pair => {
-          remaining.delete(sortPair(pair[0], pair[1]).join("."));
-        });
+        removeClique(combo);
       }
 
       Array.from(remaining.values())

@@ -962,7 +962,7 @@ function numInXoa(num, xoaSet){
 function buildTach(blocks){
   const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
   const tach=[], khong=[];
-  const typeOrder = ["b","bdao","xc","xcdao","xcdau","xcduoi","dau","duoi"];
+  const typeOrder = ["b","bdao","xc","xcdao","dd","dau","duoi","xcdau","xcduoi"];
   const typeRank = {};
   typeOrder.forEach((type, idx)=>{ typeRank[type] = idx; });
 
@@ -1172,8 +1172,60 @@ function buildTach(blocks){
       agg.get(key).n += row.n;
     }
 
+    const compactPairSuffixRows = items => {
+      const out = [];
+      const buckets = new Map();
+      const pairTypes = new Set(["dau","duoi","xcdau","xcduoi"]);
+      const makeBucketKey = row => [row.block, rowNumKey(row)].join("|");
+
+      for(const row of items){
+        if(pairTypes.has(row.type) && (row.nums || []).length === 1){
+          const key = makeBucketKey(row);
+          if(!buckets.has(key)){
+            buckets.set(key, {
+              block:row.block,
+              nums:(row.nums || []).slice(),
+              rows:{}
+            });
+          }
+          buckets.get(key).rows[row.type] = {...row, nums:(row.nums || []).slice()};
+        }else{
+          out.push(row);
+        }
+      }
+
+      const consumePair = (bucket, aType, bType, outType) => {
+        const a = bucket.rows[aType];
+        const b = bucket.rows[bType];
+        if(!a || !b) return;
+        const common = Math.min(a.n, b.n);
+        if(common > 0){
+          out.push({
+            ...a,
+            type:outType,
+            n:Math.round(common * 100) / 100,
+            nums:(a.nums || []).slice()
+          });
+          a.n = Math.round((a.n - common) * 100) / 100;
+          b.n = Math.round((b.n - common) * 100) / 100;
+        }
+      };
+
+      for(const bucket of buckets.values()){
+        consumePair(bucket, "dau", "duoi", "dd");
+        consumePair(bucket, "xcdau", "xcduoi", "xc");
+        Object.values(bucket.rows).forEach(row => {
+          if(row.n > 0) out.push(row);
+        });
+      }
+
+      return out;
+    };
+
+    const compactedRows = compactPairSuffixRows(Array.from(agg.values()));
+
     const bySignature = new Map();
-    for(const row of agg.values()){
+    for(const row of compactedRows){
       row.n = Math.round(row.n * 100) / 100;
       const key = [rowNumKey(row), row.type, fmtN(row.n)].join("|");
       if(!bySignature.has(key)){

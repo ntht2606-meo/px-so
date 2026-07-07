@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>PX-SO v0.5.58</title>
-  <link rel="stylesheet" href="style.css?v=5622" />
+  <link rel="stylesheet" href="style.css?v=5623" />
 </head>
 <body>
   <div class="app">
@@ -48,11 +48,11 @@
           <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
             <button type="button" onclick="openPrintOverlay(this)">In</button>
+            <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
             <button type="button" onclick="toggleActionPanel('wins')">Số trúng</button>
             <button type="button" onclick="openRegionDataPanel('xoa')">Dãy xoá</button>
             <button type="button" onclick="openRegionDataPanel('result')">Kết quả</button>
-            <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
             <button type="button" class="gray" onclick="clearRun()">Xóa</button>
           </div>
         </div>
@@ -253,6 +253,6 @@
       <pre id="printOverlayText"></pre>
     </div>
   </section>
-  <script src="app.js?v=5622"></script>
+  <script src="app.js?v=5623"></script>
 </body>
 </html>

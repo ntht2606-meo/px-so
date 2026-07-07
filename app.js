@@ -1198,16 +1198,15 @@ function buildTach(blocks){
         const a = bucket.rows[aType];
         const b = bucket.rows[bType];
         if(!a || !b) return;
-        const common = Math.min(a.n, b.n);
-        if(common > 0){
+        if(fmtN(a.n) === fmtN(b.n) && a.n > 0){
           out.push({
             ...a,
             type:outType,
-            n:Math.round(common * 100) / 100,
+            n:Math.round(a.n * 100) / 100,
             nums:(a.nums || []).slice()
           });
-          a.n = Math.round((a.n - common) * 100) / 100;
-          b.n = Math.round((b.n - common) * 100) / 100;
+          a.n = 0;
+          b.n = 0;
         }
       };
 
@@ -1345,6 +1344,31 @@ function buildTach(blocks){
       });
       return lines;
     };
+    const mergeDaWithSameNumLines = lines => {
+      const daByNums = new Map();
+      lines.forEach((line, idx) => {
+        const m = String(line || "").match(/^([0-9]+(?:\.[0-9]+)+)da[\d,.]+n$/i);
+        if(m) daByNums.set(m[1], { line, idx });
+      });
+
+      const consumed = new Set();
+      const merged = [];
+      lines.forEach((line, idx) => {
+        if(consumed.has(idx)) return;
+        const m = String(line || "").match(/^([0-9]+(?:\.[0-9]+)+)([a-z].*)$/i);
+        if(m){
+          const suffix = m[2].toLowerCase();
+          const da = daByNums.get(m[1]);
+          if(da && da.idx !== idx && !suffix.startsWith("da") && !suffix.startsWith("dv")){
+            merged.push(da.line + "." + m[2]);
+            consumed.add(da.idx);
+            return;
+          }
+        }
+        merged.push(line);
+      });
+      return merged;
+    };
 
     const blockNames = Object.keys(groupedByBlock).sort((a,b)=>{
       const ad = blockDais(a), bd = blockDais(b);
@@ -1420,7 +1444,7 @@ function buildTach(blocks){
 
       if(!lines.length) continue;
       out.push(compactThreeDaiLabel(block));
-      groupDuplicateSuffixLines(lines).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
+      mergeDaWithSameNumLines(groupDuplicateSuffixLines(lines)).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
       out.push("");
     }
     return out.join("\n").trim();

@@ -1484,8 +1484,6 @@ function parseResultText(text, fallbackDai=""){
     if(dai){
       cur=dai;
       if(!out[cur]) out[cur]=[];
-      const nums=line.match(/\d+/g);
-      if(nums) nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
       continue;
     }
 

@@ -1544,6 +1544,16 @@ function findDaiInLine(line){
 function parseResultText(text, fallbackDai=""){
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={}; let cur=null;
+  const isResultMetaLine = line => {
+    const s = String(line || "").trim();
+    if(!s) return true;
+    // Không đưa ngày/giờ hoặc dòng tiêu đề vào atomic kết quả.
+    // Các số này từng làm Btre/Vtau bị nhận nhầm 07,23 là số trúng.
+    if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
+    if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
+    if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
+    return false;
+  };
 
   for(const line of lines){
     const dai=findDaiInLine(line);
@@ -1552,6 +1562,8 @@ function parseResultText(text, fallbackDai=""){
       if(!out[cur]) out[cur]=[];
       continue;
     }
+
+    if(isResultMetaLine(line)) continue;
 
     const nums=line.match(/\d+/g);
     if(nums && cur){

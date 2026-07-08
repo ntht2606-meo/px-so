@@ -2856,3 +2856,211 @@ window.addEventListener("DOMContentLoaded", ()=>{
   syncRegionRelatedPanel();
   if(val("inputData").trim()) runAll();
 });
+
+/* V0.5.65 - DATA ZONE TRACE ONLY
+   Xóa nhánh báo tiền trúng khỏi panel Số trúng.
+   Panel này chỉ còn: vùng kết quả -> atomic tin ghi -> trúng/không trúng từng con.
+*/
+const PX_DATA_TRACE_BUILD = "PX-SO v0.5.65 — data-zone trace only — cache v=5642";
+
+function traceJoin(arr){
+  return (arr || []).length ? (arr || []).join(".") : "Trống";
+}
+function rowAtomicNumber(row){
+  return row && row.nums && row.nums.length ? String(row.nums[0]) : "";
+}
+function zoneForAtomic(row, results){
+  if(!row || !row.calc) return null;
+  const t = row.type;
+  const region = row.region || "MN";
+  const dais = getDaisFromName(row.block);
+  const nums = row.nums || [];
+  const num = nums[0] || "";
+  const len = String(num).length;
+
+  if(t === "da"){
+    if(nums.length < 2) return {row, zone:"đá", values:[], hit:0, note:"thiếu cặp số"};
+    const a = nums[0], b = nums[1];
+    if((row.daiCount || 1) >= 2 && dais.length >= 2){
+      const r1 = resultFor(results, region, dais[0]);
+      const r2 = resultFor(results, region, dais[1]);
+      const v1 = r1 ? (r1.bao2 || []) : [];
+      const v2 = r2 ? (r2.bao2 || []) : [];
+      const ab = Math.min(countExact(v1, a), countExact(v2, b));
+      const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
+      return {row, zone:`đá 2 đài: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], hit:ab+ba, note:`${a}.${b}`};
+    }
+    const r = resultFor(results, region, dais[0]);
+    const values = r ? (r.bao2 || []) : [];
+    const ca = countExact(values, a);
+    const cb = countExact(values, b);
+    const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
+    return {row, zone:`${dais[0] || row.block}.bao2`, values, hit, note:`${a}.${b}`};
+  }
+
+  const dai = dais[0] || row.block;
+  const r = resultFor(results, region, dai);
+  if(!r) return {row, zone:`${dai}.thiếu_kết_quả`, values:[], hit:0, note:num};
+
+  let zone = "";
+  let values = [];
+  let hit = 0;
+  if(t === "b"){
+    if(len === 2){ zone = `${dai}.bao2`; values = r.bao2 || []; hit = countExact(values, num); }
+    else if(len === 3){ zone = `${dai}.bao3`; values = r.bao3 || []; hit = countExact(values, num); }
+    else if(len === 4){ zone = `${dai}.bao4`; values = r.bao4 || []; hit = countExact(values, num); }
+  }else if(t === "bdao"){
+    if(len === 3){ zone = `${dai}.bao3 đảo`; values = r.bao3 || []; hit = countPerm(values, num); }
+    else if(len === 4){ zone = `${dai}.bao4 đảo`; values = r.bao4 || []; hit = countPerm(values, num); }
+  }else if(t === "dd"){
+    zone = `${dai}.dau2 + ${dai}.duoi2`;
+    values = [`dau2=${traceJoin(r.dau2 || [])}`, `duoi2=${traceJoin(r.duoi2 || [])}`];
+    hit = countExact(r.dau2 || [], num) + countExact(r.duoi2 || [], num);
+  }else if(t === "dau"){
+    zone = `${dai}.dau2`;
+    values = r.dau2 || [];
+    hit = countExact(values, num);
+  }else if(t === "duoi"){
+    zone = `${dai}.duoi2`;
+    values = r.duoi2 || [];
+    hit = countExact(values, num);
+  }else if(t === "xc"){
+    zone = `${dai}.xc = xcdau + xcduoi`;
+    values = r.xc3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcdau"){
+    zone = `${dai}.xcdau`;
+    values = r.dau3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcduoi"){
+    zone = `${dai}.xcduoi`;
+    values = r.duoi3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcdao"){
+    zone = `${dai}.xc đảo = xcdau + xcduoi đảo`;
+    values = [`xcdau=${traceJoin(r.dau3 || [])}`, `xcduoi=${traceJoin(r.duoi3 || [])}`];
+    hit = countPerm(r.dau3 || [], num) + countPerm(r.duoi3 || [], num);
+  }else{
+    zone = `${dai}.không_rõ_loại`;
+  }
+  return {row, zone, values, hit, note:num};
+}
+function calcWinners(rows, results){
+  const items = [];
+  const misses = [];
+  let hitCount = 0;
+  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, traceOnly:true};
+  for(const row of rows || []){
+    const ev = zoneForAtomic(row, results);
+    if(!ev) continue;
+    hitCount += Number(ev.hit || 0);
+    const item = {block:row.block, line:row.line, row, zone:ev.zone, values:ev.values || [], hit:ev.hit || 0, note:ev.note || ""};
+    if((ev.hit || 0) > 0) items.push(item);
+    else misses.push(item);
+  }
+  return {items, misses, total:0, hitCount, traceOnly:true};
+}
+function buildResultZoneBlock(results){
+  const out = [];
+  out.push("A. VÙNG KẾT QUẢ WEB ĐÃ TẠO");
+  let any = false;
+  for(const region of ["MN","MT","HN"]){
+    const data = results && results[region];
+    if(!data || !Object.keys(data).length) continue;
+    any = true;
+    out.push("");
+    out.push(`[${region}]`);
+    for(const [dai,r] of Object.entries(data)){
+      out.push(dai);
+      out.push(`full=${traceJoin(r.full || [])}`);
+      out.push(`bao2=${traceJoin(r.bao2 || [])}`);
+      out.push(`dau2=${traceJoin(r.dau2 || [])}`);
+      out.push(`duoi2=${traceJoin(r.duoi2 || [])}`);
+      out.push(`bao3=${traceJoin(r.bao3 || [])}`);
+      out.push(`xcdau=${traceJoin(r.dau3 || [])}`);
+      out.push(`xcduoi=${traceJoin(r.duoi3 || [])}`);
+      out.push(`xc=${traceJoin(r.xc3 || [])}`);
+      out.push(`bao4=${traceJoin(r.bao4 || [])}`);
+      out.push("");
+    }
+  }
+  if(!any) out.push("Chưa có vùng kết quả / app chưa đọc được kết quả.");
+  return out.join("\n").trim();
+}
+function buildAtomicInputBlock(rows){
+  const out = [];
+  out.push("B. ATOMIC TIN GHI WEB ĐÃ TÁCH");
+  let count = 0;
+  for(const row of rows || []){
+    if(!row.calc) continue;
+    count++;
+    out.push(`${count}. ${row.region || ""} | ${row.block} | ${row.line} | số=${(row.nums || []).join(".")} | loại=${row.type} | n=${fmtN(row.n)} | đài=${row.daiCount || 1}`);
+  }
+  if(!count) out.push("Trống");
+  return out.join("\n").trim();
+}
+function buildAtomicDecisionSection(title, items){
+  const out = [];
+  out.push(title);
+  if(!items || !items.length){
+    out.push("Trống");
+    return out.join("\n");
+  }
+  items.forEach((item, idx)=>{
+    const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
+    out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit}`);
+    out.push(`   vùng=${traceJoin(item.values || [])}`);
+  });
+  return out.join("\n").trim();
+}
+function buildWinReport(pack, results, rows){
+  const out = [];
+  out.push(PX_DATA_TRACE_BUILD);
+  out.push("CHẾ ĐỘ: PHÂN TÍCH DỮ LIỆU, KHÔNG NHÂN TIỀN, KHÔNG GOM");
+  out.push("");
+  out.push(buildResultZoneBlock(results));
+  out.push("");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push(buildAtomicDecisionSection("C. TRÚNG — TÁCH RIÊNG TỪNG CON", (pack && pack.items) || []));
+  out.push("");
+  out.push(buildAtomicDecisionSection("D. KHÔNG TRÚNG — TÁCH RIÊNG TỪNG CON", (pack && pack.misses) || []));
+  return out.join("\n").trim();
+}
+function buildWinStepTrace(rows, results, pack){
+  return buildWinReport(pack, results, rows);
+}
+function runAll(){
+  try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
+    const blocks = splitBlocks(val("inputData"));
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, total));
+    setVal("ghi", money(total));
+
+    const tk = buildTach(blocks);
+    setVal("soTach", tk.tach);
+    setVal("soKhongTach", tk.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+
+    const resultObj = parseAllResults(rows);
+    const pack = calcWinners(rows, resultObj);
+
+    // Không trừ tiền trúng ở chế độ debug. Chỉ báo số atomic khớp.
+    setVal("thuong", String(pack.hitCount || 0) + " con");
+    setVal("tong", money(total));
+    setVal("soTrung", buildWinReport(pack, resultObj, rows));
+    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
+    scrollTextTop("soTrung");
+  }catch(err){
+    console.error(err);
+    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}

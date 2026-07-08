@@ -1,4 +1,4 @@
-// PX-SO v0.5.60 - atomic total before max split
+// PX-SO v0.5.61 - HN XC structured result
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1549,7 +1549,151 @@ function findDaiInLine(line){
   }
   return null;
 }
+function shapeResultRecord(dai, numsRaw, position={}){
+  const nums = (numsRaw || []).filter(Boolean).map(x=>String(x));
+  const firstByLen = len => nums.find(n => String(n).length >= len) || "";
+  const lastByLen = len => nums.slice().reverse().find(n => String(n).length >= len) || "";
+  const first2 = firstByLen(2);
+  const last2 = lastByLen(2);
+  const first3 = firstByLen(3);
+  const last3 = lastByLen(3);
+  const first4 = firstByLen(4);
+  const last4 = lastByLen(4);
+
+  const rec = {
+    full: nums,
+
+    // Bao = toàn bộ giải theo độ dài cần dò.
+    bao2: nums.map(n=>n.slice(-2)),
+    bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
+    bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
+
+    // Đầu/Đuôi mặc định cho MN/MT hoặc dữ liệu không có nhãn giải rõ ràng.
+    dau2: first2 ? [first2.slice(-2)] : [],
+    duoi2: last2 ? [last2.slice(-2)] : [],
+    dau3: first3 ? [first3.slice(-3)] : [],
+    duoi3: last3 ? [last3.slice(-3)] : [],
+    dau4: first4 ? [first4.slice(-4)] : [],
+    duoi4: last4 ? [last4.slice(-4)] : []
+  };
+
+  // Nếu parser đã biết vị trí giải thật thì dùng vị trí đó để dò dau/duoi/xc.
+  if(position.dau2) rec.dau2 = position.dau2.slice();
+  if(position.duoi2) rec.duoi2 = position.duoi2.slice();
+  if(position.dau3) rec.dau3 = position.dau3.slice();
+  if(position.duoi3) rec.duoi3 = position.duoi3.slice();
+  if(position.dau4) rec.dau4 = position.dau4.slice();
+  if(position.duoi4) rec.duoi4 = position.duoi4.slice();
+  if(position.xc3) rec.xc3 = position.xc3.slice();
+
+  // Alias cũ để không làm gãy các phần đang đúng.
+  rec.all2 = rec.bao2;
+  rec.all3 = rec.bao3;
+  rec.all4 = rec.bao4;
+  return rec;
+}
+
+function parseHnResultText(text){
+  const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const sections={db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[]};
+  const full=[];
+  let cur="";
+  let sawPrizeLabel=false;
+
+  const labels = [
+    ["db", /^\s*(?:giải|giai)?\s*(?:đb|db|đặc\s*biệt|dac\s*biet)\b\s*[:\-\t ]*/i],
+    ["g1", /^\s*(?:giải|giai|g)\s*(?:nhất|nhat|1)\b\s*[:\-\t ]*/i],
+    ["g2", /^\s*(?:giải|giai|g)\s*(?:nhì|nhi|2)\b\s*[:\-\t ]*/i],
+    ["g3", /^\s*(?:giải|giai|g)\s*(?:ba|3)\b\s*[:\-\t ]*/i],
+    ["g4", /^\s*(?:giải|giai|g)\s*(?:tư|tu|4)\b\s*[:\-\t ]*/i],
+    ["g5", /^\s*(?:giải|giai|g)\s*(?:năm|nam|5)\b\s*[:\-\t ]*/i],
+    ["g6", /^\s*(?:giải|giai|g)\s*(?:sáu|sau|6)\b\s*[:\-\t ]*/i],
+    ["g7", /^\s*(?:giải|giai|g)\s*(?:bảy|bay|7)\b\s*[:\-\t ]*/i]
+  ];
+
+  const isMeta = line => {
+    const s = String(line || "").trim();
+    if(!s) return true;
+    if(/^kết\s*quả/i.test(s) || /^ket\s*qua/i.test(s)) return true;
+    if(/^hà\s*nội$/i.test(s) || /^ha\s*noi$/i.test(s) || /^hn$/i.test(s)) return true;
+    if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
+    if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
+    if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
+    return false;
+  };
+
+  const normalizeBySection = (n, section) => {
+    let x = String(n || "").replace(/\D/g, "");
+    if(!x) return "";
+    // Kết quả HN thường rút 071 thành 71, 01 thành 1 khi copy.
+    if(section === "g6" && x.length < 3) x = x.padStart(3, "0");
+    if(section === "g7" && x.length < 2) x = x.padStart(2, "0");
+    return x;
+  };
+
+  for(const raw of lines){
+    if(isMeta(raw)) continue;
+
+    let line = raw;
+    let section = "";
+    for(const [name,re] of labels){
+      const m = line.match(re);
+      if(m){
+        section = name;
+        cur = name;
+        sawPrizeLabel = true;
+        line = line.slice(m[0].length);
+        break;
+      }
+    }
+
+    const useSection = section || cur;
+    const nums = line.match(/\d+/g) || [];
+    if(!nums.length) continue;
+
+    if(sawPrizeLabel && useSection){
+      nums.forEach(n=>{
+        const x = normalizeBySection(n, useSection);
+        if(!x || x.length < 2) return;
+        sections[useSection].push(x);
+        full.push(x);
+      });
+    }
+  }
+
+  // Nếu anh dán HN dạng chỉ có số, không có nhãn giải, giữ cách đọc cũ để không rơi dữ liệu.
+  if(!sawPrizeLabel || !full.length){
+    const nums = (text || "").match(/\d+/g) || [];
+    const cleaned = nums.filter(n => n.length >= 2);
+    if(!cleaned.length) return {};
+    return { HN: shapeResultRecord("HN", cleaned) };
+  }
+
+  const db = sections.db[0] || "";
+  const g6 = sections.g6.map(n=>n.slice(-3));
+  const g7 = sections.g7.map(n=>n.slice(-2));
+  const db2 = db ? [db.slice(-2)] : [];
+  const db3 = db ? [db.slice(-3)] : [];
+
+  return {
+    HN: shapeResultRecord("HN", full, {
+      // HN: đầu 2 số = 4 số giải bảy, đuôi 2 số = 2 số ĐB.
+      dau2:g7,
+      duoi2:db2,
+      // HN: xỉu chủ 3 số = 3 số giải sáu + 3 số ĐB.
+      dau3:g6,
+      duoi3:db3,
+      xc3:g6.concat(db3)
+    })
+  };
+}
+
 function parseResultText(text, fallbackDai=""){
+  if(fallbackDai === "HN"){
+    const hn = parseHnResultText(text);
+    if(hn && hn.HN && hn.HN.full && hn.HN.full.length) return hn;
+  }
+
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={}; let cur=null;
   const isResultMetaLine = line => {
@@ -1587,37 +1731,7 @@ function parseResultText(text, fallbackDai=""){
 
   const shaped={};
   for(const [dai, numsRaw] of Object.entries(out)){
-    const nums = numsRaw.filter(Boolean);
-    const firstByLen = len => nums.find(n => String(n).length >= len) || "";
-    const lastByLen = len => nums.slice().reverse().find(n => String(n).length >= len) || "";
-    const first2 = firstByLen(2);
-    const last2 = lastByLen(2);
-    const first3 = firstByLen(3);
-    const last3 = lastByLen(3);
-    const first4 = firstByLen(4);
-    const last4 = lastByLen(4);
-
-    shaped[dai]={
-      full: nums,
-
-      // Bao = toàn bộ giải theo độ dài cần dò.
-      bao2: nums.map(n=>n.slice(-2)),
-      bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
-      bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
-
-      // Đầu/Đuôi = vị trí kết quả, dùng để dò dd/dau/duoi và xc/xcdau/xcduoi.
-      dau2: first2 ? [first2.slice(-2)] : [],
-      duoi2: last2 ? [last2.slice(-2)] : [],
-      dau3: first3 ? [first3.slice(-3)] : [],
-      duoi3: last3 ? [last3.slice(-3)] : [],
-      dau4: first4 ? [first4.slice(-4)] : [],
-      duoi4: last4 ? [last4.slice(-4)] : []
-    };
-
-    // Alias cũ để không làm gãy các phần đang đúng.
-    shaped[dai].all2 = shaped[dai].bao2;
-    shaped[dai].all3 = shaped[dai].bao3;
-    shaped[dai].all4 = shaped[dai].bao4;
+    shaped[dai] = shapeResultRecord(dai, numsRaw);
   }
   return shaped;
 }
@@ -1765,7 +1879,7 @@ function calcWinRow(row, results){
       hit = countExact(r.duoi2, num);
 
     }else if(t === "xc"){
-      hit = countExact(r.dau3, num) + countExact(r.duoi3, num);
+      hit = r.xc3 ? countExact(r.xc3, num) : (countExact(r.dau3, num) + countExact(r.duoi3, num));
 
     }else if(t === "xcdau"){
       hit = countExact(r.dau3, num);

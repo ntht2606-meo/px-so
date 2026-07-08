@@ -1,4 +1,4 @@
-// PX-SO v0.5.62 - structured XC zones MN MT HN
+// PX-SO v0.5.63 - atomic win zones, no pre-gom
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -2092,6 +2092,145 @@ function buildWinReport(pack){
     out.push("");
   }
   return out.join("\n").trim();
+}
+
+
+// V0.5.63 - Atomic win engine: kết quả -> vùng kết quả -> atomic -> TRÚNG / KHÔNG TRÚNG.
+// Không dùng nhánh gom công thức cũ để quyết định trúng. Gom chỉ được làm sau khi atomic đã phân vùng đúng.
+function atomicWinEvaluateRow(row, results){
+  if(!row || !row.calc || !hasAnyResults(results)) return null;
+
+  const t = row.type;
+  const nums = row.nums || [];
+  const n = Number(row.n || 0);
+  const region = row.region || "MN";
+  const dais = getDaisFromName(row.block);
+  const coef = winCoefForRow(row);
+  let hit = 0;
+  let zone = "";
+
+  if(!n || !coef){
+    return {row, hit:0, amount:0, coef, zone:"không tính"};
+  }
+
+  if(t === "da"){
+    if(nums.length < 2) return {row, hit:0, amount:0, coef, zone:"da"};
+    const a = nums[0], b = nums[1];
+    if((row.daiCount || 1) >= 2 && dais.length >= 2){
+      const r1 = resultFor(results, region, dais[0]);
+      const r2 = resultFor(results, region, dais[1]);
+      zone = "đá 2 đài / bao2 chéo";
+      if(!r1 || !r2) return {row, hit:0, amount:0, coef, zone};
+      const ab = Math.min(countExact(r1.bao2, a), countExact(r2.bao2, b));
+      const ba = (a === b) ? 0 : Math.min(countExact(r1.bao2, b), countExact(r2.bao2, a));
+      hit = ab + ba;
+    }else{
+      const r = resultFor(results, region, dais[0]);
+      zone = "đá 1 đài / bao2";
+      if(!r) return {row, hit:0, amount:0, coef, zone};
+      const ca = countExact(r.bao2, a);
+      const cb = countExact(r.bao2, b);
+      hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
+    }
+  }else{
+    const dai = dais[0];
+    const r = resultFor(results, region, dai);
+    const num = nums[0] || "";
+    const len = String(num).length;
+    if(!r) return {row, hit:0, amount:0, coef, zone:"thiếu kết quả"};
+
+    if(t === "b"){
+      if(len === 2){ hit = countExact(r.bao2, num); zone = "bao2"; }
+      else if(len === 3){ hit = countExact(r.bao3, num); zone = "bao3"; }
+      else if(len === 4){ hit = countExact(r.bao4, num); zone = "bao4"; }
+    }else if(t === "bdao"){
+      if(len === 3){ hit = countPerm(r.bao3, num); zone = "bao3 đảo"; }
+      else if(len === 4){ hit = countPerm(r.bao4, num); zone = "bao4 đảo"; }
+    }else if(t === "dd"){
+      hit = countExact(r.dau2, num) + countExact(r.duoi2, num);
+      zone = "đầu2 + đuôi2";
+    }else if(t === "dau"){
+      hit = countExact(r.dau2, num);
+      zone = "đầu2";
+    }else if(t === "duoi"){
+      hit = countExact(r.duoi2, num);
+      zone = "đuôi2";
+    }else if(t === "xc"){
+      hit = countExact(r.xc3 || [], num);
+      zone = "xc = xcdau + xcduoi";
+    }else if(t === "xcdau"){
+      hit = countExact(r.dau3, num);
+      zone = "xcdau";
+    }else if(t === "xcduoi"){
+      hit = countExact(r.duoi3, num);
+      zone = "xcduoi";
+    }else if(t === "xcdao"){
+      hit = countPerm(r.dau3, num) + countPerm(r.duoi3, num);
+      zone = "xc đảo";
+    }
+  }
+
+  const amount = hit > 0 ? n * coef * hit : 0;
+  return {row, block:row.block, line:row.line, hit, coef, amount, zone};
+}
+
+function calcWinners(rows, results){
+  const items = [];
+  const misses = [];
+  let total = 0;
+  if(!hasAnyResults(results)) return {items, misses, total};
+
+  for(const row of rows || []){
+    const ev = atomicWinEvaluateRow(row, results);
+    if(!ev) continue;
+    if(ev.hit > 0 && ev.amount > 0){
+      items.push({block:ev.block, line:ev.line, amount:ev.amount, hit:ev.hit, coef:ev.coef, zone:ev.zone, row:ev.row});
+      total += ev.amount;
+    }else{
+      misses.push({block:row.block, line:row.line, hit:0, coef:ev.coef, zone:ev.zone, row});
+    }
+  }
+  return {items, misses, total};
+}
+
+function buildAtomicSection(title, rows, showMoney){
+  const out = [title, ""];
+  if(!rows || !rows.length){
+    out.push("Trống");
+    return out.join("\n").trim();
+  }
+
+  const groups = {};
+  const order = [];
+  for(const item of rows){
+    const block = item.block || (item.row && item.row.block) || "Không rõ đài";
+    if(!groups[block]){ groups[block] = []; order.push(block); }
+    groups[block].push(item);
+  }
+
+  for(const block of order){
+    out.push(block);
+    for(const item of groups[block]){
+      if(showMoney){
+        out.push(`${item.line} ${money(item.amount)}`);
+      }else{
+        out.push(item.line);
+      }
+    }
+    out.push("");
+  }
+  return out.join("\n").trim();
+}
+
+function buildWinReport(pack){
+  const items = pack && pack.items ? pack.items : [];
+  const misses = pack && pack.misses ? pack.misses : [];
+  if(!items.length && !misses.length) return "";
+  return [
+    buildAtomicSection("TRÚNG", items, true),
+    "",
+    buildAtomicSection("KHÔNG TRÚNG", misses, false)
+  ].join("\n").trim();
 }
 
 function runAll(){

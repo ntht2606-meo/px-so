@@ -1,4 +1,4 @@
-// PX-SO v0.5.69 - atomic output display only
+// PX-SO v0.5.70 - HN loose result XC order fix
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1692,15 +1692,59 @@ function buildPositionFromSections(sections, region){
   };
 }
 
+function collectLooseResultNums(text){
+  const out = [];
+  const lines = (text || "").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  for(const raw of lines){
+    if(isResultMetaLine(raw)) continue;
+    if(findDaiInLine(raw)) continue;
+    const detected = detectPrizeSection(raw);
+    const line = detected && detected.section ? detected.rest : raw;
+    const nums = line.match(/\d+/g) || [];
+    nums.forEach(n=>{
+      const x = String(n || "").replace(/\D/g, "");
+      if(x) out.push(x);
+    });
+  }
+  return out;
+}
+
+function shapeHnLooseResultByOrder(numsRaw){
+  const raw = (numsRaw || []).map(n=>String(n || "").replace(/\D/g, "")).filter(Boolean);
+  if(!raw.length) return {};
+
+  // HN không nhãn giải nhưng dán đủ theo thứ tự chuẩn:
+  // ĐB(1), G1(1), G2(2), G3(6), G4(4), G5(6), G6(3), G7(4).
+  // XC đầu HN phải lấy G6; XC đuôi lấy 3 số cuối ĐB.
+  if(raw.length >= 23){
+    const sec = {db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[],g8:[]};
+    sec.db = raw.slice(0,1).map(n=>normalizeResultNumBySection(n,"db","HN"));
+    sec.g1 = raw.slice(1,2).map(n=>normalizeResultNumBySection(n,"g1","HN"));
+    sec.g2 = raw.slice(2,4).map(n=>normalizeResultNumBySection(n,"g2","HN"));
+    sec.g3 = raw.slice(4,10).map(n=>normalizeResultNumBySection(n,"g3","HN"));
+    sec.g4 = raw.slice(10,14).map(n=>normalizeResultNumBySection(n,"g4","HN"));
+    sec.g5 = raw.slice(14,20).map(n=>normalizeResultNumBySection(n,"g5","HN"));
+    sec.g6 = raw.slice(20,23).map(n=>normalizeResultNumBySection(n,"g6","HN"));
+    sec.g7 = raw.slice(23,27).map(n=>normalizeResultNumBySection(n,"g7","HN"));
+    const ordered = [].concat(sec.db, sec.g1, sec.g2, sec.g3, sec.g4, sec.g5, sec.g6, sec.g7).filter(Boolean);
+    return { HN: shapeResultRecord("HN", ordered, buildPositionFromSections(sec, "HN")) };
+  }
+
+  // Fallback cuối cùng: không đủ cấu trúc thì vẫn tạo bao theo dữ liệu thô, nhưng không được dùng để kết luận sai XC.
+  const cleaned = raw.filter(n => n.length >= 2);
+  if(!cleaned.length) return {};
+  return { HN: shapeResultRecord("HN", cleaned) };
+}
+
 function parseHnResultText(text){
   const parsed = parseStructuredResultText(text, "HN", "HN");
   if(parsed && parsed.HN && parsed.HN.full && parsed.HN.full.length) return parsed;
 
-  // Nếu anh dán HN dạng chỉ có số, không có nhãn giải, giữ cách đọc cũ để không rơi dữ liệu.
-  const nums = (text || "").match(/\d+/g) || [];
-  const cleaned = nums.filter(n => n.length >= 2);
-  if(!cleaned.length) return {};
-  return { HN: shapeResultRecord("HN", cleaned) };
+  // Nếu HN dán dạng chỉ có số, suy luận vị trí theo thứ tự giải HN chuẩn.
+  // Lỗi cũ: fallback lấy xcdau = số 3 chữ số đầu tiên và xcduoi = số 3 chữ số cuối,
+  // nên 707 ở Giải 6 bị rơi khỏi vùng XC dù bao3 vẫn có 707.
+  const nums = collectLooseResultNums(text);
+  return shapeHnLooseResultByOrder(nums);
 }
 
 function parseStructuredResultText(text, region, fallbackDai=""){
@@ -3407,7 +3451,7 @@ function runAll(){
    Panel Số trúng chỉ hiển thị kết quả trúng/không trúng theo atomic.
    Không in vùng kết quả, không in bảng audit, không tính tiền tại panel này.
 */
-const PX_ATOMIC_DISPLAY_BUILD = "PX-SO v0.5.69 — atomic output display only — cache v=5646";
+const PX_ATOMIC_DISPLAY_BUILD = "PX-SO v0.5.70 — HN loose result XC order fix — cache v=5647";
 
 function buildAtomicOutputOnly(title, items){
   const out = [title];

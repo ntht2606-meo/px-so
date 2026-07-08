@@ -1,4 +1,4 @@
-// PX-SO v0.5.68 - atomic zone output only
+// PX-SO v0.5.69 - atomic output display only
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3402,3 +3402,89 @@ function runAll(){
     setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
+
+/* V0.5.69 - FINAL OUTPUT DISPLAY ONLY
+   Panel Số trúng chỉ hiển thị kết quả trúng/không trúng theo atomic.
+   Không in vùng kết quả, không in bảng audit, không tính tiền tại panel này.
+*/
+const PX_ATOMIC_DISPLAY_BUILD = "PX-SO v0.5.69 — atomic output display only — cache v=5646";
+
+function buildAtomicOutputOnly(title, items){
+  const out = [title];
+  if(!items || !items.length){
+    out.push("Trống");
+    return out.join("\n").trim();
+  }
+  let curBlock = "";
+  for(const item of items){
+    const block = item.block || (item.row && item.row.block) || "";
+    if(block !== curBlock){
+      if(curBlock) out.push("");
+      out.push(displayBlockNameForOutput(block));
+      curBlock = block;
+    }
+    out.push(item.line);
+  }
+  return out.join("\n").trim();
+}
+
+function buildAtomicDebugOnly(rows, results, pack){
+  const out = [];
+  out.push(PX_ATOMIC_DISPLAY_BUILD);
+  out.push("");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU TRÚNG", (pack && pack.items) || []));
+  out.push("");
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push("");
+  out.push(buildResultZoneBlock(results));
+  return out.join("\n").trim();
+}
+
+function buildWinReport(pack){
+  return [
+    buildAtomicOutputOnly("TRÚNG", (pack && pack.items) || []),
+    "",
+    buildAtomicOutputOnly("KHÔNG TRÚNG", (pack && pack.misses) || [])
+  ].join("\n").trim();
+}
+
+function buildWinStepTrace(rows, results, pack){
+  return buildAtomicDebugOnly(rows, results, pack);
+}
+
+function runAll(){
+  try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
+    const blocks = splitBlocks(val("inputData"));
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, total));
+    setVal("ghi", money(total));
+
+    const tk = buildTach(blocks);
+    setVal("soTach", tk.tach);
+    setVal("soKhongTach", tk.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+
+    const resultObj = parseAllResults(rows);
+    const pack = calcWinners(rows, resultObj);
+
+    setVal("thuong", "Xem output");
+    setVal("tong", money(total));
+    setVal("soTrung", buildWinReport(pack));
+    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
+    scrollTextTop("soTrung");
+  }catch(err){
+    console.error(err);
+    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}
+

@@ -1,4 +1,4 @@
-// PX-SO v0.5.63 - atomic win zones, no pre-gom
+// PX-SO v0.5.64 - atomic win zones + live result buffer audit
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1811,12 +1811,41 @@ function parseResultText(text, fallbackDai="", regionHint=""){
   }
   return shaped;
 }
-function parseAllResults(){
-  return {
+function syncActiveRegionDataBuffer(){
+  // Lỗi cũ: app chỉ đọc kqMn/kqMt/kqHn, còn ô đang dán trên overlay là activeResultData.
+  // Nếu chưa kịp bấm Lưu hoặc debounce chưa chạy, runAll sẽ dò bằng vùng kết quả rỗng.
+  if(!["MN","MT","HN"].includes(activeWorkspace)) return;
+  const ids = regionRelatedIds(activeWorkspace);
+  const activeResult = val("activeResultData");
+  const activeXoa = val("activeXoaData");
+  if(activeResult.trim()) setVal(ids.result, activeResult);
+  if(activeXoa.trim()) setVal(ids.xoa, activeXoa);
+}
+function resultRegionHasData(obj, region){
+  return !!(obj && obj[region] && Object.keys(obj[region]).length);
+}
+function parseAllResults(rows){
+  syncActiveRegionDataBuffer();
+
+  const obj = {
     MN:parseResultText(val("kqMn"), "", "MN"),
     MT:parseResultText(val("kqMt"), "", "MT"),
     HN:parseResultText(val("kqHn"), "HN", "HN")
   };
+
+  // Fallback theo atomic đang dò: nếu tin là HN nhưng kqHn rỗng,
+  // lấy ngay dữ liệu đang nằm trong ô Kết quả đang mở để tạo vùng HN.
+  const activeText = val("activeResultData").trim();
+  const needRegions = new Set((rows || []).map(r => r.region).filter(Boolean));
+  if(activeText){
+    for(const region of needRegions){
+      if(resultRegionHasData(obj, region)) continue;
+      const fallbackDai = region === "HN" ? "HN" : "";
+      const parsed = parseResultText(activeText, fallbackDai, region);
+      if(parsed && Object.keys(parsed).length) obj[region] = parsed;
+    }
+  }
+  return obj;
 }
 function renderParsedResults(obj){
   const lines=[];
@@ -1884,11 +1913,11 @@ function winCoefForRow(row){
   }
   if(t === "b" || t === "bdao"){
     if(len === 2) return getNum("coef2",75);
-    if(len === 3) return getNum("coef3",650);
+    if(len === 3) return getNum("coef3",630);
     if(len === 4) return getNum("coef4",5500);
   }
   if(t === "dd" || t === "dau" || t === "duoi") return getNum("coef2",75);
-  if(t === "xc" || t === "xcdau" || t === "xcduoi" || t === "xcdao") return getNum("coef3",650);
+  if(t === "xc" || t === "xcdau" || t === "xcduoi" || t === "xcdao") return getNum("coef3",630);
   return 0;
 }
 function calcWinRow(row, results){
@@ -2212,9 +2241,11 @@ function buildAtomicSection(title, rows, showMoney){
     out.push(block);
     for(const item of groups[block]){
       if(showMoney){
-        out.push(`${item.line} ${money(item.amount)}`);
+        const meta = item.zone ? ` [${item.zone}; hit=${item.hit}]` : "";
+        out.push(`${item.line} ${money(item.amount)}${meta}`);
       }else{
-        out.push(item.line);
+        const meta = item.zone ? ` [${item.zone}; hit=0]` : "";
+        out.push(`${item.line}${meta}`);
       }
     }
     out.push("");
@@ -2231,6 +2262,43 @@ function buildWinReport(pack){
     "",
     buildAtomicSection("KHÔNG TRÚNG", misses, false)
   ].join("\n").trim();
+}
+
+function buildWinStepTrace(rows, results, pack){
+  const lines = [];
+  lines.push("DEBUG DÒ TRÚNG ATOMIC");
+  lines.push("");
+  lines.push("B1. Atomic tin ghi:");
+  (rows || []).forEach(r=>{
+    if(!r.calc) return;
+    lines.push(`${r.region || ""} | ${r.block} | ${r.line} | type=${r.type} | n=${r.n}`);
+  });
+  lines.push("");
+  lines.push("B2. Vùng kết quả:");
+  ["MN","MT","HN"].forEach(region=>{
+    const data = results && results[region];
+    if(!data || !Object.keys(data).length) return;
+    lines.push(region);
+    Object.entries(data).forEach(([dai,r])=>{
+      lines.push(`${dai} bao3=${(r.bao3||[]).join(".")}`);
+      lines.push(`${dai} xcdau=${(r.dau3||[]).join(".")}`);
+      lines.push(`${dai} xcduoi=${(r.duoi3||[]).join(".")}`);
+      lines.push(`${dai} xc=${(r.xc3||[]).join(".")}`);
+    });
+  });
+  lines.push("");
+  lines.push("B3. Kết quả từng atomic:");
+  const all = []
+    .concat((pack && pack.items) || [])
+    .concat((pack && pack.misses) || []);
+  all.forEach(item=>{
+    const status = item.hit > 0 ? "TRÚNG" : "KHÔNG";
+    const amount = item.amount ? ` | tiền=${money(item.amount)}` : "";
+    lines.push(`${status} | ${item.block} | ${item.line} | vùng=${item.zone || ""} | hit=${item.hit}${amount}`);
+  });
+  lines.push("");
+  lines.push(`Tổng trúng=${money((pack && pack.total) || 0)}`);
+  return lines.join("\n").trim();
 }
 
 function runAll(){
@@ -2255,11 +2323,12 @@ function runAll(){
     scrollTextTop("soKhongTach");
 
     // CHẠY không hiện chuẩn hóa kết quả. Chỉ dò ngầm nếu đã có dữ liệu kết quả.
-    const resultObj = parseAllResults();
+    const resultObj = parseAllResults(rows);
     const winPack = calcWinners(rows, resultObj);
     setVal("thuong", winPack.total ? money(winPack.total) : "0");
     setVal("tong", money(total - winPack.total));
     setVal("soTrung", buildWinReport(winPack));
+    setVal("detail", buildWinStepTrace(rows, resultObj, winPack));
     scrollTextTop("soTrung");
   }catch(err){
     console.error(err);

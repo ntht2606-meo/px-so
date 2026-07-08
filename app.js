@@ -1,4 +1,4 @@
-// PX-SO v0.5.71 - atomic win money display only
+// PX-SO v0.5.72 - atomic win money display no header
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3534,13 +3534,13 @@ function runAll(){
 
 
 
-/* V0.5.71 - ATOMIC WIN MONEY DISPLAY ONLY
+/* V0.5.72 - ATOMIC WIN MONEY DISPLAY NO HEADER
    Nguồn đúng đã khóa: vùng TRÚNG atomic.
-   Panel Số trúng chỉ hiện các dòng TRÚNG, không hiện KHÔNG TRÚNG.
+   Panel Số trúng chỉ hiện các dòng trúng theo block, không hiện tiêu đề TRÚNG, không hiện KHÔNG TRÚNG.
    Sau khi atomic trúng, đếm hit của số trong vùng dò rồi nhân n và hệ số tương ứng.
    Bao và XC giữ tách riêng từng dòng, không gom chung.
 */
-const PX_ATOMIC_WIN_DISPLAY_BUILD = "PX-SO v0.5.71 — atomic win money display only — cache v=5648";
+const PX_ATOMIC_WIN_DISPLAY_BUILD = "PX-SO v0.5.72 — atomic win money display no header — cache v=5649";
 
 function atomicMoneyForWinItem(row, hit){
   const coef = winCoefForRow(row);
@@ -3592,7 +3592,6 @@ function calcWinners(rows, results){
 function buildWinMoneyOutputOnly(pack){
   const items = (pack && pack.items) || [];
   const out = [];
-  out.push("TRÚNG");
   if(!items.length){
     out.push("Trống");
     return out.join("\n").trim();

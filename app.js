@@ -1,4 +1,4 @@
-// PX-SO v0.5.67 - atomic split win money
+// PX-SO v0.5.68 - atomic zone output only
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3265,6 +3265,135 @@ function runAll(){
 
     setVal("thuong", money(pack.total || 0));
     setVal("tong", money(total - (pack.total || 0)));
+    setVal("soTrung", buildWinReport(pack, resultObj, rows));
+    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
+    scrollTextTop("soTrung");
+  }catch(err){
+    console.error(err);
+    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}
+
+
+/* V0.5.68 - ATOMIC ZONE OUTPUT ONLY
+   Khóa lại đúng yêu cầu hiện tại: chưa gắn công thức tiền ở vùng dò kết quả.
+   Luồng: input -> atomic -> vùng kết quả -> output trúng/không trúng từng con.
+   707b1n.xc5n phải ra output trúng 2 dòng: 707b1n và 707xc5n.
+*/
+const PX_ATOMIC_OUTPUT_BUILD = "PX-SO v0.5.68 — atomic zone output only — cache v=5645";
+
+function calcWinners(rows, results){
+  const items = [];
+  const misses = [];
+  let hitCount = 0;
+  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, traceOnly:true};
+
+  for(const row of rows || []){
+    if(!row || !row.calc) continue;
+    const ev = zoneForAtomic(row, results);
+    if(!ev) continue;
+    const hit = Number(ev.hit || 0);
+    const item = {
+      block: row.block,
+      line: row.line,
+      row,
+      zone: ev.zone,
+      values: ev.values || [],
+      hit,
+      note: ev.note || ""
+    };
+    if(hit > 0){
+      hitCount += hit;
+      items.push(item);
+    }else{
+      misses.push(item);
+    }
+  }
+  return {items, misses, total:0, hitCount, traceOnly:true};
+}
+
+function displayBlockNameForOutput(block){
+  const b = String(block || "").trim();
+  return b === "HN" ? "Hn" : b;
+}
+
+function buildAtomicPlainOutput(title, items){
+  const out = [];
+  out.push(title);
+  if(!items || !items.length){
+    out.push("Trống");
+    return out.join("\n").trim();
+  }
+  let cur = "";
+  for(const item of items){
+    const block = item.block || (item.row && item.row.block) || "";
+    if(block !== cur){
+      if(cur) out.push("");
+      out.push(displayBlockNameForOutput(block));
+      cur = block;
+    }
+    out.push(item.line);
+  }
+  return out.join("\n").trim();
+}
+
+function buildAtomicAuditShort(rows, pack){
+  const out = [];
+  out.push("KIỂM ATOMIC");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU TRÚNG", (pack && pack.items) || []));
+  out.push("");
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG TRÚNG", (pack && pack.misses) || []));
+  return out.join("\n").trim();
+}
+
+function buildWinReport(pack, results, rows){
+  const out = [];
+  out.push(PX_ATOMIC_OUTPUT_BUILD);
+  out.push("CHẾ ĐỘ: KIỂM ATOMIC, KHÔNG TÍNH TIỀN, KHÔNG GOM");
+  out.push(`Tổng atomic trúng: ${((pack && pack.items) || []).length} dòng | Không trúng: ${((pack && pack.misses) || []).length} dòng`);
+  out.push("");
+  out.push(buildAtomicPlainOutput("OUTPUT TRÚNG", (pack && pack.items) || []));
+  out.push("");
+  out.push(buildAtomicPlainOutput("OUTPUT KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push("");
+  out.push(buildResultZoneBlock(results));
+  out.push("");
+  out.push(buildAtomicAuditShort(rows, pack));
+  return out.join("\n").trim();
+}
+
+function buildWinStepTrace(rows, results, pack){
+  return buildWinReport(pack, results, rows);
+}
+
+function runAll(){
+  try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
+    const blocks = splitBlocks(val("inputData"));
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, total));
+    setVal("ghi", money(total));
+
+    const tk = buildTach(blocks);
+    setVal("soTach", tk.tach);
+    setVal("soKhongTach", tk.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+
+    const resultObj = parseAllResults(rows);
+    const pack = calcWinners(rows, resultObj);
+
+    // Không hiển thị tiền thưởng ở bước kiểm vùng dò. Nguồn kiểm là OUTPUT TRÚNG trong soTrung.
+    setVal("thuong", "Xem output");
+    setVal("tong", money(total));
     setVal("soTrung", buildWinReport(pack, resultObj, rows));
     setVal("detail", buildWinStepTrace(rows, resultObj, pack));
     scrollTextTop("soTrung");

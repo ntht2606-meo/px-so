@@ -1,4 +1,4 @@
-// PX-SO v0.5.70 - HN loose result XC order fix
+// PX-SO v0.5.71 - atomic win money display only
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3532,3 +3532,152 @@ function runAll(){
   }
 }
 
+
+
+/* V0.5.71 - ATOMIC WIN MONEY DISPLAY ONLY
+   Nguồn đúng đã khóa: vùng TRÚNG atomic.
+   Panel Số trúng chỉ hiện các dòng TRÚNG, không hiện KHÔNG TRÚNG.
+   Sau khi atomic trúng, đếm hit của số trong vùng dò rồi nhân n và hệ số tương ứng.
+   Bao và XC giữ tách riêng từng dòng, không gom chung.
+*/
+const PX_ATOMIC_WIN_DISPLAY_BUILD = "PX-SO v0.5.71 — atomic win money display only — cache v=5648";
+
+function atomicMoneyForWinItem(row, hit){
+  const coef = winCoefForRow(row);
+  const n = Number(row && row.n || 0);
+  const amount = hit > 0 ? hit * n * coef : 0;
+  return {coef, n, amount};
+}
+
+function calcWinners(rows, results){
+  const items = [];
+  const misses = [];
+  let total = 0;
+  let hitCount = 0;
+
+  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0};
+
+  for(const row of rows || []){
+    if(!row || !row.calc) continue;
+    const ev = zoneForAtomic(row, results);
+    if(!ev) continue;
+
+    const hit = Number(ev.hit || 0);
+    const calc = atomicMoneyForWinItem(row, hit);
+    const item = {
+      block: row.block,
+      line: row.line,
+      row,
+      zone: ev.zone,
+      values: ev.values || [],
+      hit,
+      coef: calc.coef,
+      n: calc.n,
+      amount: calc.amount,
+      note: ev.note || ""
+    };
+
+    if(hit > 0 && calc.amount > 0){
+      hitCount += hit;
+      total += calc.amount;
+      items.push(item);
+    }else{
+      misses.push(item);
+    }
+  }
+
+  return {items, misses, total, hitCount};
+}
+
+function buildWinMoneyOutputOnly(pack){
+  const items = (pack && pack.items) || [];
+  const out = [];
+  out.push("TRÚNG");
+  if(!items.length){
+    out.push("Trống");
+    return out.join("\n").trim();
+  }
+
+  let curBlock = "";
+  for(const item of items){
+    const block = item.block || (item.row && item.row.block) || "";
+    if(block !== curBlock){
+      if(curBlock) out.push("");
+      out.push(displayBlockNameForOutput(block));
+      curBlock = block;
+    }
+    out.push(`${item.line} = ${money(item.amount)}`);
+  }
+
+  out.push("");
+  out.push(`Tổng trúng=${money((pack && pack.total) || 0)}`);
+  return out.join("\n").trim();
+}
+
+function buildWinMoneyDebug(rows, results, pack){
+  const out = [];
+  out.push(PX_ATOMIC_WIN_DISPLAY_BUILD);
+  out.push("");
+  out.push("A. OUTPUT TRÚNG ĐANG HIỂN THỊ");
+  out.push(buildWinMoneyOutputOnly(pack));
+  out.push("");
+  out.push("B. ATOMIC TIN GHI");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push("C. ĐỐI CHIẾU TRÚNG + TIỀN");
+  const items = (pack && pack.items) || [];
+  if(!items.length){
+    out.push("Trống");
+  }else{
+    items.forEach((item, idx)=>{
+      const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | tiền=${money(item.amount)}`);
+      out.push(`   vùng=${traceJoin(item.values || [])}`);
+    });
+  }
+  out.push("");
+  out.push(buildResultZoneBlock(results));
+  return out.join("\n").trim();
+}
+
+function buildWinReport(pack){
+  return buildWinMoneyOutputOnly(pack);
+}
+
+function buildWinStepTrace(rows, results, pack){
+  return buildWinMoneyDebug(rows, results, pack);
+}
+
+function runAll(){
+  try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
+    const blocks = splitBlocks(val("inputData"));
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, total));
+    setVal("ghi", money(total));
+
+    const tk = buildTach(blocks);
+    setVal("soTach", tk.tach);
+    setVal("soKhongTach", tk.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+
+    const resultObj = parseAllResults(rows);
+    const pack = calcWinners(rows, resultObj);
+
+    setVal("thuong", money(pack.total || 0));
+    setVal("tong", money(total - (pack.total || 0)));
+    setVal("soTrung", buildWinReport(pack));
+    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
+    scrollTextTop("soTrung");
+  }catch(err){
+    console.error(err);
+    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}

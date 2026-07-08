@@ -1,4 +1,4 @@
-// PX-SO v0.5.72 - atomic win money display no header
+// PX-SO v0.5.73 - MN MT da joint-zone min hit
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3679,4 +3679,227 @@ function runAll(){
     console.error(err);
     setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
+}
+
+
+/* V0.5.73 - MN/MT DA/DV JOINT ZONE MIN HIT
+   Khóa rule mới:
+   - Với đá/DV MN, MT trên block nhiều đài: tạo vùng bao2 CHUNG của toàn bộ đài trong block.
+   - Hit cặp = min(countA trong vùng chung, countB trong vùng chung).
+   - Không dò chéo từng hướng đài 1/đài 2 nữa.
+   - Áp dụng cho MN và MT. HN giữ rule cũ theo từng vùng HN.
+*/
+const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.73 — MN/MT DA joint-zone min hit — cache v=5650";
+
+function jointBao2ForDais(results, region, dais){
+  const values = [];
+  const labels = [];
+  for(const dai of (dais || [])){
+    const r = resultFor(results, region, dai);
+    const arr = r ? (r.bao2 || []) : [];
+    values.push(...arr);
+    labels.push(`${dai}=${traceJoin(arr)}`);
+  }
+  return {values, labels};
+}
+
+function isMnMtJointDaRow(row, region, dais){
+  return row && row.type === "da" && region !== "HN" && (row.daiCount || 1) >= 2 && (dais || []).length >= 2;
+}
+
+function calcDaHitByJointZone(row, results, region, dais){
+  const nums = row.nums || [];
+  if(nums.length < 2){
+    return {hit:0, zone:"đá", values:[], note:"thiếu cặp số"};
+  }
+  const a = nums[0], b = nums[1];
+  const joint = jointBao2ForDais(results, region, dais);
+  const ca = countExact(joint.values, a);
+  const cb = countExact(joint.values, b);
+  const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
+  return {
+    hit,
+    zone:`${(dais || []).join("")}.bao2 chung MN/MT`,
+    values:joint.labels,
+    note:`${a}.${b} | ${a}=${ca}, ${b}=${cb}, min=${hit}`
+  };
+}
+
+function calcDaHitOldDirection(row, results, region, dais){
+  const nums = row.nums || [];
+  if(nums.length < 2){
+    return {hit:0, zone:"đá", values:[], note:"thiếu cặp số"};
+  }
+  const a = nums[0], b = nums[1];
+  if((row.daiCount || 1) >= 2 && dais.length >= 2){
+    const r1 = resultFor(results, region, dais[0]);
+    const r2 = resultFor(results, region, dais[1]);
+    const v1 = r1 ? (r1.bao2 || []) : [];
+    const v2 = r2 ? (r2.bao2 || []) : [];
+    const ab = Math.min(countExact(v1, a), countExact(v2, b));
+    const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
+    return {hit:ab + ba, zone:`đá 2 đài: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], note:`${a}.${b}`};
+  }
+  const r = resultFor(results, region, dais[0]);
+  const values = r ? (r.bao2 || []) : [];
+  const ca = countExact(values, a);
+  const cb = countExact(values, b);
+  const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
+  return {hit, zone:`${dais[0] || row.block}.bao2`, values, note:`${a}.${b}`};
+}
+
+function zoneForAtomic(row, results){
+  if(!row || !row.calc) return null;
+  const t = row.type;
+  const region = row.region || "MN";
+  const dais = getDaisFromName(row.block);
+  const nums = row.nums || [];
+  const num = nums[0] || "";
+  const len = String(num).length;
+
+  if(t === "da"){
+    const ev = isMnMtJointDaRow(row, region, dais)
+      ? calcDaHitByJointZone(row, results, region, dais)
+      : calcDaHitOldDirection(row, results, region, dais);
+    return {row, zone:ev.zone, values:ev.values || [], hit:ev.hit || 0, note:ev.note || ""};
+  }
+
+  const dai = dais[0] || row.block;
+  const r = resultFor(results, region, dai);
+  if(!r) return {row, zone:`${dai}.thiếu_kết_quả`, values:[], hit:0, note:num};
+
+  let zone = "";
+  let values = [];
+  let hit = 0;
+  if(t === "b"){
+    if(len === 2){ zone = `${dai}.bao2`; values = r.bao2 || []; hit = countExact(values, num); }
+    else if(len === 3){ zone = `${dai}.bao3`; values = r.bao3 || []; hit = countExact(values, num); }
+    else if(len === 4){ zone = `${dai}.bao4`; values = r.bao4 || []; hit = countExact(values, num); }
+  }else if(t === "bdao"){
+    if(len === 3){ zone = `${dai}.bao3 đảo`; values = r.bao3 || []; hit = countPerm(values, num); }
+    else if(len === 4){ zone = `${dai}.bao4 đảo`; values = r.bao4 || []; hit = countPerm(values, num); }
+  }else if(t === "dd"){
+    zone = `${dai}.dau2 + ${dai}.duoi2`;
+    values = [`dau2=${traceJoin(r.dau2 || [])}`, `duoi2=${traceJoin(r.duoi2 || [])}`];
+    hit = countExact(r.dau2 || [], num) + countExact(r.duoi2 || [], num);
+  }else if(t === "dau"){
+    zone = `${dai}.dau2`;
+    values = r.dau2 || [];
+    hit = countExact(values, num);
+  }else if(t === "duoi"){
+    zone = `${dai}.duoi2`;
+    values = r.duoi2 || [];
+    hit = countExact(values, num);
+  }else if(t === "xc"){
+    zone = `${dai}.xc = xcdau + xcduoi`;
+    values = r.xc3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcdau"){
+    zone = `${dai}.xcdau`;
+    values = r.dau3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcduoi"){
+    zone = `${dai}.xcduoi`;
+    values = r.duoi3 || [];
+    hit = countExact(values, num);
+  }else if(t === "xcdao"){
+    zone = `${dai}.xc đảo = xcdau + xcduoi đảo`;
+    values = [`xcdau=${traceJoin(r.dau3 || [])}`, `xcduoi=${traceJoin(r.duoi3 || [])}`];
+    hit = countPerm(r.dau3 || [], num) + countPerm(r.duoi3 || [], num);
+  }else{
+    zone = `${dai}.không_rõ_loại`;
+  }
+  return {row, zone, values, hit, note:num};
+}
+
+function calcWinRow(row, results){
+  if(!row || !row.calc || !hasAnyResults(results)) return null;
+  const ev = zoneForAtomic(row, results);
+  if(!ev) return null;
+  const coef = winCoefForRow(row);
+  const n = Number(row.n || 0);
+  const hit = Number(ev.hit || 0);
+  return {hit, coef, amount: hit > 0 ? hit * n * coef : 0, zone:ev.zone, values:ev.values || []};
+}
+
+function buildWinMoneyDebug(rows, results, pack){
+  const out = [];
+  out.push(PX_DA_JOINT_ZONE_BUILD);
+  out.push("");
+  out.push("A. OUTPUT TRÚNG ĐANG HIỂN THỊ");
+  out.push(buildWinMoneyOutputOnly(pack));
+  out.push("");
+  out.push("B. ATOMIC TIN GHI");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push("C. ĐỐI CHIẾU TRÚNG + TIỀN");
+  const items = (pack && pack.items) || [];
+  if(!items.length){
+    out.push("Trống");
+  }else{
+    items.forEach((item, idx)=>{
+      const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | tiền=${money(item.amount)}`);
+      if(item.note) out.push(`   note=${item.note}`);
+      out.push(`   vùng=${traceJoin(item.values || [])}`);
+    });
+  }
+  out.push("");
+  out.push(buildResultZoneBlock(results));
+  return out.join("\n").trim();
+}
+
+
+/* V0.5.73b - GENERIC 2DMN/2DMT RESULT HINT
+   Khi input dùng 2dmn/3dmn/2dmt/3dmt và vùng kết quả đã dán có tên đài,
+   ưu tiên suy ra ngày/đài theo vùng kết quả đó trước khi rơi về ngày hiện tại.
+*/
+function collectResultHintDaisForRegion(region){
+  const ids = regionRelatedIds(region);
+  const texts = [];
+  const saved = val(ids.result || "");
+  if(saved && saved.trim()) texts.push(saved);
+  const active = val("activeResultData");
+  if(active && active.trim() && activeWorkspace === region) texts.push(active);
+  const seen = new Set();
+  const out = [];
+  for(const text of texts){
+    const lines = String(text || "").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    for(const line of lines){
+      const dai = findDaiInLine(line);
+      if(dai && !seen.has(dai)){
+        seen.add(dai);
+        out.push(dai);
+      }
+    }
+  }
+  return out;
+}
+
+function genericHintDaisForHeader(raw, lastExplicit){
+  const l = normalizeLine(raw).toLowerCase();
+  if(lastExplicit && lastExplicit.length) return lastExplicit;
+  if(/^[234]dmn$/.test(l)) return collectResultHintDaisForRegion("MN");
+  if(/^[23]dmt$/.test(l)) return collectResultHintDaisForRegion("MT");
+  return lastExplicit || [];
+}
+
+function splitBlocks(text){
+  const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const blocks=[]; let cur=null; let lastExplicit=[];
+  for(const raw of lines){
+    if(isHeader(raw)){
+      const hints = genericHintDaisForHeader(raw, lastExplicit);
+      cur = resolveHeader(raw, hints);
+      blocks.push(cur);
+      if(!cur.generic) lastExplicit = cur.dais;
+    }else{
+      if(!cur){
+        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], generic:false, lines:[]};
+        blocks.push(cur);
+      }
+      cur.lines.push(normalizeLine(raw));
+    }
+  }
+  return blocks;
 }

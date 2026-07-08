@@ -1,4 +1,4 @@
-// PX-SO v0.5.58 - compact UI and DV grouping
+// PX-SO v0.5.60 - atomic total before max split
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1102,27 +1102,40 @@ function buildTach(blocks){
   const baoGroups = new Map();
   const daGroups = new Map();
 
+  // Quan trọng: bao 2 số phải tổng theo atomic đài thật trước khi xét max.
+  // Không được đưa từng dòng gốc vào Tin tách rồi mới gom, vì sẽ lọt case:
+  // Dnai 68b5n + DnaiCtho 68b11n => Dnai 68b16n vượt max.
+  const addBaoAtomic = row => {
+    const main = mainDaisForRow(row);
+    if(!main.includes(row.block)) return false;
+    const key = [row.region, main.join("+"), row.nums[0]].join("|");
+    if(!baoGroups.has(key)){
+      baoGroups.set(key, {
+        main:main.slice(),
+        amountByDai:{},
+        sampleByDai:{},
+        sample:row
+      });
+    }
+    const group = baoGroups.get(key);
+    group.amountByDai[row.block] = Math.round(((group.amountByDai[row.block] || 0) + row.n) * 100) / 100;
+    if(!group.sampleByDai[row.block]) group.sampleByDai[row.block] = row;
+    return true;
+  };
+
   for(const [idx, row] of atomicRows.entries()){
     if(hasXoa(row)){
       used.add(idx);
       pushRow(khong, row);
       continue;
     }
+
     if(isBao2Scope(row)){
       used.add(idx);
-      const main = mainDaisForRow(row);
-      if(main.length < 2){
-        pushSplit(row, row.n, max2);
-        continue;
-      }
-      const key = [row.region, main[0], main[1], row.nums[0]].join("|");
-      if(!baoGroups.has(key)){
-        baoGroups.set(key, {row, main, amounts:{}});
-      }
-      const group = baoGroups.get(key);
-      group.amounts[row.block] = (group.amounts[row.block] || 0) + row.n;
+      addBaoAtomic(row);
       continue;
     }
+
     if(isDaScope(row)){
       used.add(idx);
       const pair = sortPair(row.nums[0], row.nums[1]);
@@ -1130,22 +1143,17 @@ function buildTach(blocks){
       if(!daGroups.has(key)){
         daGroups.set(key, {...row, nums:pair, n:0});
       }
-      daGroups.get(key).n += row.n;
+      daGroups.get(key).n = Math.round((daGroups.get(key).n + row.n) * 100) / 100;
     }
   }
 
   for(const group of baoGroups.values()){
-    const a = group.main[0], b = group.main[1];
-    let aN = group.amounts[a] || 0;
-    let bN = group.amounts[b] || 0;
-    const common = Math.min(aN, bN);
-    if(common > 0){
-      pushSplit(group.row, common, max2, a + b);
-      aN = Math.round((aN - common) * 100) / 100;
-      bN = Math.round((bN - common) * 100) / 100;
+    for(const dai of group.main){
+      const total = Math.round((group.amountByDai[dai] || 0) * 100) / 100;
+      if(!(total > 0)) continue;
+      const sample = group.sampleByDai[dai] || group.sample;
+      pushSplit({...sample, block:dai}, total, max2, dai);
     }
-    if(aN > 0) pushSplit(group.row, aN, max2, a);
-    if(bN > 0) pushSplit(group.row, bN, max2, b);
   }
 
   for(const group of daGroups.values()){

@@ -1,4 +1,4 @@
-// PX-SO v0.5.61 - HN XC structured result
+// PX-SO v0.5.62 - structured XC zones MN MT HN
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1549,6 +1549,66 @@ function findDaiInLine(line){
   }
   return null;
 }
+function normalizeResultNumBySection(n, section, region){
+  let x = String(n || "").replace(/\D/g, "");
+  if(!x) return "";
+
+  // Khi copy kết quả, các số có 0 đầu thường bị rút gọn.
+  // Chuẩn hóa lại đúng độ dài theo giải để tạo vùng XC/DD chính xác.
+  if(region === "HN"){
+    if(section === "g6" && x.length < 3) x = x.padStart(3, "0");
+    if(section === "g7" && x.length < 2) x = x.padStart(2, "0");
+  }else{
+    if(section === "g8" && x.length < 2) x = x.padStart(2, "0");
+    if(section === "g7" && x.length < 3) x = x.padStart(3, "0");
+  }
+  return x;
+}
+
+function detectPrizeSection(line){
+  const raw = String(line || "");
+  const norm = raw.toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const patterns = [
+    ["db", /^(?:giai\s*)?(?:db|dac\s*biet)\b/],
+    ["g1", /^(?:giai|g)\s*(?:nhat|1)\b/],
+    ["g2", /^(?:giai|g)\s*(?:nhi|2)\b/],
+    ["g3", /^(?:giai|g)\s*(?:ba|3)\b/],
+    ["g4", /^(?:giai|g)\s*(?:tu|4)\b/],
+    ["g5", /^(?:giai|g)\s*(?:nam|5)\b/],
+    ["g6", /^(?:giai|g)\s*(?:sau|6)\b/],
+    ["g7", /^(?:giai|g)\s*(?:bay|7)\b/],
+    ["g8", /^(?:giai|g)\s*(?:tam|8)\b/]
+  ];
+
+  for(const [name, re] of patterns){
+    if(!re.test(norm)) continue;
+
+    // Cắt phần nhãn giải ở đầu dòng, giữ lại phần số phía sau.
+    // Không dựa vào \b unicode để tránh lỗi với dấu tiếng Việt.
+    const m = raw.match(/^\s*(?:giải|giai|g)?\s*(?:đb|db|đặc\s*biệt|dac\s*biet|nhất|nhat|nhì|nhi|ba|tư|tu|năm|nam|sáu|sau|bảy|bay|tám|tam|[1-8])\s*[\.\:\-\t ]*/i);
+    const rest = m ? raw.slice(m[0].length) : raw;
+    return {section:name, rest};
+  }
+  return {section:"", rest:raw};
+}
+
+function isResultMetaLine(line){
+  const s = String(line || "").trim();
+  if(!s) return true;
+  if(/^kết\s*quả/i.test(s) || /^ket\s*qua/i.test(s)) return true;
+  if(/^hà\s*nội$/i.test(s) || /^ha\s*noi$/i.test(s) || /^hn$/i.test(s)) return true;
+  // Không đưa ngày/giờ hoặc dòng mã kỳ vào atomic kết quả.
+  if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
+  if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
+  if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
+  return false;
+}
+
 function shapeResultRecord(dai, numsRaw, position={}){
   const nums = (numsRaw || []).filter(Boolean).map(x=>String(x));
   const firstByLen = len => nums.find(n => String(n).length >= len) || "";
@@ -1568,7 +1628,7 @@ function shapeResultRecord(dai, numsRaw, position={}){
     bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
     bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
 
-    // Đầu/Đuôi mặc định cho MN/MT hoặc dữ liệu không có nhãn giải rõ ràng.
+    // Mặc định khi chưa có nhãn giải rõ ràng.
     dau2: first2 ? [first2.slice(-2)] : [],
     duoi2: last2 ? [last2.slice(-2)] : [],
     dau3: first3 ? [first3.slice(-3)] : [],
@@ -1584,7 +1644,9 @@ function shapeResultRecord(dai, numsRaw, position={}){
   if(position.duoi3) rec.duoi3 = position.duoi3.slice();
   if(position.dau4) rec.dau4 = position.dau4.slice();
   if(position.duoi4) rec.duoi4 = position.duoi4.slice();
-  if(position.xc3) rec.xc3 = position.xc3.slice();
+
+  // Vùng xỉu chủ riêng. Không dò XC bằng bao3 chung.
+  rec.xc3 = position.xc3 ? position.xc3.slice() : rec.dau3.concat(rec.duoi3);
 
   // Alias cũ để không làm gãy các phần đang đúng.
   rec.all2 = rec.bao2;
@@ -1593,119 +1655,133 @@ function shapeResultRecord(dai, numsRaw, position={}){
   return rec;
 }
 
-function parseHnResultText(text){
-  const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
-  const sections={db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[]};
-  const full=[];
-  let cur="";
-  let sawPrizeLabel=false;
-
-  const labels = [
-    ["db", /^\s*(?:giải|giai)?\s*(?:đb|db|đặc\s*biệt|dac\s*biet)\b\s*[:\-\t ]*/i],
-    ["g1", /^\s*(?:giải|giai|g)\s*(?:nhất|nhat|1)\b\s*[:\-\t ]*/i],
-    ["g2", /^\s*(?:giải|giai|g)\s*(?:nhì|nhi|2)\b\s*[:\-\t ]*/i],
-    ["g3", /^\s*(?:giải|giai|g)\s*(?:ba|3)\b\s*[:\-\t ]*/i],
-    ["g4", /^\s*(?:giải|giai|g)\s*(?:tư|tu|4)\b\s*[:\-\t ]*/i],
-    ["g5", /^\s*(?:giải|giai|g)\s*(?:năm|nam|5)\b\s*[:\-\t ]*/i],
-    ["g6", /^\s*(?:giải|giai|g)\s*(?:sáu|sau|6)\b\s*[:\-\t ]*/i],
-    ["g7", /^\s*(?:giải|giai|g)\s*(?:bảy|bay|7)\b\s*[:\-\t ]*/i]
-  ];
-
-  const isMeta = line => {
-    const s = String(line || "").trim();
-    if(!s) return true;
-    if(/^kết\s*quả/i.test(s) || /^ket\s*qua/i.test(s)) return true;
-    if(/^hà\s*nội$/i.test(s) || /^ha\s*noi$/i.test(s) || /^hn$/i.test(s)) return true;
-    if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
-    if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
-    if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
-    return false;
-  };
-
-  const normalizeBySection = (n, section) => {
-    let x = String(n || "").replace(/\D/g, "");
-    if(!x) return "";
-    // Kết quả HN thường rút 071 thành 71, 01 thành 1 khi copy.
-    if(section === "g6" && x.length < 3) x = x.padStart(3, "0");
-    if(section === "g7" && x.length < 2) x = x.padStart(2, "0");
-    return x;
-  };
-
-  for(const raw of lines){
-    if(isMeta(raw)) continue;
-
-    let line = raw;
-    let section = "";
-    for(const [name,re] of labels){
-      const m = line.match(re);
-      if(m){
-        section = name;
-        cur = name;
-        sawPrizeLabel = true;
-        line = line.slice(m[0].length);
-        break;
-      }
-    }
-
-    const useSection = section || cur;
-    const nums = line.match(/\d+/g) || [];
-    if(!nums.length) continue;
-
-    if(sawPrizeLabel && useSection){
-      nums.forEach(n=>{
-        const x = normalizeBySection(n, useSection);
-        if(!x || x.length < 2) return;
-        sections[useSection].push(x);
-        full.push(x);
-      });
-    }
-  }
-
-  // Nếu anh dán HN dạng chỉ có số, không có nhãn giải, giữ cách đọc cũ để không rơi dữ liệu.
-  if(!sawPrizeLabel || !full.length){
-    const nums = (text || "").match(/\d+/g) || [];
-    const cleaned = nums.filter(n => n.length >= 2);
-    if(!cleaned.length) return {};
-    return { HN: shapeResultRecord("HN", cleaned) };
-  }
-
-  const db = sections.db[0] || "";
-  const g6 = sections.g6.map(n=>n.slice(-3));
-  const g7 = sections.g7.map(n=>n.slice(-2));
+function buildPositionFromSections(sections, region){
+  const db = (sections.db || [])[0] || "";
   const db2 = db ? [db.slice(-2)] : [];
   const db3 = db ? [db.slice(-3)] : [];
+  const db4 = db ? [db.slice(-4)] : [];
 
-  return {
-    HN: shapeResultRecord("HN", full, {
-      // HN: đầu 2 số = 4 số giải bảy, đuôi 2 số = 2 số ĐB.
+  if(region === "HN"){
+    const g6 = (sections.g6 || []).map(n=>String(n).slice(-3));
+    const g7 = (sections.g7 || []).map(n=>String(n).slice(-2));
+    return {
+      // HN: đầu 2 số = giải bảy; đuôi 2 số = 2 số cuối ĐB.
       dau2:g7,
       duoi2:db2,
-      // HN: xỉu chủ 3 số = 3 số giải sáu + 3 số ĐB.
+      // HN: xcdau = giải sáu; xcduoi = 3 số cuối ĐB.
       dau3:g6,
       duoi3:db3,
+      dau4:db4,
+      duoi4:db4,
       xc3:g6.concat(db3)
-    })
+    };
+  }
+
+  const g8 = (sections.g8 || []).map(n=>String(n).slice(-2));
+  const g7 = (sections.g7 || []).map(n=>String(n).slice(-3));
+  return {
+    // MN/MT: đầu 2 số = giải tám; đuôi 2 số = 2 số cuối ĐB.
+    dau2:g8,
+    duoi2:db2,
+    // MN/MT: xcdau = giải bảy; xcduoi = 3 số cuối ĐB.
+    dau3:g7,
+    duoi3:db3,
+    dau4:db4,
+    duoi4:db4,
+    xc3:g7.concat(db3)
   };
 }
 
-function parseResultText(text, fallbackDai=""){
+function parseHnResultText(text){
+  const parsed = parseStructuredResultText(text, "HN", "HN");
+  if(parsed && parsed.HN && parsed.HN.full && parsed.HN.full.length) return parsed;
+
+  // Nếu anh dán HN dạng chỉ có số, không có nhãn giải, giữ cách đọc cũ để không rơi dữ liệu.
+  const nums = (text || "").match(/\d+/g) || [];
+  const cleaned = nums.filter(n => n.length >= 2);
+  if(!cleaned.length) return {};
+  return { HN: shapeResultRecord("HN", cleaned) };
+}
+
+function parseStructuredResultText(text, region, fallbackDai=""){
+  const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const out={};
+  const sectionsByDai={};
+  const sectionCurByDai={};
+  let cur = fallbackDai || null;
+  let sawPrizeLabel=false;
+
+  const ensure = dai => {
+    if(!dai) return;
+    if(!out[dai]) out[dai]=[];
+    if(!sectionsByDai[dai]) sectionsByDai[dai]={db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[],g8:[]};
+  };
+
+  if(cur) ensure(cur);
+
+  for(const raw of lines){
+    if(isResultMetaLine(raw)) continue;
+
+    const dai = findDaiInLine(raw);
+    if(dai){
+      cur = dai;
+      ensure(cur);
+      // Dòng tên đài chỉ đổi vùng đài, không lấy số ngày/giờ/mã trong dòng này.
+      continue;
+    }
+
+    if(!cur) continue;
+    ensure(cur);
+
+    const detected = detectPrizeSection(raw);
+    let line = raw;
+    let section = "";
+    if(detected.section){
+      section = detected.section;
+      sectionCurByDai[cur] = section;
+      sawPrizeLabel = true;
+      line = detected.rest;
+    }else{
+      section = sectionCurByDai[cur] || "";
+    }
+
+    const nums = line.match(/\d+/g) || [];
+    if(!nums.length) continue;
+
+    if(section){
+      nums.forEach(n=>{
+        const x = normalizeResultNumBySection(n, section, region);
+        if(!x || x.length < 2) return;
+        sectionsByDai[cur][section].push(x);
+        out[cur].push(x);
+      });
+    }else{
+      nums.forEach(n=>{ if(n.length>=2) out[cur].push(n); });
+    }
+  }
+
+  if(!sawPrizeLabel) return null;
+
+  const shaped={};
+  for(const [dai, numsRaw] of Object.entries(out)){
+    shaped[dai] = shapeResultRecord(dai, numsRaw, buildPositionFromSections(sectionsByDai[dai] || {}, region));
+  }
+  return shaped;
+}
+
+function parseResultText(text, fallbackDai="", regionHint=""){
+  const region = regionHint || (fallbackDai === "HN" ? "HN" : "MN");
+
   if(fallbackDai === "HN"){
     const hn = parseHnResultText(text);
     if(hn && hn.HN && hn.HN.full && hn.HN.full.length) return hn;
   }
 
+  const structured = parseStructuredResultText(text, region, fallbackDai);
+  if(structured && Object.keys(structured).length) return structured;
+
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={}; let cur=null;
-  const isResultMetaLine = line => {
-    const s = String(line || "").trim();
-    if(!s) return true;
-    // Không đưa ngày/giờ hoặc dòng tiêu đề vào atomic kết quả.
-    // Các số này từng làm Btre/Vtau bị nhận nhầm 07,23 là số trúng.
-    if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
-    if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
-    if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
-    return false;
-  };
 
   for(const line of lines){
     const dai=findDaiInLine(line);
@@ -1737,9 +1813,9 @@ function parseResultText(text, fallbackDai=""){
 }
 function parseAllResults(){
   return {
-    MN:parseResultText(val("kqMn")),
-    MT:parseResultText(val("kqMt")),
-    HN:parseResultText(val("kqHn"), "HN")
+    MN:parseResultText(val("kqMn"), "", "MN"),
+    MT:parseResultText(val("kqMt"), "", "MT"),
+    HN:parseResultText(val("kqHn"), "HN", "HN")
   };
 }
 function renderParsedResults(obj){
@@ -1757,6 +1833,7 @@ function renderParsedResults(obj){
       lines.push("Bao 3 số: "+r.bao3.join("."));
       lines.push("Đầu 3 số: "+r.dau3.join("."));
       lines.push("Đuôi 3 số: "+r.duoi3.join("."));
+      lines.push("XC 3 số: "+(r.xc3 || []).join("."));
       lines.push("Bao 4 số: "+r.bao4.join("."));
       lines.push("Đầu 4 số: "+r.dau4.join("."));
       lines.push("Đuôi 4 số: "+r.duoi4.join("."));

@@ -1,4 +1,4 @@
-// PX-SO v0.5.73 - MN MT da joint-zone min hit
+// PX-SO v0.5.74 - canonical schedule order after atomic regroup
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -419,15 +419,18 @@ function detectRegionByDais(dais){
   return dais.some(d => mt.includes(d)) ? "MT" : "MN";
 }
 function compactThreeDaiLabel(block){
-  const dais = getDaisFromName(block).filter(Boolean);
-  if(dais.length !== 3) return block;
+  // Khóa thứ tự tên đài sau khi atomic được gom lại.
+  // Không lấy thứ tự theo block xuất hiện trước trong input, mà luôn theo lịch đài.
+  const dais = orderDaisBySchedule(getDaisFromName(block).filter(Boolean));
+  const canonicalBlock = dais.length ? dais.join("") : block;
+  if(dais.length !== 3) return canonicalBlock;
   const region = detectRegionByDais(dais);
-  if(region === "HN") return block;
+  if(region === "HN") return canonicalBlock;
   const map = region === "MT" ? MT_MAP : MN_MAP;
   const key = region === "MT" ? "3dmt" : "3dmn";
   return Object.values(map).some(arr =>
     arr.length >= 3 && dais.every((dai, idx) => dai === arr[idx])
-  ) ? key : block;
+  ) ? key : canonicalBlock;
 }
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
@@ -1032,7 +1035,9 @@ function buildTach(blocks){
   const combineBlocks = (blockList, rank) => {
     const set = new Set();
     blockList.forEach(block => blockDais(block).forEach(dai => set.add(dai)));
-    return sortDaisByRank(Array.from(set), rank).join("");
+    // Tên block ghép phải theo lịch chuẩn, không theo rank phát sinh từ thứ tự input.
+    // Ví dụ hôm T6: Vlong trước Bduong, dù block Bduong xuất hiện trước trong tin.
+    return orderDaisBySchedule(Array.from(set)).join("");
   };
   const numSortValue = num => parseInt(String(num || "").replace(/\D/g,""), 10) || 0;
   const compareNum = (a,b) => {
@@ -3689,7 +3694,7 @@ function runAll(){
    - Không dò chéo từng hướng đài 1/đài 2 nữa.
    - Áp dụng cho MN và MT. HN giữ rule cũ theo từng vùng HN.
 */
-const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.73 — MN/MT DA joint-zone min hit — cache v=5650";
+const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.74 — canonical schedule order after atomic regroup — cache v=5651";
 
 function jointBao2ForDais(results, region, dais){
   const values = [];

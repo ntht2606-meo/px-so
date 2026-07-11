@@ -1,4 +1,4 @@
-// PX-SO v0.5.75 - preserve full multi-station name in print output
+// PX-SO v0.5.76 - generic mapping by current-day schedule only
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3989,4 +3989,38 @@ function buildCopyFast(blocks, total){
     out.push("");
   }
   return out.join("\n").trim();
+}
+
+/* V0.5.76 - GENERIC HEADER USES CURRENT-DAY SCHEDULE ONLY
+   Lỗi đã khóa:
+   - 2dmn/3dmn/4dmn và 2dmt/3dmt không được kế thừa đài explicit đứng trước.
+   - Không dùng dữ liệu kết quả cũ để suy ra ngày cho header generic.
+   - Mapping generic luôn lấy đúng lịch của ngày hiện tại trên thiết bị.
+   Ví dụ thứ Bảy: 2dmn = TphoLan, dù block trước là Tpho.
+*/
+const PX_GENERIC_TODAY_BUILD = "PX-SO v0.5.76 — generic mapping by current-day schedule only — cache v=5653";
+
+function resolveHeader(raw, hintDais=[]){
+  const l = normalizeLine(raw).toLowerCase();
+  let dais;
+  const today = dayIndex();
+
+  if(l === "hn" || l === "mb") dais = ["HN"];
+  else if(l === "2dmn") dais = (MN_MAP[today] || []).slice(0,2);
+  else if(l === "3dmn") dais = (MN_MAP[today] || []).slice(0,3);
+  else if(l === "4dmn") dais = (MN_MAP[today] || []).slice(0,4);
+  else if(l === "2dmt") dais = (MT_MAP[today] || []).slice(0,2);
+  else if(l === "3dmt") dais = (MT_MAP[today] || []).slice(0,3);
+  else dais = getDaisFromName(raw.trim());
+
+  const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
+  return {
+    raw: raw.trim(),
+    name: dais.join(""),
+    dais,
+    region: detectRegionByDais(dais),
+    mainDais: dais.slice(0,2),
+    generic,
+    lines: []
+  };
 }

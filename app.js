@@ -1,4 +1,4 @@
-// PX-SO v0.5.77 - compact exact four-station MN block to 4dmn
+// PX-SO v0.5.79 - lock output station order to current-day schedule
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -426,17 +426,20 @@ function compactThreeDaiLabel(block){
   const region = detectRegionByDais(dais);
   if(region === "HN") return canonicalBlock;
 
-  // Giữ rule cũ: block đủ đúng 3 đài lịch chuẩn thì rút thành 3dmn / 3dmt.
-  // Bổ sung rule đã chốt: block đủ đúng 4 đài MN thì rút thành 4dmn.
+  // Chỉ rút thành ký hiệu nhóm khi block là đúng dải đầu của lịch NGÀY HIỆN TẠI.
+  // Ví dụ thứ Bảy:
+  // TphoLanBphuoc -> 3dmn
+  // TphoLanHgiang -> giữ nguyên, vì bỏ mất đài thứ 3 là Bphuoc.
   const count = dais.length;
   if(count !== 3 && !(region === "MN" && count === 4)) return canonicalBlock;
 
-  const map = region === "MT" ? MT_MAP : MN_MAP;
+  const todaySchedule = region === "MT"
+    ? (MT_MAP[dayIndex()] || [])
+    : (MN_MAP[dayIndex()] || []);
   const key = region === "MT" ? "3dmt" : `${count}dmn`;
-  const matchesSchedulePrefix = Object.values(map).some(arr =>
-    arr.length >= count && dais.every((dai, idx) => dai === arr[idx])
-  );
-  return matchesSchedulePrefix ? key : canonicalBlock;
+  const matchesTodayPrefix = todaySchedule.length >= count &&
+    dais.every((dai, idx) => dai === todaySchedule[idx]);
+  return matchesTodayPrefix ? key : canonicalBlock;
 }
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
@@ -1017,6 +1020,13 @@ function buildTach(blocks){
   const makeRank = rows => {
     const rank={};
     let i=0;
+    // Khóa thứ tự hiển thị theo lịch của ngày hiện tại trước mọi thứ tự phát sinh
+    // từ input, object/group hoặc quá trình tách rồi ráp atomic.
+    // Ví dụ thứ Bảy luôn: Tpho -> Lan -> Bphuoc -> Hgiang.
+    const today = dayIndex();
+    [...(MN_MAP[today] || []), ...(MT_MAP[today] || []), "HN"].forEach(dai=>{
+      if(rank[dai] == null) rank[dai] = i++;
+    });
     for(const block of blocks){
       (block.dais || []).forEach(dai=>{
         if(rank[dai] == null) rank[dai] = i++;
@@ -4038,4 +4048,4 @@ function resolveHeader(raw, hintDais=[]){
    - Ví dụ thứ Bảy: TphoLanBphuocHgiang -> 4dmn.
    - Không đổi các block ghép không đúng đủ lịch chuẩn.
 */
-const PX_COMPACT_4DMN_BUILD = "PX-SO v0.5.77 — compact exact 4-station MN block to 4dmn — cache v=5654";
+const PX_COMPACT_PREFIX_BUILD = "PX-SO v0.5.78 — compact current-day leading station prefix only — cache v=5655";

@@ -1,4 +1,4 @@
-// PX-SO v0.5.76 - generic mapping by current-day schedule only
+// PX-SO v0.5.77 - compact exact four-station MN block to 4dmn
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -420,17 +420,23 @@ function detectRegionByDais(dais){
 }
 function compactThreeDaiLabel(block){
   // Khóa thứ tự tên đài sau khi atomic được gom lại.
-  // Không lấy thứ tự theo block xuất hiện trước trong input, mà luôn theo lịch đài.
+  // Không lấy thứ tự block xuất hiện trong input, mà luôn theo lịch đài chuẩn.
   const dais = orderDaisBySchedule(getDaisFromName(block).filter(Boolean));
   const canonicalBlock = dais.length ? dais.join("") : block;
-  if(dais.length !== 3) return canonicalBlock;
   const region = detectRegionByDais(dais);
   if(region === "HN") return canonicalBlock;
+
+  // Giữ rule cũ: block đủ đúng 3 đài lịch chuẩn thì rút thành 3dmn / 3dmt.
+  // Bổ sung rule đã chốt: block đủ đúng 4 đài MN thì rút thành 4dmn.
+  const count = dais.length;
+  if(count !== 3 && !(region === "MN" && count === 4)) return canonicalBlock;
+
   const map = region === "MT" ? MT_MAP : MN_MAP;
-  const key = region === "MT" ? "3dmt" : "3dmn";
-  return Object.values(map).some(arr =>
-    arr.length >= 3 && dais.every((dai, idx) => dai === arr[idx])
-  ) ? key : canonicalBlock;
+  const key = region === "MT" ? "3dmt" : `${count}dmn`;
+  const matchesSchedulePrefix = Object.values(map).some(arr =>
+    arr.length >= count && dais.every((dai, idx) => dai === arr[idx])
+  );
+  return matchesSchedulePrefix ? key : canonicalBlock;
 }
 function isHeader(line){
   const l = normalizeLine(line).toLowerCase();
@@ -4024,3 +4030,12 @@ function resolveHeader(raw, hintDais=[]){
     lines: []
   };
 }
+
+
+/* V0.5.77 - COMPACT EXACT FOUR-STATION MN BLOCK
+   Lỗi đã khóa:
+   - Khi atomic regroup tạo đúng block đủ 4 đài MN theo lịch, tiêu đề Số tách/Không tách phải rút thành 4dmn.
+   - Ví dụ thứ Bảy: TphoLanBphuocHgiang -> 4dmn.
+   - Không đổi các block ghép không đúng đủ lịch chuẩn.
+*/
+const PX_COMPACT_4DMN_BUILD = "PX-SO v0.5.77 — compact exact 4-station MN block to 4dmn — cache v=5654";

@@ -1,4 +1,4 @@
-// PX-SO v0.5.74 - canonical schedule order after atomic regroup
+// PX-SO v0.5.75 - preserve full multi-station name in print output
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3694,7 +3694,7 @@ function runAll(){
    - Không dò chéo từng hướng đài 1/đài 2 nữa.
    - Áp dụng cho MN và MT. HN giữ rule cũ theo từng vùng HN.
 */
-const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.74 — canonical schedule order after atomic regroup — cache v=5651";
+const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.75 — preserve full multi-station name in print output — cache v=5652";
 
 function jointBao2ForDais(results, region, dais){
   const values = [];
@@ -3907,4 +3907,86 @@ function splitBlocks(text){
     }
   }
   return blocks;
+}
+
+
+/* V0.5.75 - PRESERVE FULL MULTI-STATION NAME IN PRINT OUTPUT
+   Lỗi đã khóa:
+   - Header explicit ghép nhiều đài như LanBphuoc không được rơi mất đài khi tạo copyFast/In.
+   - Tên in phải lấy đủ danh sách đài từ header gốc, rồi sắp theo thứ tự lịch chuẩn.
+   - Giữ nguyên fix v0.5.74: tên block sau atomic cũng theo thứ tự lịch chuẩn.
+*/
+const PX_PRINT_MULTI_DAI_BUILD = "PX-SO v0.5.75 — preserve full multi-station name in print output — cache v=5652";
+
+function scanCanonicalDaisLeftToRight(name){
+  const compact = cleanName(name).replace(/\s+/g, "");
+  if(!compact) return [];
+  const tokens = KNOWN_DAI
+    .filter(dai => dai !== "HN")
+    .slice()
+    .sort((a,b)=>b.length - a.length);
+  const out = [];
+  let pos = 0;
+  while(pos < compact.length){
+    let matched = "";
+    for(const dai of tokens){
+      const key = dai.toLowerCase();
+      if(compact.startsWith(key, pos)){
+        matched = dai;
+        break;
+      }
+    }
+    if(!matched) return [];
+    out.push(matched);
+    pos += matched.length;
+  }
+  return orderDaisBySchedule(Array.from(new Set(out)));
+}
+
+function getDaisFromName(name){
+  if(!name) return [];
+  const raw = String(name).trim();
+  const lower = raw.toLowerCase();
+  if(lower === "hn" || lower === "mb") return ["HN"];
+
+  const mapped = mapDaiName(raw);
+  if(mapped) return [mapped];
+
+  const exact = scanCanonicalDaisLeftToRight(raw);
+  if(exact.length) return exact;
+
+  const found = [];
+  for(const d of KNOWN_DAI){
+    if(d === "HN") continue;
+    const idx = lower.indexOf(d.toLowerCase());
+    if(idx >= 0) found.push({d, idx});
+  }
+  found.sort((a,b)=>{
+    if(a.idx !== b.idx) return a.idx - b.idx;
+    return b.d.length - a.d.length;
+  });
+  return found.length
+    ? orderDaisBySchedule(Array.from(new Set(found.map(item => item.d))))
+    : [raw];
+}
+
+function canonicalPrintBlockName(block){
+  if(!block) return "";
+  const rawDais = scanCanonicalDaisLeftToRight(block.raw || "");
+  const dais = rawDais.length
+    ? rawDais
+    : orderDaisBySchedule((block.dais || getDaisFromName(block.name || "")).filter(Boolean));
+  return dais.length ? dais.join("") : (block.name || block.raw || "");
+}
+
+function buildCopyFast(blocks, total){
+  const out=[todayLabel() + " " + roundedMoney(total), ""];
+  for(const block of (blocks || [])){
+    out.push(canonicalPrintBlockName(block));
+    for(const rawLine of groupDuplicateSuffixLines(block.lines || [])){
+      out.push(...splitCopyLineOriginal(rawLine, 20));
+    }
+    out.push("");
+  }
+  return out.join("\n").trim();
 }

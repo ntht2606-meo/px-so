@@ -1,4 +1,4 @@
-// PX-SO v0.5.79 - lock output station order to current-day schedule
+// PX-SO v0.5.80 - preserve each original print line
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -3999,7 +3999,11 @@ function buildCopyFast(blocks, total){
   const out=[todayLabel() + " " + roundedMoney(total), ""];
   for(const block of (blocks || [])){
     out.push(canonicalPrintBlockName(block));
-    for(const rawLine of groupDuplicateSuffixLines(block.lines || [])){
+
+    // Khóa cấu trúc từng dòng input ở phần In.
+    // Không gom các dòng chỉ vì cùng loại/cùng tiền, vì có thể làm vỡ cặp gốc:
+    // 09.90b2n.da1,5n + 19.91b2n.da1,5n phải giữ thành 2 dòng riêng.
+    for(const rawLine of (block.lines || [])){
       out.push(...splitCopyLineOriginal(rawLine, 20));
     }
     out.push("");
@@ -4049,3 +4053,10 @@ function resolveHeader(raw, hintDais=[]){
    - Không đổi các block ghép không đúng đủ lịch chuẩn.
 */
 const PX_COMPACT_PREFIX_BUILD = "PX-SO v0.5.78 — compact current-day leading station prefix only — cache v=5655";
+
+
+/* V0.5.80 - PRINT PRESERVES INPUT LINE BOUNDARIES
+   Phần In không gom các dòng có cùng hậu tố/cùng tiền.
+   Mỗi dòng input được giữ độc lập; chỉ cho phép xuống dòng nội bộ nếu chính dòng đó quá dài.
+*/
+const PX_PRINT_INPUT_LINES_BUILD = "PX-SO v0.5.80 — print preserves input line boundaries — cache v=5657";

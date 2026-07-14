@@ -1,4 +1,4 @@
-// PX-SO v0.5.80 - preserve each original print line
+// PX-SO v0.5.81 - fix HN xcdau/xcduoi stake coefficients
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -679,8 +679,18 @@ function calcRow(row){
     else if(len===4) base = region==="HN" ? 0 : 16;
     qty = permCount(num);
 
-  }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
+  }else if(t==="xc"){
     base = region==="HN" ? 4 : 2;
+
+  }else if(t==="xcdau"){
+    // HN xcdau là phần đầu của XC: hệ số ghi 3, không phải 4.
+    // MN/MT giữ nguyên hành vi hiện tại.
+    base = region==="HN" ? 3 : 2;
+
+  }else if(t==="xcduoi"){
+    // HN xcduoi là phần đuôi của XC: hệ số ghi 1, không phải 4.
+    // MN/MT giữ nguyên hành vi hiện tại.
+    base = region==="HN" ? 1 : 2;
 
   }else if(t==="xcdao"){
     base = region==="HN" ? 4 : 2;
@@ -4060,3 +4070,13 @@ const PX_COMPACT_PREFIX_BUILD = "PX-SO v0.5.78 — compact current-day leading s
    Mỗi dòng input được giữ độc lập; chỉ cho phép xuống dòng nội bộ nếu chính dòng đó quá dài.
 */
 const PX_PRINT_INPUT_LINES_BUILD = "PX-SO v0.5.80 — print preserves input line boundaries — cache v=5657";
+
+
+/* V0.5.81 - HN XC COMPONENT STAKE COEFFICIENTS
+   Khóa lỗi tính tiền ghi HN:
+   - xc = 4
+   - xcdau = 3
+   - xcduoi = 1
+   Không được gom cả ba loại về hệ số 4.
+*/
+const PX_HN_XC_COMPONENT_BUILD = "PX-SO v0.5.81 — HN xcdau=3, xcduoi=1 — cache v=5658";

@@ -1,4 +1,4 @@
-// PX-SO v0.5.81 - fix HN xcdau/xcduoi stake coefficients
+// PX-SO v0.5.82 - print long multi-type lines as repeated full number sets
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -764,6 +764,17 @@ function splitCopyLineOriginal(rawLine, maxLen=20){
   const nums = m[1].split(".").filter(Boolean);
   const suffix = m[2];
   if(nums.length < 2) return [s];
+
+  // Nếu một dòng quá dài chứa nhiều loại cược dùng chung cùng dãy số,
+  // tách theo từng loại cược và lặp lại nguyên dãy số.
+  // Ví dụ: 38.35.15.51b3n.dv0,5n
+  // -> 38.35.15.51b3n
+  // -> 38.35.15.51dv0,5n
+  const suffixParts = suffix.split(".").filter(Boolean);
+  if(suffixParts.length > 1){
+    const prefix = nums.join(".");
+    return suffixParts.flatMap(part => splitCopyLineOriginal(prefix + part, maxLen));
+  }
 
   const dvSuffix = suffix.match(/^dv[\d,.]+n$/i);
   if(dvSuffix){
@@ -4080,3 +4091,10 @@ const PX_PRINT_INPUT_LINES_BUILD = "PX-SO v0.5.80 — print preserves input line
    Không được gom cả ba loại về hệ số 4.
 */
 const PX_HN_XC_COMPONENT_BUILD = "PX-SO v0.5.81 — HN xcdau=3, xcduoi=1 — cache v=5658";
+
+
+/* V0.5.82 - PRINT LONG MULTI-TYPE LINE BY FULL NUMBER SET
+   Khi dòng In quá dài và có nhiều loại cược dùng chung dãy số,
+   tách mỗi loại cược thành một dòng và lặp lại nguyên dãy số.
+*/
+const PX_PRINT_LONG_MULTI_TYPE_BUILD = "PX-SO v0.5.82 — print long multi-type lines with full number set — cache v=5659";

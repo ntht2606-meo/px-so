@@ -1,4 +1,4 @@
-// PX-SO v0.5.82 - print long multi-type lines as repeated full number sets
+// PX-SO v0.5.83 - expand multi-number da lines into all atomic pairs
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -1117,11 +1117,15 @@ function buildTach(blocks){
               }
             }
           }else if(type === "da"){
-            const pair = sortPair(nums[0], nums[1]);
+            // Đá dàn có từ 2 số trở lên phải bung thành toàn bộ cặp atomic C(n,2).
+            // Ví dụ 45.39.43da2n => 39.45, 39.43, 43.45; không chỉ lấy 2 số đầu.
+            const numPairs = uniquePairs(pairNumbers(nums));
             const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
             for(const dp of daiPairs){
               const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
-              addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
+              for(const pair of numPairs){
+                addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
+              }
             }
           }else{
             const outTypes = type === "dd" ? ["dau","duoi"] : [type];
@@ -4098,3 +4102,10 @@ const PX_HN_XC_COMPONENT_BUILD = "PX-SO v0.5.81 — HN xcdau=3, xcduoi=1 — cac
    tách mỗi loại cược thành một dòng và lặp lại nguyên dãy số.
 */
 const PX_PRINT_LONG_MULTI_TYPE_BUILD = "PX-SO v0.5.82 — print long multi-type lines with full number set — cache v=5659";
+
+
+/* V0.5.83 - EXPAND MULTI-NUMBER DA INTO ALL ATOMIC PAIRS
+   Đá dàn từ 3 số trở lên phải sinh đủ mọi cặp C(n,2) trước khi gom tiền và chia tách/không tách.
+   Ví dụ: 45.39.43da2n => 39.43da2n + 39.45da2n + 43.45da2n.
+*/
+const PX_DA_ATOMIC_PAIR_BUILD = "PX-SO v0.5.83 — expand multi-number da into all atomic pairs — cache v=5660";

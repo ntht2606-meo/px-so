@@ -1,4 +1,4 @@
-// PX-SO v0.5.83 - expand multi-number da lines into all atomic pairs
+// Phân tích dãy số v0.5.84 - tối ưu xuống dòng output In và đổi tên hiển thị
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -752,7 +752,10 @@ function roundedMoney(n){
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
-function splitCopyLineOriginal(rawLine, maxLen=20){
+const PRINT_TEXT_MAX_CHARS = 20;
+const PRINT_PAIRED_SUFFIX_MAX_CHARS = 22;
+
+function splitCopyLineOriginal(rawLine, maxLen=PRINT_TEXT_MAX_CHARS){
   const s = normalizeLine(rawLine);
   if(!s || s.length <= maxLen) return s ? [s] : [];
 
@@ -765,13 +768,22 @@ function splitCopyLineOriginal(rawLine, maxLen=20){
   const suffix = m[2];
   if(nums.length < 2) return [s];
 
-  // Nếu một dòng quá dài chứa nhiều loại cược dùng chung cùng dãy số,
-  // tách theo từng loại cược và lặp lại nguyên dãy số.
-  // Ví dụ: 38.35.15.51b3n.dv0,5n
-  // -> 38.35.15.51b3n
-  // -> 38.35.15.51dv0,5n
+  // Nếu một dòng quá dài chứa nhiều loại xử lý dùng chung cùng dãy số,
+  // chỉ tách từng loại khi toàn dòng thật sự vượt giới hạn.
+  // Cặp bổ sung dau/duoi hoặc xcdau/xcduoi được giữ chung nếu còn vừa dòng.
+  // Ví dụ giữ: 43.46.49dau15n.duoi10n
+  // Ví dụ tách: 38.35.15.51b3n.dv0,5n
   const suffixParts = suffix.split(".").filter(Boolean);
   if(suffixParts.length > 1){
+    const typeParts = suffixParts.map(part => ((part.match(/^([a-z]+)/i) || [," "])[1] || "").trim().toLowerCase());
+    const pairedTypes = typeParts.length === 2 && (
+      (typeParts[0] === "dau" && typeParts[1] === "duoi") ||
+      (typeParts[0] === "duoi" && typeParts[1] === "dau") ||
+      (typeParts[0] === "xcdau" && typeParts[1] === "xcduoi") ||
+      (typeParts[0] === "xcduoi" && typeParts[1] === "xcdau")
+    );
+    if(pairedTypes && s.length <= PRINT_PAIRED_SUFFIX_MAX_CHARS) return [s];
+
     const prefix = nums.join(".");
     return suffixParts.flatMap(part => splitCopyLineOriginal(prefix + part, maxLen));
   }
@@ -854,7 +866,7 @@ function buildCopyFast(blocks, total){
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of groupDuplicateSuffixLines(block.lines)){
-      out.push(...splitCopyLineOriginal(rawLine, 20));
+      out.push(...splitCopyLineOriginal(rawLine, PRINT_TEXT_MAX_CHARS));
     }
     out.push("");
   }
@@ -2675,15 +2687,15 @@ async function makePrintImageFile(text){
   });
 
   const blob = await canvasToBlob(canvas);
-  return new File([blob], `pxso-in-${dateKey()}.png`, {type:"image/png"});
+  return new File([blob], `phan-tich-day-so-${dateKey()}.png`, {type:"image/png"});
 }
 
 async function sharePrintImage(file){
   if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
     await navigator.share({
       files:[file],
-      title:"PX-SO in ảnh",
-      text:"Ảnh in PX-SO"
+      title:"Phân tích dãy số",
+      text:"Ảnh xuất từ công cụ Phân tích dãy số"
     });
     return true;
   }
@@ -4029,7 +4041,7 @@ function buildCopyFast(blocks, total){
     // Không gom các dòng chỉ vì cùng loại/cùng tiền, vì có thể làm vỡ cặp gốc:
     // 09.90b2n.da1,5n + 19.91b2n.da1,5n phải giữ thành 2 dòng riêng.
     for(const rawLine of (block.lines || [])){
-      out.push(...splitCopyLineOriginal(rawLine, 20));
+      out.push(...splitCopyLineOriginal(rawLine, PRINT_TEXT_MAX_CHARS));
     }
     out.push("");
   }
@@ -4109,3 +4121,11 @@ const PX_PRINT_LONG_MULTI_TYPE_BUILD = "PX-SO v0.5.82 — print long multi-type 
    Ví dụ: 45.39.43da2n => 39.43da2n + 39.45da2n + 43.45da2n.
 */
 const PX_DA_ATOMIC_PAIR_BUILD = "PX-SO v0.5.83 — expand multi-number da into all atomic pairs — cache v=5660";
+
+
+/* V0.5.84 - SMART PRINT WRAP + DISPLAY NAME
+   - Giữ nguyên 43.46.49dau15n.duoi10n khi toàn dòng còn trong ngưỡng 22 ký tự.
+   - Dòng nhiều loại xử lý khác vẫn tách và lặp đủ dãy số khi cần.
+   - Tên hiển thị đổi từ PX-SO thành Phân tích dãy số.
+*/
+const NUMBER_SEQUENCE_PRINT_WRAP_BUILD = "Phân tích dãy số v0.5.84 — smart print wrap — cache v=5661";

@@ -1,4 +1,4 @@
-// Phân tích dãy số v0.5.84 - tối ưu xuống dòng output In và đổi tên hiển thị
+// Phân tích dãy số v0.5.85 - đóng gói dòng In theo bề rộng và token nguyên vẹn
 // Input -> Bảng trung gian -> Tính tiền
 // In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
 
@@ -753,78 +753,152 @@ function roundedMoney(n){
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
 const PRINT_TEXT_MAX_CHARS = 20;
+const PRINT_SINGLE_SUFFIX_MAX_CHARS = 22;
 const PRINT_PAIRED_SUFFIX_MAX_CHARS = 22;
+const PRINT_TEXT_MAX_WIDTH = 360;
+const PRINT_TEXT_MEASURE_FONT = "33px Arial, Helvetica, sans-serif";
+let PRINT_TEXT_MEASURE_CONTEXT = null;
+
+function getPrintMeasureContext(){
+  if(PRINT_TEXT_MEASURE_CONTEXT) return PRINT_TEXT_MEASURE_CONTEXT;
+  if(typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if(!ctx) return null;
+  ctx.font = PRINT_TEXT_MEASURE_FONT;
+  PRINT_TEXT_MEASURE_CONTEXT = ctx;
+  return ctx;
+}
+function printTextFits(text, ctx, maxWidth){
+  const value = String(text || "");
+  if(!ctx || typeof ctx.measureText !== "function"){
+    return value.length <= PRINT_SINGLE_SUFFIX_MAX_CHARS;
+  }
+  return ctx.measureText(value).width <= maxWidth;
+}
+function parsePrintDataLine(rawLine){
+  const s = normalizeLine(rawLine);
+  if(!s) return null;
+  const m = s.match(/^(\d+(?:\.\d+)*)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
+  if(!m) return null;
+  return {
+    text:s,
+    nums:m[1].split(".").filter(Boolean),
+    suffix:m[2],
+    suffixParts:m[2].split(".").filter(Boolean)
+  };
+}
+function printSuffixType(part){
+  return ((String(part || "").match(/^([a-z]+)/i) || [,""])[1] || "").toLowerCase();
+}
+function isPairedPrintSuffix(parts){
+  const types = (parts || []).map(printSuffixType);
+  return types.length === 2 && (
+    (types[0] === "dau" && types[1] === "duoi") ||
+    (types[0] === "duoi" && types[1] === "dau") ||
+    (types[0] === "xcdau" && types[1] === "xcduoi") ||
+    (types[0] === "xcduoi" && types[1] === "xcdau")
+  );
+}
+function packPrintNumbers(nums, suffix, ctx, maxWidth){
+  const values = (nums || []).filter(Boolean);
+  if(!values.length) return [];
+  const firstType = printSuffixType(suffix);
+  const finalSuffixOnly = firstType === "da" || firstType === "dv";
+  const out = [];
+  let i = 0;
+
+  while(i < values.length){
+    let best = -1;
+    for(let j = i; j < values.length; j++){
+      const isFinalDataLine = j === values.length - 1;
+      const ending = finalSuffixOnly ? (isFinalDataLine ? suffix : ".") : suffix;
+      const candidate = values.slice(i, j + 1).join(".") + ending;
+      if(printTextFits(candidate, ctx, maxWidth)){
+        best = j;
+      }else{
+        break;
+      }
+    }
+
+    if(best < i) best = i;
+
+    const isFinalDataLine = best === values.length - 1;
+    const ending = finalSuffixOnly ? (isFinalDataLine ? suffix : ".") : suffix;
+    out.push(values.slice(i, best + 1).join(".") + ending);
+    i = best + 1;
+  }
+  return out;
+}
+function packPrintSuffixes(nums, suffixParts, ctx, maxWidth){
+  const base = (nums || []).join(".");
+  const parts = (suffixParts || []).filter(Boolean);
+  if(!base || !parts.length) return [];
+
+  const groups = [];
+  let cur = [];
+  for(const part of parts){
+    const next = cur.concat([part]);
+    const candidate = base + next.join(".");
+    if(cur.length && !printTextFits(candidate, ctx, maxWidth)){
+      groups.push(cur);
+      cur = [part];
+    }else{
+      cur = next;
+    }
+  }
+  if(cur.length) groups.push(cur);
+
+  const out = [];
+  for(const group of groups){
+    const line = base + group.join(".");
+    if(printTextFits(line, ctx, maxWidth)){
+      out.push(line);
+      continue;
+    }
+    for(const part of group){
+      out.push(...packPrintNumbers(nums, part, ctx, maxWidth));
+    }
+  }
+  return out;
+}
+function splitStructuredPrintLine(rawLine, ctx, maxWidth){
+  const parsed = parsePrintDataLine(rawLine);
+  if(!parsed) return null;
+
+  const {text:s, nums, suffix, suffixParts} = parsed;
+  const pairedTypes = isPairedPrintSuffix(suffixParts);
+
+  if(pairedTypes && s.length <= PRINT_PAIRED_SUFFIX_MAX_CHARS) return [s];
+
+  if(suffixParts.length === 1){
+    if(printTextFits(s, ctx, maxWidth)) return [s];
+    return packPrintNumbers(nums, suffix, ctx, maxWidth);
+  }
+
+  if(nums.length === 1){
+    return packPrintSuffixes(nums, suffixParts, ctx, maxWidth);
+  }
+
+  if(!pairedTypes && s.length <= PRINT_TEXT_MAX_CHARS && printTextFits(s, ctx, maxWidth)){
+    return [s];
+  }
+  if(pairedTypes){
+    return packPrintSuffixes(nums, suffixParts, ctx, maxWidth);
+  }
+
+  return suffixParts.flatMap(part => packPrintNumbers(nums, part, ctx, maxWidth));
+}
 
 function splitCopyLineOriginal(rawLine, maxLen=PRINT_TEXT_MAX_CHARS){
   const s = normalizeLine(rawLine);
-  if(!s || s.length <= maxLen) return s ? [s] : [];
+  if(!s) return [];
 
-  // Chỉ tách các dòng có sẵn danh sách số bằng dấu chấm.
-  // Không bung keo/kéo, không gom dòng, không mở parseNums.
-  const m = s.match(/^(\d+(?:\.\d+)+)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
-  if(!m) return [s];
+  const ctx = getPrintMeasureContext();
+  const structured = splitStructuredPrintLine(s, ctx, PRINT_TEXT_MAX_WIDTH);
+  if(structured) return structured;
 
-  const nums = m[1].split(".").filter(Boolean);
-  const suffix = m[2];
-  if(nums.length < 2) return [s];
-
-  // Nếu một dòng quá dài chứa nhiều loại xử lý dùng chung cùng dãy số,
-  // chỉ tách từng loại khi toàn dòng thật sự vượt giới hạn.
-  // Cặp bổ sung dau/duoi hoặc xcdau/xcduoi được giữ chung nếu còn vừa dòng.
-  // Ví dụ giữ: 43.46.49dau15n.duoi10n
-  // Ví dụ tách: 38.35.15.51b3n.dv0,5n
-  const suffixParts = suffix.split(".").filter(Boolean);
-  if(suffixParts.length > 1){
-    const typeParts = suffixParts.map(part => ((part.match(/^([a-z]+)/i) || [," "])[1] || "").trim().toLowerCase());
-    const pairedTypes = typeParts.length === 2 && (
-      (typeParts[0] === "dau" && typeParts[1] === "duoi") ||
-      (typeParts[0] === "duoi" && typeParts[1] === "dau") ||
-      (typeParts[0] === "xcdau" && typeParts[1] === "xcduoi") ||
-      (typeParts[0] === "xcduoi" && typeParts[1] === "xcdau")
-    );
-    if(pairedTypes && s.length <= PRINT_PAIRED_SUFFIX_MAX_CHARS) return [s];
-
-    const prefix = nums.join(".");
-    return suffixParts.flatMap(part => splitCopyLineOriginal(prefix + part, maxLen));
-  }
-
-  const dvSuffix = suffix.match(/^dv[\d,.]+n$/i);
-  if(dvSuffix){
-    const chunks=[];
-    let cur=[];
-    for(let i=0; i<nums.length; i++){
-      const num = nums[i];
-      const isLastNum = i === nums.length - 1;
-      const nextNums = cur.concat([num]);
-      const test = nextNums.join(".") + (isLastNum ? suffix : ".");
-      if(cur.length && test.length > maxLen){
-        chunks.push(cur);
-        cur=[num];
-      }else{
-        cur.push(num);
-      }
-    }
-    if(cur.length) chunks.push(cur);
-    const last = chunks.length - 1;
-    if(last > 0 && chunks[last].length === 1 && chunks[last - 1].length > 1){
-      chunks[last].unshift(chunks[last - 1].pop());
-    }
-    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? suffix : "."));
-  }
-
-  const out=[];
-  let cur=[];
-  for(const num of nums){
-    const test = cur.concat([num]).join(".") + suffix;
-    if(cur.length && test.length > maxLen){
-      out.push(cur.join(".") + suffix);
-      cur=[num];
-    }else{
-      cur.push(num);
-    }
-  }
-  if(cur.length) out.push(cur.join(".") + suffix);
-  return out;
+  return [s];
 }
 function groupDuplicateSuffixLines(lines){
   const out=[];
@@ -2562,30 +2636,10 @@ async function copyPrintOverlay(btn){
 function wrapPrintLine(line, ctx, maxWidth){
   const s = String(line || "");
   if(!s) return [""];
-  if(ctx.measureText(s).width <= maxWidth) return [s];
 
-  const bet = s.match(/^([0-9.]+)([a-z][a-z0-9,.]*(?:n)(?:\.[a-z][a-z0-9,.]*(?:n))*)$/i);
-  if(bet){
-    const nums = bet[1].split(".").filter(Boolean);
-    const suffix = bet[2];
-    const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
-    const isLongDa = firstType === "da" || firstType === "dv";
-    const out = [];
-    let i = 0;
-    while(i < nums.length){
-      let best = i;
-      for(let j = i; j < nums.length; j++){
-        const finalLine = j === nums.length - 1;
-        const candidate = nums.slice(i, j + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix);
-        if(ctx.measureText(candidate).width <= maxWidth) best = j;
-        else break;
-      }
-      const finalLine = best === nums.length - 1;
-      out.push(nums.slice(i, best + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix));
-      i = best + 1;
-    }
-    return out;
-  }
+  const structured = splitStructuredPrintLine(s, ctx, maxWidth);
+  if(structured) return structured;
+  if(ctx.measureText(s).width <= maxWidth) return [s];
 
   const out = [];
   let cur = "";
@@ -4123,9 +4177,10 @@ const PX_PRINT_LONG_MULTI_TYPE_BUILD = "PX-SO v0.5.82 — print long multi-type 
 const PX_DA_ATOMIC_PAIR_BUILD = "PX-SO v0.5.83 — expand multi-number da into all atomic pairs — cache v=5660";
 
 
-/* V0.5.84 - SMART PRINT WRAP + DISPLAY NAME
-   - Giữ nguyên 43.46.49dau15n.duoi10n khi toàn dòng còn trong ngưỡng 22 ký tự.
-   - Dòng nhiều loại xử lý khác vẫn tách và lặp đủ dãy số khi cần.
-   - Tên hiển thị đổi từ PX-SO thành Phân tích dãy số.
+/* V0.5.85 - WIDTH-AWARE ATOMIC PRINT PACKING
+   - Dãy số chỉ xuống dòng khi token số kế tiếp thật sự làm vượt bề rộng.
+   - Một số có nhiều hậu tố được đóng gói theo token hậu tố; cấm cắt giữa tên hậu tố.
+   - Hậu tố chuyển sang dòng mới phải lặp lại số gốc.
+   - Giữ regression cặp dau/duoi và xcdau/xcduoi đã được duyệt.
 */
-const NUMBER_SEQUENCE_PRINT_WRAP_BUILD = "Phân tích dãy số v0.5.84 — smart print wrap — cache v=5661";
+const NUMBER_SEQUENCE_PRINT_WRAP_BUILD = "Phân tích dãy số v0.5.85 — width-aware atomic print packing — cache v=5662";

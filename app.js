@@ -1,6 +1,6 @@
-// Phân tích dãy số v0.5.85 - đóng gói dòng In theo bề rộng và token nguyên vẹn
-// Input -> Bảng trung gian -> Tính tiền
-// In: chuẩn tên đài, gom đồng giá, xuống dòng <=20 ký tự
+// Phân tích số v0.5.87 - chuẩn hóa thuật ngữ và gom output theo vùng điều kiện
+// Dữ liệu vào -> Atomic -> Đối chiếu -> Giá trị
+// In: chuẩn tên nguồn, gom cùng điều kiện, xuống dòng theo bề rộng
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"],
@@ -150,9 +150,9 @@ function syncRegionRelatedPanel(){
   const xoaLabel = el("activeXoaLabel");
   const resultLabel = el("activeResultLabel");
 
-  if(title) title.textContent = "Dữ liệu liên quan " + uiName;
-  if(xoaLabel) xoaLabel.textContent = "Dãy xoá " + shortName;
-  if(resultLabel) resultLabel.textContent = "Kết quả " + shortName;
+  if(title) title.textContent = "Dữ liệu vùng " + uiName;
+  if(xoaLabel) xoaLabel.textContent = "Loại trừ " + shortName;
+  if(resultLabel) resultLabel.textContent = "Tham chiếu " + shortName;
   setVal("activeXoaData", val(ids.xoa));
   setVal("activeResultData", val(ids.result));
 }
@@ -238,8 +238,8 @@ function showNewWorkPanel(id){
 function updateNewWorkPreview(){
   const text = val("newWorkData").trim();
   const lineCount = text ? text.split(/\n+/).filter(Boolean).length : 0;
-  setVal("newWorkProcess", text ? `Dữ liệu thử đã nhận: ${lineCount} dòng\n\n${text}` : "");
-  setVal("newWorkReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lineCount}\n- Ghi chú: chưa gắn công thức thật.` : "");
+  setVal("newWorkProcess", text ? `Đã nhận: ${lineCount} dòng\n\n${text}` : "");
+  setVal("newWorkReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lineCount}\n- Ghi chú: chưa gắn điều kiện thật.` : "");
 }
 function saveNewWorkData(){
   try{
@@ -679,18 +679,8 @@ function calcRow(row){
     else if(len===4) base = region==="HN" ? 0 : 16;
     qty = permCount(num);
 
-  }else if(t==="xc"){
+  }else if(t==="xc" || t==="xcdau" || t==="xcduoi"){
     base = region==="HN" ? 4 : 2;
-
-  }else if(t==="xcdau"){
-    // HN xcdau là phần đầu của XC: hệ số ghi 3, không phải 4.
-    // MN/MT giữ nguyên hành vi hiện tại.
-    base = region==="HN" ? 3 : 2;
-
-  }else if(t==="xcduoi"){
-    // HN xcduoi là phần đuôi của XC: hệ số ghi 1, không phải 4.
-    // MN/MT giữ nguyên hành vi hiện tại.
-    base = region==="HN" ? 1 : 2;
 
   }else if(t==="xcdao"){
     base = region==="HN" ? 4 : 2;
@@ -752,153 +742,56 @@ function roundedMoney(n){
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
-const PRINT_TEXT_MAX_CHARS = 20;
-const PRINT_SINGLE_SUFFIX_MAX_CHARS = 22;
-const PRINT_PAIRED_SUFFIX_MAX_CHARS = 22;
-const PRINT_TEXT_MAX_WIDTH = 360;
-const PRINT_TEXT_MEASURE_FONT = "33px Arial, Helvetica, sans-serif";
-let PRINT_TEXT_MEASURE_CONTEXT = null;
-
-function getPrintMeasureContext(){
-  if(PRINT_TEXT_MEASURE_CONTEXT) return PRINT_TEXT_MEASURE_CONTEXT;
-  if(typeof document === "undefined") return null;
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if(!ctx) return null;
-  ctx.font = PRINT_TEXT_MEASURE_FONT;
-  PRINT_TEXT_MEASURE_CONTEXT = ctx;
-  return ctx;
-}
-function printTextFits(text, ctx, maxWidth){
-  const value = String(text || "");
-  if(!ctx || typeof ctx.measureText !== "function"){
-    return value.length <= PRINT_SINGLE_SUFFIX_MAX_CHARS;
-  }
-  return ctx.measureText(value).width <= maxWidth;
-}
-function parsePrintDataLine(rawLine){
+function splitCopyLineOriginal(rawLine, maxLen=20){
   const s = normalizeLine(rawLine);
-  if(!s) return null;
-  const m = s.match(/^(\d+(?:\.\d+)*)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
-  if(!m) return null;
-  return {
-    text:s,
-    nums:m[1].split(".").filter(Boolean),
-    suffix:m[2],
-    suffixParts:m[2].split(".").filter(Boolean)
-  };
-}
-function printSuffixType(part){
-  return ((String(part || "").match(/^([a-z]+)/i) || [,""])[1] || "").toLowerCase();
-}
-function isPairedPrintSuffix(parts){
-  const types = (parts || []).map(printSuffixType);
-  return types.length === 2 && (
-    (types[0] === "dau" && types[1] === "duoi") ||
-    (types[0] === "duoi" && types[1] === "dau") ||
-    (types[0] === "xcdau" && types[1] === "xcduoi") ||
-    (types[0] === "xcduoi" && types[1] === "xcdau")
-  );
-}
-function packPrintNumbers(nums, suffix, ctx, maxWidth){
-  const values = (nums || []).filter(Boolean);
-  if(!values.length) return [];
-  const firstType = printSuffixType(suffix);
-  const finalSuffixOnly = firstType === "da" || firstType === "dv";
-  const out = [];
-  let i = 0;
+  if(!s || s.length <= maxLen) return s ? [s] : [];
 
-  while(i < values.length){
-    let best = -1;
-    for(let j = i; j < values.length; j++){
-      const isFinalDataLine = j === values.length - 1;
-      const ending = finalSuffixOnly ? (isFinalDataLine ? suffix : ".") : suffix;
-      const candidate = values.slice(i, j + 1).join(".") + ending;
-      if(printTextFits(candidate, ctx, maxWidth)){
-        best = j;
+  // Chỉ tách các dòng có sẵn danh sách số bằng dấu chấm.
+  // Không bung keo/kéo, không gom dòng, không mở parseNums.
+  const m = s.match(/^(\d+(?:\.\d+)+)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
+  if(!m) return [s];
+
+  const nums = m[1].split(".").filter(Boolean);
+  const suffix = m[2];
+  if(nums.length < 2) return [s];
+
+  const dvSuffix = suffix.match(/^dv[\d,.]+n$/i);
+  if(dvSuffix){
+    const chunks=[];
+    let cur=[];
+    for(let i=0; i<nums.length; i++){
+      const num = nums[i];
+      const isLastNum = i === nums.length - 1;
+      const nextNums = cur.concat([num]);
+      const test = nextNums.join(".") + (isLastNum ? suffix : ".");
+      if(cur.length && test.length > maxLen){
+        chunks.push(cur);
+        cur=[num];
       }else{
-        break;
+        cur.push(num);
       }
     }
-
-    if(best < i) best = i;
-
-    const isFinalDataLine = best === values.length - 1;
-    const ending = finalSuffixOnly ? (isFinalDataLine ? suffix : ".") : suffix;
-    out.push(values.slice(i, best + 1).join(".") + ending);
-    i = best + 1;
+    if(cur.length) chunks.push(cur);
+    const last = chunks.length - 1;
+    if(last > 0 && chunks[last].length === 1 && chunks[last - 1].length > 1){
+      chunks[last].unshift(chunks[last - 1].pop());
+    }
+    return chunks.map((chunk, idx) => chunk.join(".") + (idx === chunks.length - 1 ? suffix : "."));
   }
-  return out;
-}
-function packPrintSuffixes(nums, suffixParts, ctx, maxWidth){
-  const base = (nums || []).join(".");
-  const parts = (suffixParts || []).filter(Boolean);
-  if(!base || !parts.length) return [];
 
-  const groups = [];
-  let cur = [];
-  for(const part of parts){
-    const next = cur.concat([part]);
-    const candidate = base + next.join(".");
-    if(cur.length && !printTextFits(candidate, ctx, maxWidth)){
-      groups.push(cur);
-      cur = [part];
+  const out=[];
+  let cur=[];
+  for(const num of nums){
+    const test = cur.concat([num]).join(".") + suffix;
+    if(cur.length && test.length > maxLen){
+      out.push(cur.join(".") + suffix);
+      cur=[num];
     }else{
-      cur = next;
+      cur.push(num);
     }
   }
-  if(cur.length) groups.push(cur);
-
-  const out = [];
-  for(const group of groups){
-    const line = base + group.join(".");
-    if(printTextFits(line, ctx, maxWidth)){
-      out.push(line);
-      continue;
-    }
-    for(const part of group){
-      out.push(...packPrintNumbers(nums, part, ctx, maxWidth));
-    }
-  }
+  if(cur.length) out.push(cur.join(".") + suffix);
   return out;
-}
-function splitStructuredPrintLine(rawLine, ctx, maxWidth){
-  const parsed = parsePrintDataLine(rawLine);
-  if(!parsed) return null;
-
-  const {text:s, nums, suffix, suffixParts} = parsed;
-  const pairedTypes = isPairedPrintSuffix(suffixParts);
-
-  if(pairedTypes && s.length <= PRINT_PAIRED_SUFFIX_MAX_CHARS) return [s];
-
-  if(suffixParts.length === 1){
-    if(printTextFits(s, ctx, maxWidth)) return [s];
-    return packPrintNumbers(nums, suffix, ctx, maxWidth);
-  }
-
-  if(nums.length === 1){
-    return packPrintSuffixes(nums, suffixParts, ctx, maxWidth);
-  }
-
-  if(!pairedTypes && s.length <= PRINT_TEXT_MAX_CHARS && printTextFits(s, ctx, maxWidth)){
-    return [s];
-  }
-  if(pairedTypes){
-    return packPrintSuffixes(nums, suffixParts, ctx, maxWidth);
-  }
-
-  return suffixParts.flatMap(part => packPrintNumbers(nums, part, ctx, maxWidth));
-}
-
-function splitCopyLineOriginal(rawLine, maxLen=PRINT_TEXT_MAX_CHARS){
-  const s = normalizeLine(rawLine);
-  if(!s) return [];
-
-  const ctx = getPrintMeasureContext();
-  const structured = splitStructuredPrintLine(s, ctx, PRINT_TEXT_MAX_WIDTH);
-  if(structured) return structured;
-
-  return [s];
 }
 function groupDuplicateSuffixLines(lines){
   const out=[];
@@ -940,7 +833,7 @@ function buildCopyFast(blocks, total){
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of groupDuplicateSuffixLines(block.lines)){
-      out.push(...splitCopyLineOriginal(rawLine, PRINT_TEXT_MAX_CHARS));
+      out.push(...splitCopyLineOriginal(rawLine, 20));
     }
     out.push("");
   }
@@ -1203,15 +1096,11 @@ function buildTach(blocks){
               }
             }
           }else if(type === "da"){
-            // Đá dàn có từ 2 số trở lên phải bung thành toàn bộ cặp atomic C(n,2).
-            // Ví dụ 45.39.43da2n => 39.45, 39.43, 43.45; không chỉ lấy 2 số đầu.
-            const numPairs = uniquePairs(pairNumbers(nums));
+            const pair = sortPair(nums[0], nums[1]);
             const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
             for(const dp of daiPairs){
               const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
-              for(const pair of numPairs){
-                addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
-              }
+              addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
             }
           }else{
             const outTypes = type === "dd" ? ["dau","duoi"] : [type];
@@ -2636,10 +2525,30 @@ async function copyPrintOverlay(btn){
 function wrapPrintLine(line, ctx, maxWidth){
   const s = String(line || "");
   if(!s) return [""];
-
-  const structured = splitStructuredPrintLine(s, ctx, maxWidth);
-  if(structured) return structured;
   if(ctx.measureText(s).width <= maxWidth) return [s];
+
+  const bet = s.match(/^([0-9.]+)([a-z][a-z0-9,.]*(?:n)(?:\.[a-z][a-z0-9,.]*(?:n))*)$/i);
+  if(bet){
+    const nums = bet[1].split(".").filter(Boolean);
+    const suffix = bet[2];
+    const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
+    const isLongDa = firstType === "da" || firstType === "dv";
+    const out = [];
+    let i = 0;
+    while(i < nums.length){
+      let best = i;
+      for(let j = i; j < nums.length; j++){
+        const finalLine = j === nums.length - 1;
+        const candidate = nums.slice(i, j + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix);
+        if(ctx.measureText(candidate).width <= maxWidth) best = j;
+        else break;
+      }
+      const finalLine = best === nums.length - 1;
+      out.push(nums.slice(i, best + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix));
+      i = best + 1;
+    }
+    return out;
+  }
 
   const out = [];
   let cur = "";
@@ -2741,15 +2650,15 @@ async function makePrintImageFile(text){
   });
 
   const blob = await canvasToBlob(canvas);
-  return new File([blob], `phan-tich-day-so-${dateKey()}.png`, {type:"image/png"});
+  return new File([blob], `phan-tich-so-${dateKey()}.png`, {type:"image/png"});
 }
 
 async function sharePrintImage(file){
   if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
     await navigator.share({
       files:[file],
-      title:"Phân tích dãy số",
-      text:"Ảnh xuất từ công cụ Phân tích dãy số"
+      title:"Ảnh phân tích số",
+      text:"Ảnh dữ liệu"
     });
     return true;
   }
@@ -2760,7 +2669,7 @@ function downloadFile(file){
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
-  a.download = file.name || "pxso-in.png";
+  a.download = file.name || "phan-tich-so.png";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -4090,12 +3999,8 @@ function buildCopyFast(blocks, total){
   const out=[todayLabel() + " " + roundedMoney(total), ""];
   for(const block of (blocks || [])){
     out.push(canonicalPrintBlockName(block));
-
-    // Khóa cấu trúc từng dòng input ở phần In.
-    // Không gom các dòng chỉ vì cùng loại/cùng tiền, vì có thể làm vỡ cặp gốc:
-    // 09.90b2n.da1,5n + 19.91b2n.da1,5n phải giữ thành 2 dòng riêng.
-    for(const rawLine of (block.lines || [])){
-      out.push(...splitCopyLineOriginal(rawLine, PRINT_TEXT_MAX_CHARS));
+    for(const rawLine of groupDuplicateSuffixLines(block.lines || [])){
+      out.push(...splitCopyLineOriginal(rawLine, 20));
     }
     out.push("");
   }
@@ -4146,41 +4051,384 @@ function resolveHeader(raw, hintDais=[]){
 const PX_COMPACT_PREFIX_BUILD = "PX-SO v0.5.78 — compact current-day leading station prefix only — cache v=5655";
 
 
-/* V0.5.80 - PRINT PRESERVES INPUT LINE BOUNDARIES
-   Phần In không gom các dòng có cùng hậu tố/cùng tiền.
-   Mỗi dòng input được giữ độc lập; chỉ cho phép xuống dòng nội bộ nếu chính dòng đó quá dài.
+/* V0.5.86 - NEUTRAL TERMINOLOGY + CONDITION ZONE GROUPING
+   Luồng: dữ liệu vào -> atomic -> vùng tham chiếu -> đạt điều kiện
+   -> áp dụng trọng số -> gom theo Vùng 1, Vùng 2, Vùng 1-2...
+   Các ID cũ và mã b/bdao/xc/da/dv/dd được giữ để tương thích dữ liệu đã lưu.
 */
-const PX_PRINT_INPUT_LINES_BUILD = "PX-SO v0.5.80 — print preserves input line boundaries — cache v=5657";
+const DATA_CONDITION_ZONE_BUILD = "Phân tích số v0.5.87 — condition-zone grouping — cache v=5664";
 
+function formatValue(n){
+  return money(n);
+}
 
-/* V0.5.81 - HN XC COMPONENT STAKE COEFFICIENTS
-   Khóa lỗi tính tiền ghi HN:
-   - xc = 4
-   - xcdau = 3
-   - xcduoi = 1
-   Không được gom cả ba loại về hệ số 4.
-*/
-const PX_HN_XC_COMPONENT_BUILD = "PX-SO v0.5.81 — HN xcdau=3, xcduoi=1 — cache v=5658";
+function neutralZoneText(text){
+  return String(text || "")
+    .replace(/đá 2 đài/gi, "vùng ghép")
+    .replace(/đá 1 đài/gi, "vùng đơn")
+    .replace(/đá/gi, "vùng ghép")
+    .replace(/bao2 chung MN\/MT/gi, "2 ký tự chung")
+    .replace(/bao4 đảo/gi, "4 ký tự hoán vị")
+    .replace(/bao3 đảo/gi, "3 ký tự hoán vị")
+    .replace(/bao4/gi, "4 ký tự")
+    .replace(/bao3/gi, "3 ký tự")
+    .replace(/bao2/gi, "2 ký tự")
+    .replace(/xc đảo/gi, "xc hoán vị")
+    .replace(/thiếu_kết_quả/gi, "thiếu_tham_chiếu")
+    .replace(/thiếu kết quả/gi, "thiếu tham chiếu")
+    .replace(/thiếu cặp số/gi, "thiếu cặp dữ liệu");
+}
 
+function conditionSourceOrder(row, blockDais){
+  const region = (row && row.region) || "MN";
+  if(region === "HN") return ["HN"];
+  let sources = orderDaisBySchedule(((row && row.sourceDais) || []).filter(Boolean));
+  if(!sources.length) sources = orderDaisBySchedule((blockDais || []).filter(Boolean));
+  for(const dai of (blockDais || [])){
+    if(!sources.includes(dai)) sources.push(dai);
+  }
+  return orderDaisBySchedule(sources);
+}
 
-/* V0.5.82 - PRINT LONG MULTI-TYPE LINE BY FULL NUMBER SET
-   Khi dòng In quá dài và có nhiều loại cược dùng chung dãy số,
-   tách mỗi loại cược thành một dòng và lặp lại nguyên dãy số.
-*/
-const PX_PRINT_LONG_MULTI_TYPE_BUILD = "PX-SO v0.5.82 — print long multi-type lines with full number set — cache v=5659";
+function conditionZoneMeta(item){
+  const row = (item && item.row) || {};
+  const rawBlock = (item && item.block) || row.block || "";
+  let blockDais = orderDaisBySchedule(getDaisFromName(rawBlock).filter(Boolean));
+  if(row.region === "HN") blockDais = ["HN"];
+  if(!blockDais.length) blockDais = [rawBlock || "Nguồn"];
 
+  const sources = conditionSourceOrder(row, blockDais);
+  let indexes = blockDais
+    .map(dai => sources.indexOf(dai) + 1)
+    .filter(index => index > 0);
+  if(!indexes.length) indexes = [1];
+  indexes = Array.from(new Set(indexes)).sort((a,b)=>a-b);
 
-/* V0.5.83 - EXPAND MULTI-NUMBER DA INTO ALL ATOMIC PAIRS
-   Đá dàn từ 3 số trở lên phải sinh đủ mọi cặp C(n,2) trước khi gom tiền và chia tách/không tách.
-   Ví dụ: 45.39.43da2n => 39.43da2n + 39.45da2n + 43.45da2n.
-*/
-const PX_DA_ATOMIC_PAIR_BUILD = "PX-SO v0.5.83 — expand multi-number da into all atomic pairs — cache v=5660";
+  const short = indexes.join("-");
+  return {
+    key: "D" + short,
+    label: "Vùng " + short,
+    sourceName: blockDais.join(""),
+    indexes,
+    size: indexes.length
+  };
+}
 
+function compareConditionZoneMeta(a, b){
+  if(a.size !== b.size) return a.size - b.size;
+  const len = Math.max(a.indexes.length, b.indexes.length);
+  for(let i=0; i<len; i++){
+    const av = a.indexes[i] || 0;
+    const bv = b.indexes[i] || 0;
+    if(av !== bv) return av - bv;
+  }
+  return String(a.sourceName).localeCompare(String(b.sourceName));
+}
 
-/* V0.5.85 - WIDTH-AWARE ATOMIC PRINT PACKING
-   - Dãy số chỉ xuống dòng khi token số kế tiếp thật sự làm vượt bề rộng.
-   - Một số có nhiều hậu tố được đóng gói theo token hậu tố; cấm cắt giữa tên hậu tố.
-   - Hậu tố chuyển sang dòng mới phải lặp lại số gốc.
-   - Giữ regression cặp dau/duoi và xcdau/xcduoi đã được duyệt.
-*/
-const NUMBER_SEQUENCE_PRINT_WRAP_BUILD = "Phân tích dãy số v0.5.85 — width-aware atomic print packing — cache v=5662";
+function dataScopeRowOrder(rows){
+  const sourceRank = new Map();
+  let nextSourceRank = 0;
+  return (rows || []).map((row, originalIndex)=>{
+    const sourceKey = [row.region || "", row.sourceBlock || (row.sourceDais || []).join("") || row.block || ""].join("|");
+    if(!sourceRank.has(sourceKey)) sourceRank.set(sourceKey, nextSourceRank++);
+    const meta = conditionZoneMeta({row, block:row.block});
+    return {row, originalIndex, sourceKey, sourceRank:sourceRank.get(sourceKey), meta};
+  }).sort((a,b)=>{
+    if(a.sourceRank !== b.sourceRank) return a.sourceRank - b.sourceRank;
+    const zoneCompare = compareConditionZoneMeta(a.meta, b.meta);
+    if(zoneCompare !== 0) return zoneCompare;
+    return a.originalIndex - b.originalIndex;
+  });
+}
+
+function calcWinners(rows, results){
+  const items = [];
+  const misses = [];
+  let total = 0;
+  let matchCount = 0;
+
+  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, matchCount:0};
+
+  dataScopeRowOrder(rows).forEach(({row, originalIndex}, atomicOrder)=>{
+    if(!row || !row.calc) return;
+    const ev = zoneForAtomic(row, results);
+    if(!ev) return;
+
+    const matches = Number(ev.hit || 0);
+    const calc = atomicMoneyForWinItem(row, matches);
+    const item = {
+      block: row.block,
+      line: row.line,
+      row,
+      zone: neutralZoneText(ev.zone),
+      values: ev.values || [],
+      hit: matches,
+      matchCount: matches,
+      coef: calc.coef,
+      weight: calc.coef,
+      n: calc.n,
+      amount: calc.amount,
+      value: calc.amount,
+      note: neutralZoneText(ev.note || ""),
+      atomicOrder,
+      originalAtomicOrder: originalIndex
+    };
+    item.zoneMeta = conditionZoneMeta(item);
+
+    if(matches > 0 && calc.amount > 0){
+      matchCount += matches;
+      total += calc.amount;
+      items.push(item);
+    }else{
+      misses.push(item);
+    }
+  });
+
+  return {items, misses, total, hitCount:matchCount, matchCount};
+}
+
+function groupConditionItems(items){
+  const zoneMap = new Map();
+  for(const item of (items || [])){
+    const meta = item.zoneMeta || conditionZoneMeta(item);
+    if(!zoneMap.has(meta.key)){
+      zoneMap.set(meta.key, {meta, lineMap:new Map(), items:[]});
+    }
+    const group = zoneMap.get(meta.key);
+    const lineKey = [item.line, item.row && item.row.type, (item.row && item.row.nums || []).join(".")].join("|");
+    if(!group.lineMap.has(lineKey)){
+      const merged = {...item, zoneMeta:meta};
+      group.lineMap.set(lineKey, merged);
+      group.items.push(merged);
+    }else{
+      const merged = group.lineMap.get(lineKey);
+      merged.amount = Math.round((Number(merged.amount || 0) + Number(item.amount || 0)) * 100) / 100;
+      merged.value = merged.amount;
+      merged.hit = Number(merged.hit || 0) + Number(item.hit || 0);
+      merged.matchCount = merged.hit;
+      merged.atomicOrder = Math.min(Number(merged.atomicOrder || 0), Number(item.atomicOrder || 0));
+    }
+  }
+
+  return Array.from(zoneMap.values())
+    .sort((a,b)=>compareConditionZoneMeta(a.meta,b.meta))
+    .map(group=>{
+      group.items.sort((a,b)=>Number(a.atomicOrder || 0)-Number(b.atomicOrder || 0));
+      return group;
+    });
+}
+
+function buildWinMoneyOutputOnly(pack){
+  const groups = groupConditionItems((pack && pack.items) || []);
+  const out = [];
+  if(!groups.length) return "Trống";
+
+  groups.forEach((group, groupIndex)=>{
+    if(groupIndex) out.push("");
+    out.push(`${group.meta.label} — ${group.meta.sourceName}`);
+    group.items.forEach(item=>{
+      out.push(`${item.line} = ${formatValue(item.amount)}`);
+    });
+  });
+
+  out.push("");
+  out.push(`Tổng đạt = ${formatValue((pack && pack.total) || 0)}`);
+  return out.join("\n").trim();
+}
+
+function buildResultZoneBlock(results){
+  const out = ["A. VÙNG THAM CHIẾU"];
+  let any = false;
+  for(const region of ["MN","MT","HN"]){
+    const data = results && results[region];
+    if(!data || !Object.keys(data).length) continue;
+    any = true;
+    out.push("", `[${region}]`);
+    for(const [source,r] of Object.entries(data)){
+      out.push(source);
+      out.push(`đầy đủ=${traceJoin(r.full || [])}`);
+      out.push(`2 ký tự=${traceJoin(r.bao2 || [])}`);
+      out.push(`đầu2=${traceJoin(r.dau2 || [])}`);
+      out.push(`cuối2=${traceJoin(r.duoi2 || [])}`);
+      out.push(`3 ký tự=${traceJoin(r.bao3 || [])}`);
+      out.push(`xc đầu=${traceJoin(r.dau3 || [])}`);
+      out.push(`xc cuối=${traceJoin(r.duoi3 || [])}`);
+      out.push(`xc=${traceJoin(r.xc3 || [])}`);
+      out.push(`4 ký tự=${traceJoin(r.bao4 || [])}`);
+      out.push("");
+    }
+  }
+  if(!any) out.push("Chưa có dữ liệu tham chiếu.");
+  return out.join("\n").trim();
+}
+
+function buildAtomicInputBlock(rows){
+  const out = ["B. ATOMIC ĐẦU VÀO"];
+  let count = 0;
+  for(const row of (rows || [])){
+    if(!row.calc) continue;
+    count++;
+    out.push(`${count}. ${row.region || ""} | nguồn=${row.block} | ${row.line} | dữ liệu=${(row.nums || []).join(".")} | mã=${row.type} | n=${fmtN(row.n)} | số nguồn=${row.daiCount || 1}`);
+  }
+  if(!count) out.push("Trống");
+  return out.join("\n").trim();
+}
+
+function buildAtomicDecisionSection(title, items){
+  const out = [title];
+  if(!items || !items.length){
+    out.push("Trống");
+    return out.join("\n");
+  }
+  items.forEach((item, idx)=>{
+    const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
+    const meta = item.zoneMeta || conditionZoneMeta(item);
+    out.push(`${idx+1}. ${meta.label} | nguồn=${meta.sourceName} | ${item.line} | dữ liệu=${nums} | đối chiếu=${neutralZoneText(item.zone)} | khớp=${item.hit}`);
+    out.push(`   vùng=${traceJoin(item.values || [])}`);
+  });
+  return out.join("\n").trim();
+}
+
+function buildWinMoneyDebug(rows, results, pack){
+  const out = [DATA_CONDITION_ZONE_BUILD, ""];
+  out.push("A. OUTPUT ĐẠT");
+  out.push(buildWinMoneyOutputOnly(pack));
+  out.push("");
+  out.push(buildAtomicInputBlock(rows));
+  out.push("");
+  out.push("C. ĐỐI CHIẾU + GIÁ TRỊ");
+  const items = (pack && pack.items) || [];
+  if(!items.length){
+    out.push("Trống");
+  }else{
+    items.forEach((item, idx)=>{
+      const meta = item.zoneMeta || conditionZoneMeta(item);
+      const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
+      out.push(`${idx+1}. ${meta.label} | nguồn=${meta.sourceName} | ${item.line} | dữ liệu=${nums} | đối chiếu=${neutralZoneText(item.zone)} | khớp=${item.hit} | n=${fmtN(item.n)} | trọng số=${item.coef} | giá trị=${formatValue(item.amount)}`);
+      if(item.note) out.push(`   ghi chú=${neutralZoneText(item.note)}`);
+      out.push(`   vùng=${traceJoin(item.values || [])}`);
+    });
+  }
+  out.push("", buildResultZoneBlock(results));
+  return out.join("\n").trim();
+}
+
+function buildWinReport(pack){
+  return buildWinMoneyOutputOnly(pack);
+}
+
+function buildWinStepTrace(rows, results, pack){
+  return buildWinMoneyDebug(rows, results, pack);
+}
+
+/* Giữ tương thích với tên hàm/ID cũ; phần hiển thị dùng thuật ngữ trung tính. */
+function runAll(){
+  try{
+    if(!val("inputData").trim()){
+      clearRun();
+      return;
+    }
+    const blocks = splitBlocks(val("inputData"));
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const inputValue = totalMoney(rows);
+    setVal("copyFast", buildCopyFast(blocks, inputValue));
+    setVal("ghi", formatValue(inputValue));
+
+    const splitPack = buildTach(blocks);
+    setVal("soTach", splitPack.tach);
+    setVal("soKhongTach", splitPack.khong);
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+
+    const referenceData = parseAllResults(rows);
+    const conditionPack = calcWinners(rows, referenceData);
+
+    setVal("thuong", formatValue(conditionPack.total || 0));
+    setVal("tong", formatValue(inputValue - (conditionPack.total || 0)));
+    setVal("soTrung", buildWinReport(conditionPack));
+    setVal("detail", buildWinStepTrace(rows, referenceData, conditionPack));
+    scrollTextTop("soTrung");
+  }catch(err){
+    console.error(err);
+    setVal("ghi", "Lỗi: " + (err && err.message ? err.message : err));
+  }
+}
+
+/* V0.5.85 compatibility: wrap by measured width and never cut inside a suffix token. */
+function printMeasureWidth(text, ctx){
+  if(ctx && typeof ctx.measureText === "function") return ctx.measureText(String(text || "")).width;
+  return String(text || "").length * 16;
+}
+
+function splitStructuredPrintLine(line, ctx, maxWidth){
+  const s = normalizeLine(line);
+  const m = s.match(/^(\d+(?:\.\d+)*)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
+  if(!m) return null;
+  const nums = m[1].split(".").filter(Boolean);
+  const suffixes = m[2].split(".").filter(Boolean);
+  if(!nums.length || !suffixes.length) return [s];
+
+  const packNums = suffix => {
+    const isDv = /^dv/i.test(suffix);
+    const out = [];
+    let cur = [];
+    for(let i=0; i<nums.length; i++){
+      const next = cur.concat(nums[i]);
+      const isLast = i === nums.length - 1;
+      const candidate = next.join(".") + (isDv && !isLast ? "." : suffix);
+      if(cur.length && printMeasureWidth(candidate, ctx) > maxWidth){
+        out.push(cur.join(".") + (isDv ? "." : suffix));
+        cur = [nums[i]];
+      }else{
+        cur = next;
+      }
+    }
+    if(cur.length) out.push(cur.join(".") + suffix);
+    return out;
+  };
+
+  if(suffixes.length === 1) return packNums(suffixes[0]);
+
+  const fullPrefix = nums.join(".");
+  const out = [];
+  let current = "";
+  for(const suffix of suffixes){
+    const tokenLine = fullPrefix + suffix;
+    if(printMeasureWidth(tokenLine, ctx) > maxWidth){
+      if(current){ out.push(current); current = ""; }
+      out.push(...packNums(suffix));
+      continue;
+    }
+    const candidate = current ? current + "." + suffix : tokenLine;
+    if(current && printMeasureWidth(candidate, ctx) > maxWidth){
+      out.push(current);
+      current = tokenLine;
+    }else{
+      current = candidate;
+    }
+  }
+  if(current) out.push(current);
+  return out;
+}
+
+function wrapPrintLine(line, ctx, maxWidth){
+  const s = String(line || "");
+  if(!s) return [""];
+  const structured = splitStructuredPrintLine(s, ctx, maxWidth);
+  if(structured) return structured;
+  if(printMeasureWidth(s, ctx) <= maxWidth) return [s];
+
+  const out = [];
+  let cur = "";
+  for(const ch of s){
+    const next = cur + ch;
+    if(cur && printMeasureWidth(next, ctx) > maxWidth){
+      out.push(cur);
+      cur = ch;
+    }else cur = next;
+  }
+  if(cur) out.push(cur);
+  return out;
+}

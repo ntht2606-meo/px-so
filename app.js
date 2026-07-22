@@ -1,6 +1,6 @@
-// Phân tích số v0.5.87 - chuẩn hóa thuật ngữ và gom output theo vùng điều kiện
-// Dữ liệu vào -> Atomic -> Đối chiếu -> Giá trị
-// In: chuẩn tên nguồn, gom cùng điều kiện, xuống dòng theo bề rộng
+// Phân tích dãy số v0.5.90 — atomic theo vùng, gom sau khi xét điều kiện
+// Input -> Bảng trung gian -> Tính giá trị
+// In: chuẩn tên vùng, gom đồng giá, xuống dòng <=20 ký tự
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"],
@@ -150,9 +150,9 @@ function syncRegionRelatedPanel(){
   const xoaLabel = el("activeXoaLabel");
   const resultLabel = el("activeResultLabel");
 
-  if(title) title.textContent = "Dữ liệu vùng " + uiName;
-  if(xoaLabel) xoaLabel.textContent = "Loại trừ " + shortName;
-  if(resultLabel) resultLabel.textContent = "Tham chiếu " + shortName;
+  if(title) title.textContent = "Dữ liệu liên quan " + uiName;
+  if(xoaLabel) xoaLabel.textContent = "Dãy xoá " + shortName;
+  if(resultLabel) resultLabel.textContent = "Kết quả " + shortName;
   setVal("activeXoaData", val(ids.xoa));
   setVal("activeResultData", val(ids.result));
 }
@@ -238,8 +238,8 @@ function showNewWorkPanel(id){
 function updateNewWorkPreview(){
   const text = val("newWorkData").trim();
   const lineCount = text ? text.split(/\n+/).filter(Boolean).length : 0;
-  setVal("newWorkProcess", text ? `Đã nhận: ${lineCount} dòng\n\n${text}` : "");
-  setVal("newWorkReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lineCount}\n- Ghi chú: chưa gắn điều kiện thật.` : "");
+  setVal("newWorkProcess", text ? `Dữ liệu thử đã nhận: ${lineCount} dòng\n\n${text}` : "");
+  setVal("newWorkReport", text ? `Báo cáo thử\n- Trạng thái: đã có dữ liệu\n- Số dòng: ${lineCount}\n- Ghi chú: chưa gắn công thức thật.` : "");
 }
 function saveNewWorkData(){
   try{
@@ -360,7 +360,7 @@ function normalizeLine(s){
   return (s||"").trim()
     .replace(/\s+/g,"")
     .replace(/kéo/gi,"keo")
-    .replace(/đá/gi,"da")
+    .replace(/ghép cặp/gi,"da")
     .replace(/đầu/gi,"dau")
     .replace(/đuôi|đui/gi,"duoi")
     .replace(/đđ/gi,"dd");
@@ -419,8 +419,8 @@ function detectRegionByDais(dais){
   return dais.some(d => mt.includes(d)) ? "MT" : "MN";
 }
 function compactThreeDaiLabel(block){
-  // Khóa thứ tự tên đài sau khi atomic được gom lại.
-  // Không lấy thứ tự block xuất hiện trong input, mà luôn theo lịch đài chuẩn.
+  // Khóa thứ tự tên vùng sau khi atomic được gom lại.
+  // Không lấy thứ tự block xuất hiện trong input, mà luôn theo lịch vùng chuẩn.
   const dais = orderDaisBySchedule(getDaisFromName(block).filter(Boolean));
   const canonicalBlock = dais.length ? dais.join("") : block;
   const region = detectRegionByDais(dais);
@@ -429,7 +429,7 @@ function compactThreeDaiLabel(block){
   // Chỉ rút thành ký hiệu nhóm khi block là đúng dải đầu của lịch NGÀY HIỆN TẠI.
   // Ví dụ thứ Bảy:
   // TphoLanBphuoc -> 3dmn
-  // TphoLanHgiang -> giữ nguyên, vì bỏ mất đài thứ 3 là Bphuoc.
+  // TphoLanHgiang -> giữ nguyên, vì bỏ mất vùng thứ 3 là Bphuoc.
   const count = dais.length;
   if(count !== 3 && !(region === "MN" && count === 4)) return canonicalBlock;
 
@@ -487,7 +487,7 @@ function splitBlocks(text){
       if(!cur.generic) lastExplicit = cur.dais;
     }else{
       if(!cur){
-        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], generic:false, lines:[]};
+        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", dais:["Không rõ vùng"], region:"MN", mainDais:["Không rõ vùng"], generic:false, lines:[]};
         blocks.push(cur);
       }
       cur.lines.push(normalizeLine(raw));
@@ -546,7 +546,7 @@ function permCount(s){
   return fact(arr.length)/den;
 }
 
-function parseBetLine(line){
+function parseDataLine(line){
   const s = normalizeLine(line);
 
   const da = s.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
@@ -614,7 +614,7 @@ function buildIntermediate(blocks){
   });
   for(const block of blocks){
     for(const rawLine of block.lines){
-      const parts = parseBetLine(rawLine);
+      const parts = parseDataLine(rawLine);
       if(!parts){
         rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, daiCount:1, ...meta(block)});
         continue;
@@ -661,9 +661,9 @@ function calcRow(row){
   let base=0, qty=1;
 
   if(t==="da"){
-    // Lấy số đài từ bảng trung gian đã bung, không đoán lại bằng tên block.
-    // MN/MT đá 1 đài: 36 x 1 x n x 0.8 = 28,8k cho 1n.
-    // MN/MT đá 2 đài: 36 x 2 x n x 0.8 = 57,6k cho 1n.
+    // Lấy số vùng từ bảng trung gian đã bung, không đoán lại bằng tên block.
+    // MN/MT ghép cặp 1 vùng: 36 x 1 x n x 0.8 = 28,8k cho 1n.
+    // MN/MT ghép cặp 2 vùng: 36 x 2 x n x 0.8 = 57,6k cho 1n.
     const daiCount = row.daiCount || 1;
     base = region==="HN" ? 54 : 36 * daiCount;
 
@@ -741,7 +741,7 @@ function roundedMoney(n){
 }
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
-// Chỉ đổi header tổng quát thành tên đài thật và chỉ ngắt dòng khi dãy số gốc quá dài.
+// Chỉ đổi header tổng quát thành tên vùng thật và chỉ ngắt dòng khi dãy số gốc quá dài.
 function splitCopyLineOriginal(rawLine, maxLen=20){
   const s = normalizeLine(rawLine);
   if(!s || s.length <= maxLen) return s ? [s] : [];
@@ -1081,7 +1081,7 @@ function buildTach(blocks){
 
     for(const block of blocks){
       for(const rawLine of block.lines){
-        const parts = parseBetLine(rawLine);
+        const parts = parseDataLine(rawLine);
         if(!parts) continue;
         for(const part of parts){
           const type = part.type;
@@ -1123,7 +1123,7 @@ function buildTach(blocks){
   const baoGroups = new Map();
   const daGroups = new Map();
 
-  // Quan trọng: bao 2 số phải tổng theo atomic đài thật trước khi xét max.
+  // Quan trọng: bao 2 số phải tổng theo atomic vùng thật trước khi xét max.
   // Không được đưa từng dòng gốc vào Tin tách rồi mới gom, vì sẽ lọt case:
   // Dnai 68b5n + DnaiCtho 68b11n => Dnai 68b16n vượt max.
   const addBaoAtomic = row => {
@@ -1644,7 +1644,7 @@ function shapeResultRecord(dai, numsRaw, position={}){
   const rec = {
     full: nums,
 
-    // Bao = toàn bộ giải theo độ dài cần dò.
+    // Bao = toàn bộ giải theo độ dài cần xét.
     bao2: nums.map(n=>n.slice(-2)),
     bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
     bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
@@ -1658,7 +1658,7 @@ function shapeResultRecord(dai, numsRaw, position={}){
     duoi4: last4 ? [last4.slice(-4)] : []
   };
 
-  // Nếu parser đã biết vị trí giải thật thì dùng vị trí đó để dò dau/duoi/xc.
+  // Nếu parser đã biết vị trí giải thật thì dùng vị trí đó để xét dau/duoi/xc.
   if(position.dau2) rec.dau2 = position.dau2.slice();
   if(position.duoi2) rec.duoi2 = position.duoi2.slice();
   if(position.dau3) rec.dau3 = position.dau3.slice();
@@ -1666,7 +1666,7 @@ function shapeResultRecord(dai, numsRaw, position={}){
   if(position.dau4) rec.dau4 = position.dau4.slice();
   if(position.duoi4) rec.duoi4 = position.duoi4.slice();
 
-  // Vùng xỉu chủ riêng. Không dò XC bằng bao3 chung.
+  // Vùng vùng 3 ký tự riêng. Không xét XC bằng bao3 chung.
   rec.xc3 = position.xc3 ? position.xc3.slice() : rec.dau3.concat(rec.duoi3);
 
   // Alias cũ để không làm gãy các phần đang đúng.
@@ -1791,7 +1791,7 @@ function parseStructuredResultText(text, region, fallbackDai=""){
     if(dai){
       cur = dai;
       ensure(cur);
-      // Dòng tên đài chỉ đổi vùng đài, không lấy số ngày/giờ/mã trong dòng này.
+      // Dòng tên vùng chỉ đổi vùng vùng, không lấy số ngày/giờ/mã trong dòng này.
       continue;
     }
 
@@ -1878,7 +1878,7 @@ function parseResultText(text, fallbackDai="", regionHint=""){
 }
 function syncActiveRegionDataBuffer(){
   // Lỗi cũ: app chỉ đọc kqMn/kqMt/kqHn, còn ô đang dán trên overlay là activeResultData.
-  // Nếu chưa kịp bấm Lưu hoặc debounce chưa chạy, runAll sẽ dò bằng vùng kết quả rỗng.
+  // Nếu chưa kịp bấm Lưu hoặc debounce chưa chạy, runAll sẽ xét bằng vùng kết quả rỗng.
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
   const ids = regionRelatedIds(activeWorkspace);
   const activeResult = val("activeResultData");
@@ -1898,7 +1898,7 @@ function parseAllResults(rows){
     HN:parseResultText(val("kqHn"), "HN", "HN")
   };
 
-  // Fallback theo atomic đang dò: nếu tin là HN nhưng kqHn rỗng,
+  // Fallback theo atomic đang xét: nếu tin là HN nhưng kqHn rỗng,
   // lấy ngay dữ liệu đang nằm trong ô Kết quả đang mở để tạo vùng HN.
   const activeText = val("activeResultData").trim();
   const needRegions = new Set((rows || []).map(r => r.region).filter(Boolean));
@@ -2005,7 +2005,7 @@ function calcWinRow(row, results){
       if(!r1 || !r2) return null;
 
       // DA/DV tính theo cặp, không nhân chéo.
-      // Hit 2 đài = min(A đài 1, B đài 2) + min(B đài 1, A đài 2).
+      // Hit 2 vùng = min(A vùng 1, B vùng 2) + min(B vùng 1, A vùng 2).
       const c1a = countExact(r1.bao2, a);
       const c2b = countExact(r2.bao2, b);
       const c1b = countExact(r1.bao2, b);
@@ -2019,7 +2019,7 @@ function calcWinRow(row, results){
       const ca = countExact(r.bao2, a);
       const cb = countExact(r.bao2, b);
 
-      // DA/DV 1 đài = min(A,B), không A*B.
+      // DA/DV 1 vùng = min(A,B), không A*B.
       hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
     }
 
@@ -2132,8 +2132,8 @@ function buildWinReport(pack){
       continue;
     }
 
-    // Dòng thắng từ bảng trung gian thường đã là 1 số/dòng. Nếu gặp nhiều số
-    // trong cùng dòng thì chia tiền đều để vẫn gom được mà không lệch tổng.
+    // Dòng đạt điều kiện từ bảng trung gian thường đã là 1 số/dòng. Nếu gặp nhiều số
+    // trong cùng dòng thì chia giá trị đều để vẫn gom được mà không lệch tổng.
     const perNumAmount = w.amount / parsed.nums.length;
     for(const num of parsed.nums){
       const key = parsed.type + "|" + num;
@@ -2189,8 +2189,8 @@ function buildWinReport(pack){
 }
 
 
-// V0.5.63 - Atomic win engine: kết quả -> vùng kết quả -> atomic -> TRÚNG / KHÔNG TRÚNG.
-// Không dùng nhánh gom công thức cũ để quyết định trúng. Gom chỉ được làm sau khi atomic đã phân vùng đúng.
+// V0.5.63 - Atomic condition engine: kết quả -> vùng kết quả -> atomic -> ĐẠT ĐIỀU KIỆN / KHÔNG ĐẠT ĐIỀU KIỆN.
+// Không dùng nhánh gom công thức cũ để quyết định đạt điều kiện. Gom chỉ được làm sau khi atomic đã phân vùng đúng.
 function atomicWinEvaluateRow(row, results){
   if(!row || !row.calc || !hasAnyResults(results)) return null;
 
@@ -2213,14 +2213,14 @@ function atomicWinEvaluateRow(row, results){
     if((row.daiCount || 1) >= 2 && dais.length >= 2){
       const r1 = resultFor(results, region, dais[0]);
       const r2 = resultFor(results, region, dais[1]);
-      zone = "đá 2 đài / bao2 chéo";
+      zone = "ghép cặp 2 vùng / bao2 chéo";
       if(!r1 || !r2) return {row, hit:0, amount:0, coef, zone};
       const ab = Math.min(countExact(r1.bao2, a), countExact(r2.bao2, b));
       const ba = (a === b) ? 0 : Math.min(countExact(r1.bao2, b), countExact(r2.bao2, a));
       hit = ab + ba;
     }else{
       const r = resultFor(results, region, dais[0]);
-      zone = "đá 1 đài / bao2";
+      zone = "ghép cặp 1 vùng / bao2";
       if(!r) return {row, hit:0, amount:0, coef, zone};
       const ca = countExact(r.bao2, a);
       const cb = countExact(r.bao2, b);
@@ -2297,7 +2297,7 @@ function buildAtomicSection(title, rows, showMoney){
   const groups = {};
   const order = [];
   for(const item of rows){
-    const block = item.block || (item.row && item.row.block) || "Không rõ đài";
+    const block = item.block || (item.row && item.row.block) || "Không rõ vùng";
     if(!groups[block]){ groups[block] = []; order.push(block); }
     groups[block].push(item);
   }
@@ -2323,15 +2323,15 @@ function buildWinReport(pack){
   const misses = pack && pack.misses ? pack.misses : [];
   if(!items.length && !misses.length) return "";
   return [
-    buildAtomicSection("TRÚNG", items, true),
+    buildAtomicSection("ĐẠT ĐIỀU KIỆN", items, true),
     "",
-    buildAtomicSection("KHÔNG TRÚNG", misses, false)
+    buildAtomicSection("KHÔNG ĐẠT ĐIỀU KIỆN", misses, false)
   ].join("\n").trim();
 }
 
 function buildWinStepTrace(rows, results, pack){
   const lines = [];
-  lines.push("DEBUG DÒ TRÚNG ATOMIC");
+  lines.push("DEBUG XÉT ĐẠT ĐIỀU KIỆN ATOMIC");
   lines.push("");
   lines.push("B1. Atomic tin ghi:");
   (rows || []).forEach(r=>{
@@ -2357,12 +2357,12 @@ function buildWinStepTrace(rows, results, pack){
     .concat((pack && pack.items) || [])
     .concat((pack && pack.misses) || []);
   all.forEach(item=>{
-    const status = item.hit > 0 ? "TRÚNG" : "KHÔNG";
-    const amount = item.amount ? ` | tiền=${money(item.amount)}` : "";
+    const status = item.hit > 0 ? "ĐẠT ĐIỀU KIỆN" : "KHÔNG";
+    const amount = item.amount ? ` | giá trị=${money(item.amount)}` : "";
     lines.push(`${status} | ${item.block} | ${item.line} | vùng=${item.zone || ""} | hit=${item.hit}${amount}`);
   });
   lines.push("");
-  lines.push(`Tổng trúng=${money((pack && pack.total) || 0)}`);
+  lines.push(`Tổng đạt điều kiện=${money((pack && pack.total) || 0)}`);
   return lines.join("\n").trim();
 }
 
@@ -2387,7 +2387,7 @@ function runAll(){
     scrollTextTop("soTach");
     scrollTextTop("soKhongTach");
 
-    // CHẠY không hiện chuẩn hóa kết quả. Chỉ dò ngầm nếu đã có dữ liệu kết quả.
+    // CHẠY không hiện chuẩn hóa kết quả. Chỉ xét ngầm nếu đã có dữ liệu kết quả.
     const resultObj = parseAllResults(rows);
     const winPack = calcWinners(rows, resultObj);
     setVal("thuong", winPack.total ? money(winPack.total) : "0");
@@ -2527,10 +2527,10 @@ function wrapPrintLine(line, ctx, maxWidth){
   if(!s) return [""];
   if(ctx.measureText(s).width <= maxWidth) return [s];
 
-  const bet = s.match(/^([0-9.]+)([a-z][a-z0-9,.]*(?:n)(?:\.[a-z][a-z0-9,.]*(?:n))*)$/i);
-  if(bet){
-    const nums = bet[1].split(".").filter(Boolean);
-    const suffix = bet[2];
+  const dataLineMatch = s.match(/^([0-9.]+)([a-z][a-z0-9,.]*(?:n)(?:\.[a-z][a-z0-9,.]*(?:n))*)$/i);
+  if(dataLineMatch){
+    const nums = dataLineMatch[1].split(".").filter(Boolean);
+    const suffix = dataLineMatch[2];
     const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
     const isLongDa = firstType === "da" || firstType === "dv";
     const out = [];
@@ -2650,15 +2650,15 @@ async function makePrintImageFile(text){
   });
 
   const blob = await canvasToBlob(canvas);
-  return new File([blob], `phan-tich-so-${dateKey()}.png`, {type:"image/png"});
+  return new File([blob], `pxso-in-${dateKey()}.png`, {type:"image/png"});
 }
 
 async function sharePrintImage(file){
   if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
     await navigator.share({
       files:[file],
-      title:"Ảnh phân tích số",
-      text:"Ảnh dữ liệu"
+      title:"PX-SO in ảnh",
+      text:"Ảnh in PX-SO"
     });
     return true;
   }
@@ -2669,7 +2669,7 @@ function downloadFile(file){
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
-  a.download = file.name || "phan-tich-so.png";
+  a.download = file.name || "pxso-in.png";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -2847,7 +2847,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 
-  // Dán kết quả MN/MT/HN cũng tự cập nhật dò/trúng.
+  // Dán kết quả MN/MT/HN cũng tự cập nhật xét/đạt điều kiện.
   ["kqMn","kqMt","kqHn"].forEach(id=>{
     const x=el(id);
     if(x){
@@ -2923,10 +2923,10 @@ window.addEventListener("DOMContentLoaded", ()=>{
 });
 
 /* V0.5.65 - DATA ZONE TRACE ONLY
-   Xóa nhánh báo tiền trúng khỏi panel Số trúng.
-   Panel này chỉ còn: vùng kết quả -> atomic tin ghi -> trúng/không trúng từng con.
+   Xóa nhánh báo giá trị đạt điều kiện khỏi panel Số đạt điều kiện.
+   Panel này chỉ còn: vùng kết quả -> atomic tin ghi -> đạt điều kiện/không đạt điều kiện từng con.
 */
-const PX_DATA_TRACE_BUILD = "PX-SO v0.5.66 — data-zone trace only, no top hit count — cache v=5643";
+const PX_DATA_TRACE_BUILD = "Phân tích dãy số v0.5.66 — data-zone trace only, no top hit count — cache v=5643";
 
 function traceJoin(arr){
   return (arr || []).length ? (arr || []).join(".") : "Trống";
@@ -2944,7 +2944,7 @@ function zoneForAtomic(row, results){
   const len = String(num).length;
 
   if(t === "da"){
-    if(nums.length < 2) return {row, zone:"đá", values:[], hit:0, note:"thiếu cặp số"};
+    if(nums.length < 2) return {row, zone:"ghép cặp", values:[], hit:0, note:"thiếu cặp số"};
     const a = nums[0], b = nums[1];
     if((row.daiCount || 1) >= 2 && dais.length >= 2){
       const r1 = resultFor(results, region, dais[0]);
@@ -2953,7 +2953,7 @@ function zoneForAtomic(row, results){
       const v2 = r2 ? (r2.bao2 || []) : [];
       const ab = Math.min(countExact(v1, a), countExact(v2, b));
       const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
-      return {row, zone:`đá 2 đài: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], hit:ab+ba, note:`${a}.${b}`};
+      return {row, zone:`ghép cặp 2 vùng: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], hit:ab+ba, note:`${a}.${b}`};
     }
     const r = resultFor(results, region, dais[0]);
     const values = r ? (r.bao2 || []) : [];
@@ -3059,7 +3059,7 @@ function buildAtomicInputBlock(rows){
   for(const row of rows || []){
     if(!row.calc) continue;
     count++;
-    out.push(`${count}. ${row.region || ""} | ${row.block} | ${row.line} | số=${(row.nums || []).join(".")} | loại=${row.type} | n=${fmtN(row.n)} | đài=${row.daiCount || 1}`);
+    out.push(`${count}. ${row.region || ""} | ${row.block} | ${row.line} | số=${(row.nums || []).join(".")} | loại=${row.type} | n=${fmtN(row.n)} | vùng=${row.daiCount || 1}`);
   }
   if(!count) out.push("Trống");
   return out.join("\n").trim();
@@ -3073,7 +3073,7 @@ function buildAtomicDecisionSection(title, items){
   }
   items.forEach((item, idx)=>{
     const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-    out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit}`);
+    out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | hit=${item.hit}`);
     out.push(`   vùng=${traceJoin(item.values || [])}`);
   });
   return out.join("\n").trim();
@@ -3081,16 +3081,16 @@ function buildAtomicDecisionSection(title, items){
 function buildWinReport(pack, results, rows){
   const out = [];
   out.push(PX_DATA_TRACE_BUILD);
-  out.push("CHẾ ĐỘ: PHÂN TÍCH DỮ LIỆU, KHÔNG NHÂN TIỀN, KHÔNG GOM");
-  out.push(`Tổng atomic trúng: ${((pack && pack.items) || []).length} dòng | Không trúng: ${((pack && pack.misses) || []).length} dòng`);
+  out.push("CHẾ ĐỘ: PHÂN TÍCH DỮ LIỆU, KHÔNG NHÂN GIÁ TRỊ, KHÔNG GOM");
+  out.push(`Tổng atomic đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Không đạt điều kiện: ${((pack && pack.misses) || []).length} dòng`);
   out.push("");
   out.push(buildResultZoneBlock(results));
   out.push("");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("C. TRÚNG — TÁCH RIÊNG TỪNG CON", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("C. ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("D. KHÔNG TRÚNG — TÁCH RIÊNG TỪNG CON", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("D. KHÔNG ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
 function buildWinStepTrace(rows, results, pack){
@@ -3119,8 +3119,8 @@ function runAll(){
     const resultObj = parseAllResults(rows);
     const pack = calcWinners(rows, resultObj);
 
-    // Chế độ trace: không dùng ô Trúng tổng để đếm hit nữa, tránh hiểu nhầm 1 con/2 con.
-    // Nguồn kiểm đúng là bảng soTrung bên dưới: vùng kết quả + atomic + trúng/không trúng.
+    // Chế độ trace: không dùng ô Đạt điều kiện tổng để đếm hit nữa, tránh hiểu nhầm 1 con/2 con.
+    // Nguồn kiểm đúng là bảng soTrung bên dưới: vùng kết quả + atomic + đạt điều kiện/không đạt điều kiện.
     setVal("thuong", "Xem bảng");
     setVal("tong", money(total));
     setVal("soTrung", buildWinReport(pack, resultObj, rows));
@@ -3132,17 +3132,17 @@ function runAll(){
   }
 }
 
-/* V0.5.67 - ATOMIC WIN MONEY ENGINE
+/* V0.5.67 - ATOMIC CONDITION VALUE ENGINE
    Khóa lỗi: 707b1n.xc5n phải tách thành 707b1n + 707xc5n.
-   Dò theo vùng atomic, trúng tách riêng từng con, sau đó mới nhân hệ số từng dòng.
+   Xét theo vùng atomic, đạt điều kiện tách riêng từng con, sau đó mới nhân hệ số từng dòng.
 */
-const PX_ATOMIC_WIN_BUILD = "PX-SO v0.5.67 — atomic split win money — cache v=5644";
+const PX_ATOMIC_WIN_BUILD = "Phân tích dãy số v0.5.67 — atomic condition value processing — cache v=5644";
 
-function parseBetLine(line){
+function parseDataLine(line){
   const s = normalizeLine(line);
   if(!s) return null;
 
-  // Dạng đá trực tiếp vẫn đọc thẳng.
+  // Dạng ghép cặp trực tiếp vẫn đọc thẳng.
   const daOnly = s.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
   if(daOnly){
     return [{nums:parseNums(daOnly[1]), type:daOnly[2].toLowerCase(), n:parseAmount(daOnly[3]), source:s}];
@@ -3234,7 +3234,7 @@ function calcWinners(rows, results){
 
 function buildWinMoneySection(items){
   const out = [];
-  out.push("TRÚNG — TÁCH RIÊNG TỪNG CON");
+  out.push("ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON");
   if(!items || !items.length){
     out.push("Trống");
     return out.join("\n");
@@ -3255,7 +3255,7 @@ function buildWinMoneySection(items){
 
 function buildMissSection(items){
   const out = [];
-  out.push("KHÔNG TRÚNG — TÁCH RIÊNG TỪNG CON");
+  out.push("KHÔNG ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON");
   if(!items || !items.length){
     out.push("Trống");
     return out.join("\n");
@@ -3269,7 +3269,7 @@ function buildMissSection(items){
       out.push(block);
       curBlock = block;
     }
-    out.push(`${item.line} | dò=${item.zone || ""} | hit=0`);
+    out.push(`${item.line} | xét=${item.zone || ""} | hit=0`);
   }
   return out.join("\n").trim();
 }
@@ -3279,17 +3279,17 @@ function buildAtomicAuditBlock(rows, pack){
   out.push("KIỂM ATOMIC");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU TRÚNG", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
 
 function buildWinReport(pack, results, rows){
   const out = [];
   out.push(PX_ATOMIC_WIN_BUILD);
-  out.push("CHẾ ĐỘ: ATOMIC → DÒ VÙNG → TÍNH TIỀN TỪNG CON, KHÔNG GOM BAO/XC");
-  out.push(`Tổng atomic trúng: ${((pack && pack.items) || []).length} dòng | Tổng hit: ${(pack && pack.hitCount) || 0} | Tổng thưởng: ${money((pack && pack.total) || 0)}`);
+  out.push("CHẾ ĐỘ: ATOMIC → XÉT VÙNG → TÍNH GIÁ TRỊ TỪNG CON, KHÔNG GOM BAO/XC");
+  out.push(`Tổng atomic đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Tổng hit: ${(pack && pack.hitCount) || 0} | Tổng giá trị đạt: ${money((pack && pack.total) || 0)}`);
   out.push("");
   out.push(buildWinMoneySection((pack && pack.items) || []));
   out.push("");
@@ -3341,11 +3341,11 @@ function runAll(){
 
 
 /* V0.5.68 - ATOMIC ZONE OUTPUT ONLY
-   Khóa lại đúng yêu cầu hiện tại: chưa gắn công thức tiền ở vùng dò kết quả.
-   Luồng: input -> atomic -> vùng kết quả -> output trúng/không trúng từng con.
-   707b1n.xc5n phải ra output trúng 2 dòng: 707b1n và 707xc5n.
+   Khóa lại đúng yêu cầu hiện tại: chưa gắn công thức giá trị ở vùng xét kết quả.
+   Luồng: input -> atomic -> vùng kết quả -> output đạt điều kiện/không đạt điều kiện từng con.
+   707b1n.xc5n phải ra output đạt điều kiện 2 dòng: 707b1n và 707xc5n.
 */
-const PX_ATOMIC_OUTPUT_BUILD = "PX-SO v0.5.68 — atomic zone output only — cache v=5645";
+const PX_ATOMIC_OUTPUT_BUILD = "Phân tích dãy số v0.5.68 — atomic zone output only — cache v=5645";
 
 function calcWinners(rows, results){
   const items = [];
@@ -3407,21 +3407,21 @@ function buildAtomicAuditShort(rows, pack){
   out.push("KIỂM ATOMIC");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU TRÚNG", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
 
 function buildWinReport(pack, results, rows){
   const out = [];
   out.push(PX_ATOMIC_OUTPUT_BUILD);
-  out.push("CHẾ ĐỘ: KIỂM ATOMIC, KHÔNG TÍNH TIỀN, KHÔNG GOM");
-  out.push(`Tổng atomic trúng: ${((pack && pack.items) || []).length} dòng | Không trúng: ${((pack && pack.misses) || []).length} dòng`);
+  out.push("CHẾ ĐỘ: KIỂM ATOMIC, KHÔNG TÍNH GIÁ TRỊ, KHÔNG GOM");
+  out.push(`Tổng atomic đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Không đạt điều kiện: ${((pack && pack.misses) || []).length} dòng`);
   out.push("");
-  out.push(buildAtomicPlainOutput("OUTPUT TRÚNG", (pack && pack.items) || []));
+  out.push(buildAtomicPlainOutput("OUTPUT ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicPlainOutput("OUTPUT KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push(buildAtomicPlainOutput("OUTPUT KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
   out.push("");
   out.push(buildResultZoneBlock(results));
   out.push("");
@@ -3456,7 +3456,7 @@ function runAll(){
     const resultObj = parseAllResults(rows);
     const pack = calcWinners(rows, resultObj);
 
-    // Không hiển thị tiền thưởng ở bước kiểm vùng dò. Nguồn kiểm là OUTPUT TRÚNG trong soTrung.
+    // Không hiển thị giá trị đạt ở bước kiểm vùng xét. Nguồn kiểm là OUTPUT ĐẠT ĐIỀU KIỆN trong soTrung.
     setVal("thuong", "Xem output");
     setVal("tong", money(total));
     setVal("soTrung", buildWinReport(pack, resultObj, rows));
@@ -3469,10 +3469,10 @@ function runAll(){
 }
 
 /* V0.5.69 - FINAL OUTPUT DISPLAY ONLY
-   Panel Số trúng chỉ hiển thị kết quả trúng/không trúng theo atomic.
-   Không in vùng kết quả, không in bảng audit, không tính tiền tại panel này.
+   Panel Số đạt điều kiện chỉ hiển thị kết quả đạt điều kiện/không đạt điều kiện theo atomic.
+   Không in vùng kết quả, không in bảng audit, không tính giá trị tại panel này.
 */
-const PX_ATOMIC_DISPLAY_BUILD = "PX-SO v0.5.70 — HN loose result XC order fix — cache v=5647";
+const PX_ATOMIC_DISPLAY_BUILD = "Phân tích dãy số v0.5.70 — HN loose result XC order fix — cache v=5647";
 
 function buildAtomicOutputOnly(title, items){
   const out = [title];
@@ -3499,9 +3499,9 @@ function buildAtomicDebugOnly(rows, results, pack){
   out.push("");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU TRÚNG", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG TRÚNG", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
   out.push("");
   out.push(buildResultZoneBlock(results));
   return out.join("\n").trim();
@@ -3509,9 +3509,9 @@ function buildAtomicDebugOnly(rows, results, pack){
 
 function buildWinReport(pack){
   return [
-    buildAtomicOutputOnly("TRÚNG", (pack && pack.items) || []),
+    buildAtomicOutputOnly("ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []),
     "",
-    buildAtomicOutputOnly("KHÔNG TRÚNG", (pack && pack.misses) || [])
+    buildAtomicOutputOnly("KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || [])
   ].join("\n").trim();
 }
 
@@ -3555,13 +3555,13 @@ function runAll(){
 
 
 
-/* V0.5.72 - ATOMIC WIN MONEY DISPLAY NO HEADER
-   Nguồn đúng đã khóa: vùng TRÚNG atomic.
-   Panel Số trúng chỉ hiện các dòng trúng theo block, không hiện tiêu đề TRÚNG, không hiện KHÔNG TRÚNG.
-   Sau khi atomic trúng, đếm hit của số trong vùng dò rồi nhân n và hệ số tương ứng.
+/* V0.5.72 - ATOMIC CONDITION VALUE DISPLAY NO HEADER
+   Nguồn đúng đã khóa: vùng ĐẠT ĐIỀU KIỆN atomic.
+   Panel Số đạt điều kiện chỉ hiện các dòng đạt điều kiện theo block, không hiện tiêu đề ĐẠT ĐIỀU KIỆN, không hiện KHÔNG ĐẠT ĐIỀU KIỆN.
+   Sau khi atomic đạt điều kiện, đếm hit của số trong vùng xét rồi nhân n và hệ số tương ứng.
    Bao và XC giữ tách riêng từng dòng, không gom chung.
 */
-const PX_ATOMIC_WIN_DISPLAY_BUILD = "PX-SO v0.5.72 — atomic win money display no header — cache v=5649";
+const PX_ATOMIC_WIN_DISPLAY_BUILD = "Phân tích dãy số v0.5.72 — atomic condition value display no header — cache v=5649";
 
 function atomicMoneyForWinItem(row, hit){
   const coef = winCoefForRow(row);
@@ -3630,7 +3630,7 @@ function buildWinMoneyOutputOnly(pack){
   }
 
   out.push("");
-  out.push(`Tổng trúng=${money((pack && pack.total) || 0)}`);
+  out.push(`Tổng đạt điều kiện=${money((pack && pack.total) || 0)}`);
   return out.join("\n").trim();
 }
 
@@ -3638,20 +3638,20 @@ function buildWinMoneyDebug(rows, results, pack){
   const out = [];
   out.push(PX_ATOMIC_WIN_DISPLAY_BUILD);
   out.push("");
-  out.push("A. OUTPUT TRÚNG ĐANG HIỂN THỊ");
+  out.push("A. OUTPUT ĐẠT ĐIỀU KIỆN ĐANG HIỂN THỊ");
   out.push(buildWinMoneyOutputOnly(pack));
   out.push("");
   out.push("B. ATOMIC TIN GHI");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push("C. ĐỐI CHIẾU TRÚNG + TIỀN");
+  out.push("C. ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN + GIÁ TRỊ");
   const items = (pack && pack.items) || [];
   if(!items.length){
     out.push("Trống");
   }else{
     items.forEach((item, idx)=>{
       const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | tiền=${money(item.amount)}`);
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | giá trị=${money(item.amount)}`);
       out.push(`   vùng=${traceJoin(item.values || [])}`);
     });
   }
@@ -3705,12 +3705,12 @@ function runAll(){
 
 /* V0.5.73 - MN/MT DA/DV JOINT ZONE MIN HIT
    Khóa rule mới:
-   - Với đá/DV MN, MT trên block nhiều đài: tạo vùng bao2 CHUNG của toàn bộ đài trong block.
+   - Với ghép cặp/DV MN, MT trên block nhiều vùng: tạo vùng bao2 CHUNG của toàn bộ vùng trong block.
    - Hit cặp = min(countA trong vùng chung, countB trong vùng chung).
-   - Không dò chéo từng hướng đài 1/đài 2 nữa.
+   - Không xét chéo từng hướng vùng 1/vùng 2 nữa.
    - Áp dụng cho MN và MT. HN giữ rule cũ theo từng vùng HN.
 */
-const PX_DA_JOINT_ZONE_BUILD = "PX-SO v0.5.75 — preserve full multi-station name in print output — cache v=5652";
+const PX_DA_JOINT_ZONE_BUILD = "Phân tích dãy số v0.5.75 — preserve full multi-station name in print output — cache v=5652";
 
 function jointBao2ForDais(results, region, dais){
   const values = [];
@@ -3731,7 +3731,7 @@ function isMnMtJointDaRow(row, region, dais){
 function calcDaHitByJointZone(row, results, region, dais){
   const nums = row.nums || [];
   if(nums.length < 2){
-    return {hit:0, zone:"đá", values:[], note:"thiếu cặp số"};
+    return {hit:0, zone:"ghép cặp", values:[], note:"thiếu cặp số"};
   }
   const a = nums[0], b = nums[1];
   const joint = jointBao2ForDais(results, region, dais);
@@ -3749,7 +3749,7 @@ function calcDaHitByJointZone(row, results, region, dais){
 function calcDaHitOldDirection(row, results, region, dais){
   const nums = row.nums || [];
   if(nums.length < 2){
-    return {hit:0, zone:"đá", values:[], note:"thiếu cặp số"};
+    return {hit:0, zone:"ghép cặp", values:[], note:"thiếu cặp số"};
   }
   const a = nums[0], b = nums[1];
   if((row.daiCount || 1) >= 2 && dais.length >= 2){
@@ -3759,7 +3759,7 @@ function calcDaHitOldDirection(row, results, region, dais){
     const v2 = r2 ? (r2.bao2 || []) : [];
     const ab = Math.min(countExact(v1, a), countExact(v2, b));
     const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
-    return {hit:ab + ba, zone:`đá 2 đài: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], note:`${a}.${b}`};
+    return {hit:ab + ba, zone:`ghép cặp 2 vùng: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], note:`${a}.${b}`};
   }
   const r = resultFor(results, region, dais[0]);
   const values = r ? (r.bao2 || []) : [];
@@ -3847,20 +3847,20 @@ function buildWinMoneyDebug(rows, results, pack){
   const out = [];
   out.push(PX_DA_JOINT_ZONE_BUILD);
   out.push("");
-  out.push("A. OUTPUT TRÚNG ĐANG HIỂN THỊ");
+  out.push("A. OUTPUT ĐẠT ĐIỀU KIỆN ĐANG HIỂN THỊ");
   out.push(buildWinMoneyOutputOnly(pack));
   out.push("");
   out.push("B. ATOMIC TIN GHI");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push("C. ĐỐI CHIẾU TRÚNG + TIỀN");
+  out.push("C. ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN + GIÁ TRỊ");
   const items = (pack && pack.items) || [];
   if(!items.length){
     out.push("Trống");
   }else{
     items.forEach((item, idx)=>{
       const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | dò=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | tiền=${money(item.amount)}`);
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | hit=${item.hit} | n=${fmtN(item.n)} | hệ số=${item.coef} | giá trị=${money(item.amount)}`);
       if(item.note) out.push(`   note=${item.note}`);
       out.push(`   vùng=${traceJoin(item.values || [])}`);
     });
@@ -3872,8 +3872,8 @@ function buildWinMoneyDebug(rows, results, pack){
 
 
 /* V0.5.73b - GENERIC 2DMN/2DMT RESULT HINT
-   Khi input dùng 2dmn/3dmn/2dmt/3dmt và vùng kết quả đã dán có tên đài,
-   ưu tiên suy ra ngày/đài theo vùng kết quả đó trước khi rơi về ngày hiện tại.
+   Khi input dùng 2dmn/3dmn/2dmt/3dmt và vùng kết quả đã dán có tên vùng,
+   ưu tiên suy ra ngày/vùng theo vùng kết quả đó trước khi rơi về ngày hiện tại.
 */
 function collectResultHintDaisForRegion(region){
   const ids = regionRelatedIds(region);
@@ -3916,7 +3916,7 @@ function splitBlocks(text){
       if(!cur.generic) lastExplicit = cur.dais;
     }else{
       if(!cur){
-        cur = {raw:"Không rõ đài", name:"Không rõ đài", dais:["Không rõ đài"], region:"MN", mainDais:["Không rõ đài"], generic:false, lines:[]};
+        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", dais:["Không rõ vùng"], region:"MN", mainDais:["Không rõ vùng"], generic:false, lines:[]};
         blocks.push(cur);
       }
       cur.lines.push(normalizeLine(raw));
@@ -3928,11 +3928,11 @@ function splitBlocks(text){
 
 /* V0.5.75 - PRESERVE FULL MULTI-STATION NAME IN PRINT OUTPUT
    Lỗi đã khóa:
-   - Header explicit ghép nhiều đài như LanBphuoc không được rơi mất đài khi tạo copyFast/In.
-   - Tên in phải lấy đủ danh sách đài từ header gốc, rồi sắp theo thứ tự lịch chuẩn.
+   - Header explicit ghép nhiều vùng như LanBphuoc không được rơi mất vùng khi tạo copyFast/In.
+   - Tên in phải lấy đủ danh sách vùng từ header gốc, rồi sắp theo thứ tự lịch chuẩn.
    - Giữ nguyên fix v0.5.74: tên block sau atomic cũng theo thứ tự lịch chuẩn.
 */
-const PX_PRINT_MULTI_DAI_BUILD = "PX-SO v0.5.75 — preserve full multi-station name in print output — cache v=5652";
+const PX_PRINT_MULTI_DAI_BUILD = "Phân tích dãy số v0.5.75 — preserve full multi-station name in print output — cache v=5652";
 
 function scanCanonicalDaisLeftToRight(name){
   const compact = cleanName(name).replace(/\s+/g, "");
@@ -4009,12 +4009,12 @@ function buildCopyFast(blocks, total){
 
 /* V0.5.76 - GENERIC HEADER USES CURRENT-DAY SCHEDULE ONLY
    Lỗi đã khóa:
-   - 2dmn/3dmn/4dmn và 2dmt/3dmt không được kế thừa đài explicit đứng trước.
+   - 2dmn/3dmn/4dmn và 2dmt/3dmt không được kế thừa vùng explicit đứng trước.
    - Không dùng dữ liệu kết quả cũ để suy ra ngày cho header generic.
    - Mapping generic luôn lấy đúng lịch của ngày hiện tại trên thiết bị.
    Ví dụ thứ Bảy: 2dmn = TphoLan, dù block trước là Tpho.
 */
-const PX_GENERIC_TODAY_BUILD = "PX-SO v0.5.76 — generic mapping by current-day schedule only — cache v=5653";
+const PX_GENERIC_TODAY_BUILD = "Phân tích dãy số v0.5.76 — generic mapping by current-day schedule only — cache v=5653";
 
 function resolveHeader(raw, hintDais=[]){
   const l = normalizeLine(raw).toLowerCase();
@@ -4044,391 +4044,251 @@ function resolveHeader(raw, hintDais=[]){
 
 /* V0.5.77 - COMPACT EXACT FOUR-STATION MN BLOCK
    Lỗi đã khóa:
-   - Khi atomic regroup tạo đúng block đủ 4 đài MN theo lịch, tiêu đề Số tách/Không tách phải rút thành 4dmn.
+   - Khi atomic regroup tạo đúng block đủ 4 vùng MN theo lịch, tiêu đề Số tách/Không tách phải rút thành 4dmn.
    - Ví dụ thứ Bảy: TphoLanBphuocHgiang -> 4dmn.
    - Không đổi các block ghép không đúng đủ lịch chuẩn.
 */
-const PX_COMPACT_PREFIX_BUILD = "PX-SO v0.5.78 — compact current-day leading station prefix only — cache v=5655";
+const PX_COMPACT_PREFIX_BUILD = "Phân tích dãy số v0.5.78 — compact current-day leading station prefix only — cache v=5655";
 
 
-/* V0.5.86 - NEUTRAL TERMINOLOGY + CONDITION ZONE GROUPING
-   Luồng: dữ liệu vào -> atomic -> vùng tham chiếu -> đạt điều kiện
-   -> áp dụng trọng số -> gom theo Vùng 1, Vùng 2, Vùng 1-2...
-   Các ID cũ và mã b/bdao/xc/da/dv/dd được giữ để tương thích dữ liệu đã lưu.
+// v0.5.90: logic atomic theo vùng đã được hợp nhất trực tiếp vào file chuẩn này.
+
+/* v0.5.90 / cache5667 — logic atomic theo vùng đã hợp nhất vào app.js chuẩn. */
+/*
+  Phân tích dãy số v0.5.90 / cache5667
+  Quy trình khóa:
+  1) Tách mỗi block input thành từng atomic theo vùng.
+  2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
+  3) Xét từng atomic với đúng dữ liệu tham chiếu của vùng tương ứng.
+  4) Tách thành nhóm ĐẠT ĐIỀU KIỆN / KHÔNG ĐẠT ĐIỀU KIỆN.
+  5) Chỉ gom lại dd hoặc xc khi hai atomic cùng trạng thái, cùng số, cùng mức và cùng vùng.
+  6) Sau khi gom mới tách dòng tại ranh giới hậu tố hoàn chỉnh, tối đa 20 ký tự.
 */
-const DATA_CONDITION_ZONE_BUILD = "Phân tích số v0.5.87 — condition-zone grouping — cache v=5664";
+(function installAtomicZonePatch(global){
+  "use strict";
 
-function formatValue(n){
-  return money(n);
-}
+  const VERSION = "0.5.90";
+  const CACHE = "5667";
+  const MAX_LINE_LENGTH = 20;
+  const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 
-function neutralZoneText(text){
-  return String(text || "")
-    .replace(/đá 2 đài/gi, "vùng ghép")
-    .replace(/đá 1 đài/gi, "vùng đơn")
-    .replace(/đá/gi, "vùng ghép")
-    .replace(/bao2 chung MN\/MT/gi, "2 ký tự chung")
-    .replace(/bao4 đảo/gi, "4 ký tự hoán vị")
-    .replace(/bao3 đảo/gi, "3 ký tự hoán vị")
-    .replace(/bao4/gi, "4 ký tự")
-    .replace(/bao3/gi, "3 ký tự")
-    .replace(/bao2/gi, "2 ký tự")
-    .replace(/xc đảo/gi, "xc hoán vị")
-    .replace(/thiếu_kết_quả/gi, "thiếu_tham_chiếu")
-    .replace(/thiếu kết quả/gi, "thiếu tham chiếu")
-    .replace(/thiếu cặp số/gi, "thiếu cặp dữ liệu");
-}
-
-function conditionSourceOrder(row, blockDais){
-  const region = (row && row.region) || "MN";
-  if(region === "HN") return ["HN"];
-  let sources = orderDaisBySchedule(((row && row.sourceDais) || []).filter(Boolean));
-  if(!sources.length) sources = orderDaisBySchedule((blockDais || []).filter(Boolean));
-  for(const dai of (blockDais || [])){
-    if(!sources.includes(dai)) sources.push(dai);
+  function atomicChildren(type){
+    if(type === "dd") return ["dau", "duoi"];
+    if(type === "xc") return ["xcdau", "xcduoi"];
+    return [type];
   }
-  return orderDaisBySchedule(sources);
-}
 
-function conditionZoneMeta(item){
-  const row = (item && item.row) || {};
-  const rawBlock = (item && item.block) || row.block || "";
-  let blockDais = orderDaisBySchedule(getDaisFromName(rawBlock).filter(Boolean));
-  if(row.region === "HN") blockDais = ["HN"];
-  if(!blockDais.length) blockDais = [rawBlock || "Nguồn"];
-
-  const sources = conditionSourceOrder(row, blockDais);
-  let indexes = blockDais
-    .map(dai => sources.indexOf(dai) + 1)
-    .filter(index => index > 0);
-  if(!indexes.length) indexes = [1];
-  indexes = Array.from(new Set(indexes)).sort((a,b)=>a-b);
-
-  const short = indexes.join("-");
-  return {
-    key: "D" + short,
-    label: "Vùng " + short,
-    sourceName: blockDais.join(""),
-    indexes,
-    size: indexes.length
-  };
-}
-
-function compareConditionZoneMeta(a, b){
-  if(a.size !== b.size) return a.size - b.size;
-  const len = Math.max(a.indexes.length, b.indexes.length);
-  for(let i=0; i<len; i++){
-    const av = a.indexes[i] || 0;
-    const bv = b.indexes[i] || 0;
-    if(av !== bv) return av - bv;
+  function atomicWeight(type, region){
+    const isHN = String(region || "MN") === "HN";
+    if(type === "xcdau" || type === "xcduoi") return isHN ? 2 : 1;
+    if(type === "xc") return isHN ? 4 : 2;
+    return null;
   }
-  return String(a.sourceName).localeCompare(String(b.sourceName));
-}
 
-function dataScopeRowOrder(rows){
-  const sourceRank = new Map();
-  let nextSourceRank = 0;
-  return (rows || []).map((row, originalIndex)=>{
-    const sourceKey = [row.region || "", row.sourceBlock || (row.sourceDais || []).join("") || row.block || ""].join("|");
-    if(!sourceRank.has(sourceKey)) sourceRank.set(sourceKey, nextSourceRank++);
-    const meta = conditionZoneMeta({row, block:row.block});
-    return {row, originalIndex, sourceKey, sourceRank:sourceRank.get(sourceKey), meta};
-  }).sort((a,b)=>{
-    if(a.sourceRank !== b.sourceRank) return a.sourceRank - b.sourceRank;
-    const zoneCompare = compareConditionZoneMeta(a.meta, b.meta);
-    if(zoneCompare !== 0) return zoneCompare;
-    return a.originalIndex - b.originalIndex;
-  });
-}
-
-function calcWinners(rows, results){
-  const items = [];
-  const misses = [];
-  let total = 0;
-  let matchCount = 0;
-
-  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, matchCount:0};
-
-  dataScopeRowOrder(rows).forEach(({row, originalIndex}, atomicOrder)=>{
-    if(!row || !row.calc) return;
-    const ev = zoneForAtomic(row, results);
-    if(!ev) return;
-
-    const matches = Number(ev.hit || 0);
-    const calc = atomicMoneyForWinItem(row, matches);
-    const item = {
-      block: row.block,
-      line: row.line,
-      row,
-      zone: neutralZoneText(ev.zone),
-      values: ev.values || [],
-      hit: matches,
-      matchCount: matches,
-      coef: calc.coef,
-      weight: calc.coef,
-      n: calc.n,
-      amount: calc.amount,
-      value: calc.amount,
-      note: neutralZoneText(ev.note || ""),
-      atomicOrder,
-      originalAtomicOrder: originalIndex
+  function cloneAtomicRow(row, type, groupKey, parentType){
+    const nums = (row.nums || []).slice();
+    const n = Number(row.n || 0);
+    const line = typeof global.makeLine === "function"
+      ? global.makeLine(nums.length === 1 ? nums[0] : nums, type, n)
+      : `${nums.join(".")}${type}${String(n).replace(".",",")}n`;
+    return {
+      ...row,
+      type,
+      line,
+      nums,
+      atomicParentType: parentType,
+      atomicGroupKey: groupKey,
+      atomicExpanded: true
     };
-    item.zoneMeta = conditionZoneMeta(item);
-
-    if(matches > 0 && calc.amount > 0){
-      matchCount += matches;
-      total += calc.amount;
-      items.push(item);
-    }else{
-      misses.push(item);
-    }
-  });
-
-  return {items, misses, total, hitCount:matchCount, matchCount};
-}
-
-function groupConditionItems(items){
-  const zoneMap = new Map();
-  for(const item of (items || [])){
-    const meta = item.zoneMeta || conditionZoneMeta(item);
-    if(!zoneMap.has(meta.key)){
-      zoneMap.set(meta.key, {meta, lineMap:new Map(), items:[]});
-    }
-    const group = zoneMap.get(meta.key);
-    const lineKey = [item.line, item.row && item.row.type, (item.row && item.row.nums || []).join(".")].join("|");
-    if(!group.lineMap.has(lineKey)){
-      const merged = {...item, zoneMeta:meta};
-      group.lineMap.set(lineKey, merged);
-      group.items.push(merged);
-    }else{
-      const merged = group.lineMap.get(lineKey);
-      merged.amount = Math.round((Number(merged.amount || 0) + Number(item.amount || 0)) * 100) / 100;
-      merged.value = merged.amount;
-      merged.hit = Number(merged.hit || 0) + Number(item.hit || 0);
-      merged.matchCount = merged.hit;
-      merged.atomicOrder = Math.min(Number(merged.atomicOrder || 0), Number(item.atomicOrder || 0));
-    }
   }
 
-  return Array.from(zoneMap.values())
-    .sort((a,b)=>compareConditionZoneMeta(a.meta,b.meta))
-    .map(group=>{
-      group.items.sort((a,b)=>Number(a.atomicOrder || 0)-Number(b.atomicOrder || 0));
-      return group;
-    });
-}
-
-function buildWinMoneyOutputOnly(pack){
-  const groups = groupConditionItems((pack && pack.items) || []);
-  const out = [];
-  if(!groups.length) return "Trống";
-
-  groups.forEach((group, groupIndex)=>{
-    if(groupIndex) out.push("");
-    out.push(`${group.meta.label} — ${group.meta.sourceName}`);
-    group.items.forEach(item=>{
-      out.push(`${item.line} = ${formatValue(item.amount)}`);
-    });
-  });
-
-  out.push("");
-  out.push(`Tổng đạt = ${formatValue((pack && pack.total) || 0)}`);
-  return out.join("\n").trim();
-}
-
-function buildResultZoneBlock(results){
-  const out = ["A. VÙNG THAM CHIẾU"];
-  let any = false;
-  for(const region of ["MN","MT","HN"]){
-    const data = results && results[region];
-    if(!data || !Object.keys(data).length) continue;
-    any = true;
-    out.push("", `[${region}]`);
-    for(const [source,r] of Object.entries(data)){
-      out.push(source);
-      out.push(`đầy đủ=${traceJoin(r.full || [])}`);
-      out.push(`2 ký tự=${traceJoin(r.bao2 || [])}`);
-      out.push(`đầu2=${traceJoin(r.dau2 || [])}`);
-      out.push(`cuối2=${traceJoin(r.duoi2 || [])}`);
-      out.push(`3 ký tự=${traceJoin(r.bao3 || [])}`);
-      out.push(`xc đầu=${traceJoin(r.dau3 || [])}`);
-      out.push(`xc cuối=${traceJoin(r.duoi3 || [])}`);
-      out.push(`xc=${traceJoin(r.xc3 || [])}`);
-      out.push(`4 ký tự=${traceJoin(r.bao4 || [])}`);
-      out.push("");
-    }
-  }
-  if(!any) out.push("Chưa có dữ liệu tham chiếu.");
-  return out.join("\n").trim();
-}
-
-function buildAtomicInputBlock(rows){
-  const out = ["B. ATOMIC ĐẦU VÀO"];
-  let count = 0;
-  for(const row of (rows || [])){
-    if(!row.calc) continue;
-    count++;
-    out.push(`${count}. ${row.region || ""} | nguồn=${row.block} | ${row.line} | dữ liệu=${(row.nums || []).join(".")} | mã=${row.type} | n=${fmtN(row.n)} | số nguồn=${row.daiCount || 1}`);
-  }
-  if(!count) out.push("Trống");
-  return out.join("\n").trim();
-}
-
-function buildAtomicDecisionSection(title, items){
-  const out = [title];
-  if(!items || !items.length){
-    out.push("Trống");
-    return out.join("\n");
-  }
-  items.forEach((item, idx)=>{
-    const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-    const meta = item.zoneMeta || conditionZoneMeta(item);
-    out.push(`${idx+1}. ${meta.label} | nguồn=${meta.sourceName} | ${item.line} | dữ liệu=${nums} | đối chiếu=${neutralZoneText(item.zone)} | khớp=${item.hit}`);
-    out.push(`   vùng=${traceJoin(item.values || [])}`);
-  });
-  return out.join("\n").trim();
-}
-
-function buildWinMoneyDebug(rows, results, pack){
-  const out = [DATA_CONDITION_ZONE_BUILD, ""];
-  out.push("A. OUTPUT ĐẠT");
-  out.push(buildWinMoneyOutputOnly(pack));
-  out.push("");
-  out.push(buildAtomicInputBlock(rows));
-  out.push("");
-  out.push("C. ĐỐI CHIẾU + GIÁ TRỊ");
-  const items = (pack && pack.items) || [];
-  if(!items.length){
-    out.push("Trống");
-  }else{
-    items.forEach((item, idx)=>{
-      const meta = item.zoneMeta || conditionZoneMeta(item);
-      const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-      out.push(`${idx+1}. ${meta.label} | nguồn=${meta.sourceName} | ${item.line} | dữ liệu=${nums} | đối chiếu=${neutralZoneText(item.zone)} | khớp=${item.hit} | n=${fmtN(item.n)} | trọng số=${item.coef} | giá trị=${formatValue(item.amount)}`);
-      if(item.note) out.push(`   ghi chú=${neutralZoneText(item.note)}`);
-      out.push(`   vùng=${traceJoin(item.values || [])}`);
-    });
-  }
-  out.push("", buildResultZoneBlock(results));
-  return out.join("\n").trim();
-}
-
-function buildWinReport(pack){
-  return buildWinMoneyOutputOnly(pack);
-}
-
-function buildWinStepTrace(rows, results, pack){
-  return buildWinMoneyDebug(rows, results, pack);
-}
-
-/* Giữ tương thích với tên hàm/ID cũ; phần hiển thị dùng thuật ngữ trung tính. */
-function runAll(){
-  try{
-    if(!val("inputData").trim()){
-      clearRun();
-      return;
-    }
-    const blocks = splitBlocks(val("inputData"));
-    const rows = buildIntermediate(blocks);
-    renderIntermediate(rows);
-
-    const inputValue = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, inputValue));
-    setVal("ghi", formatValue(inputValue));
-
-    const splitPack = buildTach(blocks);
-    setVal("soTach", splitPack.tach);
-    setVal("soKhongTach", splitPack.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
-
-    const referenceData = parseAllResults(rows);
-    const conditionPack = calcWinners(rows, referenceData);
-
-    setVal("thuong", formatValue(conditionPack.total || 0));
-    setVal("tong", formatValue(inputValue - (conditionPack.total || 0)));
-    setVal("soTrung", buildWinReport(conditionPack));
-    setVal("detail", buildWinStepTrace(rows, referenceData, conditionPack));
-    scrollTextTop("soTrung");
-  }catch(err){
-    console.error(err);
-    setVal("ghi", "Lỗi: " + (err && err.message ? err.message : err));
-  }
-}
-
-/* V0.5.85 compatibility: wrap by measured width and never cut inside a suffix token. */
-function printMeasureWidth(text, ctx){
-  if(ctx && typeof ctx.measureText === "function") return ctx.measureText(String(text || "")).width;
-  return String(text || "").length * 16;
-}
-
-function splitStructuredPrintLine(line, ctx, maxWidth){
-  const s = normalizeLine(line);
-  const m = s.match(/^(\d+(?:\.\d+)*)([a-z]+[\d,.]+n(?:\.[a-z]+[\d,.]+n)*)$/i);
-  if(!m) return null;
-  const nums = m[1].split(".").filter(Boolean);
-  const suffixes = m[2].split(".").filter(Boolean);
-  if(!nums.length || !suffixes.length) return [s];
-
-  const packNums = suffix => {
-    const isDv = /^dv/i.test(suffix);
+  function expandRowsByZone(rows){
     const out = [];
-    let cur = [];
-    for(let i=0; i<nums.length; i++){
-      const next = cur.concat(nums[i]);
-      const isLast = i === nums.length - 1;
-      const candidate = next.join(".") + (isDv && !isLast ? "." : suffix);
-      if(cur.length && printMeasureWidth(candidate, ctx) > maxWidth){
-        out.push(cur.join(".") + (isDv ? "." : suffix));
-        cur = [nums[i]];
+    (rows || []).forEach((row, index) => {
+      if(!row || !row.calc){ out.push(row); return; }
+      const children = atomicChildren(row.type);
+      if(children.length === 1){ out.push(row); return; }
+      const groupKey = [index, row.block, (row.nums || []).join("."), row.type, row.n, row.raw || ""].join("|");
+      children.forEach(type => out.push(cloneAtomicRow(row, type, groupKey, row.type)));
+    });
+    return out;
+  }
+
+  function pairSpec(parentType){
+    if(parentType === "dd") return ["dau", "duoi"];
+    if(parentType === "xc") return ["xcdau", "xcduoi"];
+    return null;
+  }
+
+  function mergePair(a, b, parentType){
+    const base = a || b;
+    const rowA = a && a.row ? a.row : null;
+    const rowB = b && b.row ? b.row : null;
+    const row = rowA || rowB || {};
+    const nums = (row.nums || []).slice();
+    const n = Number(row.n || 0);
+    const line = typeof global.makeLine === "function"
+      ? global.makeLine(nums.length === 1 ? nums[0] : nums, parentType, n)
+      : `${nums.join(".")}${parentType}${String(n).replace(".",",")}n`;
+    const mergedRow = {...row, type:parentType, line, nums, atomicCompacted:true};
+    return {
+      ...base,
+      row: mergedRow,
+      block: mergedRow.block || base.block,
+      line,
+      hit: Number((a && a.hit) || 0) + Number((b && b.hit) || 0),
+      amount: Number((a && a.amount) || 0) + Number((b && b.amount) || 0),
+      zone: parentType === "xc" ? "xcdau + xcduoi" : "dau + duoi",
+      values: [].concat((a && a.values) || [], (b && b.values) || []),
+      atomicCompacted: true
+    };
+  }
+
+  function compactConditionItems(items){
+    const out = [];
+    const groups = new Map();
+    (items || []).forEach((item, index) => {
+      const row = item && item.row;
+      if(!row || !row.atomicGroupKey || !row.atomicParentType){
+        out.push({index, item});
+        return;
+      }
+      const key = row.atomicGroupKey;
+      if(!groups.has(key)) groups.set(key, {index, parentType:row.atomicParentType, byType:{}});
+      const group = groups.get(key);
+      group.index = Math.min(group.index, index);
+      group.byType[row.type] = item;
+    });
+
+    for(const group of groups.values()){
+      const spec = pairSpec(group.parentType);
+      if(!spec){
+        Object.values(group.byType).forEach(item => out.push({index:group.index, item}));
+        continue;
+      }
+      const a = group.byType[spec[0]];
+      const b = group.byType[spec[1]];
+      if(a && b){
+        out.push({index:group.index, item:mergePair(a,b,group.parentType)});
       }else{
-        cur = next;
+        if(a) out.push({index:group.index, item:a});
+        if(b) out.push({index:group.index, item:b});
       }
     }
-    if(cur.length) out.push(cur.join(".") + suffix);
-    return out;
+    return out.sort((x,y)=>x.index-y.index).map(x=>x.item);
+  }
+
+  function compactPack(pack){
+    const source = pack || {};
+    const items = compactConditionItems(source.items || []);
+    const misses = compactConditionItems(source.misses || []);
+    const total = items.reduce((sum,item)=>sum + Number(item.amount || 0), 0);
+    const hitCount = items.reduce((sum,item)=>sum + Number(item.hit || 0), 0);
+    return {...source, items, misses, total: source.traceOnly ? 0 : total, hitCount};
+  }
+
+  function parseCompositeLine(line){
+    const source = String(line || "").trim();
+    const firstType = new RegExp("^([0-9.]+?)(" + TYPE_RE.slice(1,-1) + ")", "i");
+    const head = source.match(firstType);
+    if(!head) return null;
+    const numberPrefix = head[1].replace(/\.$/, "");
+    const suffixPart = source.slice(head[1].length);
+    const tokenRe = new RegExp("\\.?(" + TYPE_RE.slice(1,-1) + ")([\\d,.]+)n", "gi");
+    const tokens = [];
+    let match, consumed = "";
+    while((match = tokenRe.exec(suffixPart))){
+      tokens.push({type:String(match[1]).toLowerCase(), amount:match[2], raw:String(match[1]).toLowerCase()+match[2]+"n"});
+      consumed += match[0];
+    }
+    if(!tokens.length || consumed.replace(/^\./,"") !== suffixPart.replace(/^\./,"")) return null;
+    return {numberPrefix, tokens, source};
+  }
+
+  function buildCompositeLine(numberPrefix, tokens){
+    return numberPrefix + (tokens || []).map((t,i)=>(i?".":"")+t.raw).join("");
+  }
+
+  function preferredSegments(tokens){
+    const used = new Set(), segments = [];
+    const take = types => {
+      const items=[];
+      tokens.forEach((t,i)=>{ if(!used.has(i) && types.includes(t.type)){ used.add(i); items.push(t); } });
+      if(items.length) segments.push(items);
+    };
+    take(["b","bdao"]);
+    take(["xc","xcdao"]);
+    tokens.forEach((t,i)=>{ if(!used.has(i)) segments.push([t]); });
+    return segments;
+  }
+
+  function splitCompositeLine(line, maxLen=MAX_LINE_LENGTH){
+    const parsed = parseCompositeLine(line);
+    if(!parsed || parsed.source.length <= maxLen) return [String(line || "")];
+    const segments=[];
+    preferredSegments(parsed.tokens).forEach(segment=>{
+      if(buildCompositeLine(parsed.numberPrefix,segment).length <= maxLen){ segments.push(segment); return; }
+      let cur=[];
+      segment.forEach(token=>{
+        const next=cur.concat(token);
+        if(cur.length && buildCompositeLine(parsed.numberPrefix,next).length > maxLen){ segments.push(cur); cur=[token]; }
+        else cur=next;
+      });
+      if(cur.length) segments.push(cur);
+    });
+    const packed=[]; let cur=[];
+    segments.forEach(segment=>{
+      const next=cur.concat(segment);
+      if(cur.length && buildCompositeLine(parsed.numberPrefix,next).length > maxLen){ packed.push(cur); cur=segment.slice(); }
+      else cur=next;
+    });
+    if(cur.length) packed.push(cur);
+    return packed.map(tokens=>buildCompositeLine(parsed.numberPrefix,tokens));
+  }
+
+  function splitCompositeText(text, maxLen=MAX_LINE_LENGTH){
+    const out=[];
+    String(text || "").replace(/\r/g,"").split("\n").forEach(raw=>{
+      const trimmed=raw.trim();
+      if(/^\d/.test(trimmed)) out.push(...splitCompositeLine(trimmed,maxLen));
+      else out.push(raw);
+    });
+    return out.join("\n").trim();
+  }
+
+  const baseBuildIntermediate = global.buildIntermediate;
+  if(typeof baseBuildIntermediate === "function"){
+    global.buildIntermediate = function(){ return expandRowsByZone(baseBuildIntermediate.apply(this,arguments)); };
+  }
+
+  const baseCalcRow = global.calcRow;
+  if(typeof baseCalcRow === "function"){
+    global.calcRow = function(row){
+      const weight = row && row.calc ? atomicWeight(row.type,row.region) : null;
+      if(weight != null){
+        const rate = typeof global.getRate === "function" ? Number(global.getRate()) : 0.8;
+        return weight * Number(row.n || 0) * rate;
+      }
+      return baseCalcRow.apply(this,arguments);
+    };
+  }
+
+  const baseCalcWinners = global.calcWinners;
+  if(typeof baseCalcWinners === "function"){
+    global.calcWinners = function(){ return compactPack(baseCalcWinners.apply(this,arguments)); };
+  }
+
+  const baseBuildTach = global.buildTach;
+  if(typeof baseBuildTach === "function"){
+    global.buildTach = function(){
+      const result = baseBuildTach.apply(this,arguments) || {};
+      return {...result, tach:splitCompositeText(result.tach), khong:splitCompositeText(result.khong)};
+    };
+  }
+
+  global.PX_ATOMIC_ZONE_V0590 = {
+    version:VERSION, cache:CACHE, status:"CANDIDATE_TEST_PASS",
+    atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
+    splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };
-
-  if(suffixes.length === 1) return packNums(suffixes[0]);
-
-  const fullPrefix = nums.join(".");
-  const out = [];
-  let current = "";
-  for(const suffix of suffixes){
-    const tokenLine = fullPrefix + suffix;
-    if(printMeasureWidth(tokenLine, ctx) > maxWidth){
-      if(current){ out.push(current); current = ""; }
-      out.push(...packNums(suffix));
-      continue;
-    }
-    const candidate = current ? current + "." + suffix : tokenLine;
-    if(current && printMeasureWidth(candidate, ctx) > maxWidth){
-      out.push(current);
-      current = tokenLine;
-    }else{
-      current = candidate;
-    }
-  }
-  if(current) out.push(current);
-  return out;
-}
-
-function wrapPrintLine(line, ctx, maxWidth){
-  const s = String(line || "");
-  if(!s) return [""];
-  const structured = splitStructuredPrintLine(s, ctx, maxWidth);
-  if(structured) return structured;
-  if(printMeasureWidth(s, ctx) <= maxWidth) return [s];
-
-  const out = [];
-  let cur = "";
-  for(const ch of s){
-    const next = cur + ch;
-    if(cur && printMeasureWidth(next, ctx) > maxWidth){
-      out.push(cur);
-      cur = ch;
-    }else cur = next;
-  }
-  if(cur) out.push(cur);
-  return out;
-}
+})(typeof window !== "undefined" ? window : globalThis);

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Phân tích số v0.5.87</title>
-  <link rel="stylesheet" href="style.css?v=5664" />
+  <title>Phân tích dãy số v0.5.90</title>
+  <link rel="stylesheet" href="style.css?v=5667" />
 </head>
 <body>
   <div class="app">
@@ -18,7 +18,7 @@
     </header>
 
     <nav class="main-tabs" aria-label="Chọn công việc chính">
-      <button type="button" class="main-tab active" data-main="pxso" onclick="showMainApp('pxso')">Phân tích số</button>
+      <button type="button" class="main-tab active" data-main="pxso" onclick="showMainApp('pxso')">PX-SO</button>
       <button type="button" class="main-tab" data-main="newwork" onclick="showMainApp('newwork')">Làm việc mới</button>
     </nav>
 
@@ -33,26 +33,26 @@
     <main id="workScreen" class="screen">
       <section class="panel work-panel">
         <div class="money-chips">
-          <label>Đầu vào:
+          <label>Ghi:
             <input id="ghi" readonly value="">
           </label>
-          <label>Đạt:
+          <label>Debug:
             <input id="thuong" readonly value="0">
           </label>
-          <label>Còn lại:
+          <label>Tổng:
             <input id="tong" readonly value="">
           </label>
         </div>
 
         <div class="input-workspace">
-          <textarea id="inputData" placeholder="Dán dữ liệu vào đây..."></textarea>
+          <textarea id="inputData" placeholder="Dán tin gốc vào đây..."></textarea>
           <div class="action-rail">
             <button type="button" onclick="openPrintOverlay(this)">In</button>
             <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
-            <button type="button" onclick="toggleActionPanel('split')">Tách</button>
-            <button type="button" onclick="toggleActionPanel('wins')">Đạt</button>
-            <button type="button" onclick="openRegionDataPanel('xoa')">Loại trừ</button>
-            <button type="button" onclick="openRegionDataPanel('result')">Tham chiếu</button>
+            <button type="button" onclick="toggleActionPanel('split')">Tách tin</button>
+            <button type="button" onclick="toggleActionPanel('wins')">Dữ liệu đạt</button>
+            <button type="button" onclick="openRegionDataPanel('xoa')">Dãy xoá</button>
+            <button type="button" onclick="openRegionDataPanel('result')">Kết quả</button>
             <button type="button" class="gray" onclick="clearRun()">Xóa</button>
           </div>
         </div>
@@ -62,27 +62,27 @@
       <section id="panel-region-xoa" class="panel action-panel region-overlay-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Dãy loại trừ</h2>
+          <h2>Dãy xoá</h2>
         </div>
         <div class="panel-title-row">
-          <label id="activeXoaLabel" class="region-data-box">Loại trừ MN</label>
+          <label id="activeXoaLabel" class="region-data-box">Dãy xoá MN</label>
           <button type="button" class="save-mini" onclick="saveRegionRelatedData(this)">Lưu</button>
           <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('xoa')">Xóa</button>
         </div>
-        <textarea id="activeXoaData" placeholder="Dãy loại trừ của vùng đang chọn..."></textarea>
+        <textarea id="activeXoaData" placeholder="Dãy xoá của miền đang chọn..."></textarea>
       </section>
 
       <section id="panel-region-result" class="panel action-panel region-overlay-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Vùng tham chiếu</h2>
+          <h2>Kết quả</h2>
         </div>
         <div class="panel-title-row">
-          <label id="activeResultLabel" class="region-data-box">Tham chiếu MN</label>
+          <label id="activeResultLabel" class="region-data-box">Kết quả MN</label>
           <button type="button" class="save-mini" onclick="saveRegionRelatedData(this)">Lưu</button>
           <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('result')">Xóa</button>
         </div>
-        <textarea id="activeResultData" placeholder="Dữ liệu tham chiếu của vùng đang chọn..."></textarea>
+        <textarea id="activeResultData" placeholder="Kết quả của miền đang chọn..."></textarea>
       </section>
 
       <section id="panel-copy" class="panel action-panel" hidden>
@@ -94,22 +94,22 @@
           <span></span>
           <button type="button" class="save-mini" onclick="copyPrintFast(this)">Copy</button>
         </div>
-        <textarea id="copyFast" readonly placeholder="Dữ liệu đã chuẩn hóa, giữ cấu trúc và tự xuống dòng..."></textarea>
+        <textarea id="copyFast" readonly placeholder="Tin đã chuẩn tên vùng, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
 
       <section id="panel-split" class="panel action-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Tách / Giữ</h2>
+          <h2>Số tách / Không tách</h2>
         </div>
         <div class="grid2 splitPair">
-          <label>Đã tách
+          <label>Số tách
             <textarea id="soTach" readonly></textarea>
-            <button type="button" onclick="copyText('soTach')">Copy tách</button>
+            <button type="button" onclick="copyText('soTach')">Copy số tách</button>
           </label>
-          <label>Giữ nguyên
+          <label>Số không tách
             <textarea id="soKhongTach" readonly></textarea>
-            <button type="button" onclick="copyText('soKhongTach')">Copy giữ</button>
+            <button type="button" onclick="copyText('soKhongTach')">Copy không tách</button>
           </label>
         </div>
       </section>
@@ -117,7 +117,7 @@
       <section id="panel-wins" class="panel action-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Đạt điều kiện</h2>
+          <h2>Phân tích dữ liệu đạt / không đạt</h2>
         </div>
         <div class="panel-title-row">
           <span></span>
@@ -129,24 +129,24 @@
 
     <main id="settingsScreen" class="screen" hidden>
       <section class="panel settings-menu">
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Trọng số</button>
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Dữ liệu trong ngày</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Hệ số</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Tin lưu trong ngày mn, mt, hn</button>
       </section>
 
       <section id="settings-coef" class="panel settings-panel save-panel setting-panel" hidden>
         <div class="panel-title-row">
-          <h2>Trọng số</h2>
+          <h2>Hệ số / cài đặt</h2>
           <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
         </div>
         <div class="grid settings">
-          <label>Chung <input id="rate" value="0.8"></label>
-          <label>Vùng ghép <input id="coefDa2" value="550"></label>
-          <label>Vùng đơn <input id="coefDa1" value="750"></label>
-          <label>Vùng HN <input id="coefDaHN" value="650"></label>
-          <label>2 ký tự <input id="coef2" value="75"></label>
-          <label>3 ký tự <input id="coef3" value="630"></label>
-          <label>4 ký tự <input id="coef4" value="5500"></label>
-          <label>Ngưỡng 2KT <input id="max2" value="10"></label>
+          <label>Nhân <input id="rate" value="0.8"></label>
+          <label>Ghép 2 vùng <input id="coefDa2" value="550"></label>
+          <label>Ghép trong 1 vùng <input id="coefDa1" value="750"></label>
+          <label>Ghép vùng HN <input id="coefDaHN" value="650"></label>
+          <label>2 số <input id="coef2" value="75"></label>
+          <label>3 số <input id="coef3" value="630"></label>
+          <label>4 số <input id="coef4" value="5500"></label>
+          <label>Max 2 số <input id="max2" value="10"></label>
           <label>Ngưỡng ghép <input id="maxDa" value="1"></label>
         </div>
       </section>
@@ -162,11 +162,11 @@
 
       <section id="settings-daily" class="panel daily-backup-panel setting-panel" hidden>
         <div class="panel-title-row">
-          <h2>Dữ liệu trong ngày</h2>
+          <h2>Tin lưu trong ngày</h2>
           <button type="button" class="save-mini" onclick="copyText('savedInputToday')">Copy</button>
           <button type="button" class="save-mini gray-mini" onclick="clearDailyInputBackup()">Xóa</button>
         </div>
-        <textarea id="savedInputToday" readonly placeholder="Danh sách dữ liệu đã lưu hôm nay..."></textarea>
+        <textarea id="savedInputToday" readonly placeholder="Danh sách tin đã bấm LƯU hôm nay..."></textarea>
       </section>
     </main>
     </div>
@@ -213,7 +213,7 @@
     </main>
 
     <section class="panel parsed-results-panel" style="display:none !important;">
-      <h2>Dữ liệu chuẩn hóa</h2>
+      <h2>Kết quả đã hiểu</h2>
       <textarea id="parsedResults" readonly></textarea>
     </section>
 
@@ -223,12 +223,12 @@
         <table id="interTable">
           <thead>
             <tr>
-              <th>Vùng</th>
-              <th>Dòng</th>
+              <th>Block</th>
+              <th>Xétng</th>
               <th>Loại</th>
               <th>Số</th>
               <th>N</th>
-              <th>Nguồn</th>
+              <th>Vùng</th>
               <th>Giá trị</th>
             </tr>
           </thead>
@@ -238,7 +238,7 @@
       <textarea id="detail" readonly placeholder="Dạng text của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Phân tích số v0.5.87 — gom dữ liệu theo vùng điều kiện</footer>
+    <footer>Phân tích dãy số v0.5.90 — atomic theo vùng, gom sau khi xét điều kiện</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -253,6 +253,6 @@
       <pre id="printOverlayText"></pre>
     </div>
   </section>
-  <script src="app.js?v=5664"></script>
+  <script src="app.js?v=5667"></script>
 </body>
 </html>

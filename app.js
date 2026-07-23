@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.94 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.95 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -4152,11 +4152,11 @@ function resolveHeader(raw, sourceHints=[]){
 const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.94: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.95: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
 
-/* v0.5.94 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.95 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Xử lý dữ liệu chuỗi v0.5.94 / cache5670
+  Xử lý dữ liệu chuỗi v0.5.95 / cache5670
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
@@ -4389,8 +4389,8 @@ const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
     };
   }
 
-  global.SEQUENCE_NEUTRAL_ENGINE_V0594 = {
-    version:VERSION, cache:CACHE, status:"BẢN LƯU KẾT QUẢ TÁCH ĐÃ KIỂM THỬ",
+  global.SEQUENCE_NEUTRAL_ENGINE_V0595 = {
+    version:VERSION, cache:CACHE, status:"BẢN LƯU VÙNG ĐÃ XỬ LÝ VÀ GHÉP DỮ LIỆU ĐÃ KIỂM THỬ",
     atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };
@@ -4399,7 +4399,7 @@ const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 
 
 
-/* v0.5.94 - LƯU PHẦN ĐÃ XỬ LÝ KHI BẤM TÁCH
+/* v0.5.95 - LƯU PHẦN ĐÃ XỬ LÝ KHI BẤM TÁCH
    - Bấm Tách: chạy lại dữ liệu hiện tại, lưu phần bị tách vào ô Đã xử lý rồi mở bảng.
    - Phần Đã xử lý được lưu riêng trong trình duyệt và có nút Xóa.
 */
@@ -4446,6 +4446,167 @@ function clearProcessedSplitOutput(btn){
 
 window.addEventListener("DOMContentLoaded", loadProcessedSplitOutput);
 
+
+
+
+/* v0.5.95 - VÙNG ĐÃ XỬ LÝ ĐỘC LẬP VÀ GHÉP VỚI DỮ LIỆU MỚI
+   Quy tắc trạng thái:
+   1) Dữ liệu xét = vùng đã xử lý đã lưu + dữ liệu hiện có trong ô đầu vào.
+   2) Bấm Tách: xét trên dữ liệu ghép, lưu phần Đã xử lý và đưa phần Giữ nguyên về ô đầu vào.
+   3) Xóa ô đầu vào không làm mất vùng Đã xử lý.
+   4) Xóa vùng Đã xử lý xóa cả hiển thị lẫn localStorage; không còn dữ liệu ẩn.
+*/
+function normalizeStoredDataText(text){
+  return String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+}
+
+function readProcessedSplitStorage(){
+  try{
+    return normalizeStoredDataText(localStorage.getItem(PROCESSED_SPLIT_STORAGE_KEY) || "");
+  }catch(e){
+    console.error(e);
+    return "";
+  }
+}
+
+function writeProcessedSplitStorage(text){
+  const normalized = normalizeStoredDataText(text);
+  try{
+    if(normalized){
+      localStorage.setItem(PROCESSED_SPLIT_STORAGE_KEY, normalized);
+    }else{
+      localStorage.removeItem(PROCESSED_SPLIT_STORAGE_KEY);
+    }
+  }catch(e){
+    console.error(e);
+  }
+  setVal("processedOutput", normalized);
+  return normalized;
+}
+
+function joinProcessedAndCurrentInput(processedText, currentText){
+  const parts = [normalizeStoredDataText(processedText), normalizeStoredDataText(currentText)].filter(Boolean);
+  return parts.join("\n\n").trim();
+}
+
+function effectiveInputData(){
+  return joinProcessedAndCurrentInput(readProcessedSplitStorage(), val("inputData"));
+}
+
+function clearCalculatedViewsKeepProcessed(){
+  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  const tbody = document.querySelector("#intermediateTable tbody");
+  if(tbody) tbody.innerHTML = "";
+  setVal("matchedValue", "0");
+  setVal("processedOutput", readProcessedSplitStorage());
+}
+
+function saveProcessedSplitOutput(){
+  return !!writeProcessedSplitStorage(val("processedOutput"));
+}
+
+function loadProcessedSplitOutput(){
+  setVal("processedOutput", readProcessedSplitStorage());
+}
+
+function runAll(){
+  try{
+    const effectiveText = effectiveInputData();
+    if(!effectiveText){
+      clearCalculatedViewsKeepProcessed();
+      return;
+    }
+
+    const blocks = splitBlocks(effectiveText);
+    const rows = buildIntermediate(blocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
+
+    const tk = buildTach(blocks);
+    // Vùng Đã xử lý luôn phản ánh dữ liệu thật trong localStorage, không dùng kết quả tạm.
+    setVal("processedOutput", readProcessedSplitStorage());
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
+
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
+    setVal("matchedValue", money(pack.total || 0));
+    setVal("remainingValue", money(total - (pack.total || 0)));
+    setVal("matchedOutput", buildMatchReport(pack));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
+  }catch(err){
+    console.error(err);
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}
+
+function openSplitPanelAndSave(){
+  try{
+    const effectiveText = effectiveInputData();
+    if(effectiveText){
+      const blocks = splitBlocks(effectiveText);
+      const tk = buildTach(blocks);
+      const processed = writeProcessedSplitStorage(tk.tach);
+      const unchanged = normalizeStoredDataText(tk.khong);
+
+      // Phần đã xử lý được chuyển hẳn sang vùng lưu; ô đầu vào chỉ giữ phần còn lại.
+      setVal("inputData", unchanged);
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+      saveActiveWorkspaceInput();
+      runAll();
+      // Giữ đúng kết quả của lần bấm Tách trong bảng vừa mở.
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+    }else{
+      writeProcessedSplitStorage("");
+      setVal("unchangedOutput", "");
+      clearCalculatedViewsKeepProcessed();
+    }
+  }catch(err){
+    console.error(err);
+    setVal("inputValue", "Lỗi tách: " + (err && err.message ? err.message : err));
+  }
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+function clearProcessedSplitOutput(btn){
+  // Xóa thật: loại bỏ khóa lưu và cập nhật phép xét ngay lập tức.
+  writeProcessedSplitStorage("");
+  runAll();
+  if(btn) flashActionButton(btn, "Đã xóa", "Xóa");
+}
+
+function clearRun(){
+  // Nút Xóa chính chỉ xóa dữ liệu đang nhập; vùng Đã xử lý vẫn là dữ liệu độc lập.
+  setVal("inputData", "");
+  saveActiveWorkspaceInput();
+  runAll();
+}
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  loadProcessedSplitOutput();
+  setTimeout(runAll, 0);
+});
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0595 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0595 || {},
+  {
+    version:"0.5.95",
+    status:"VÙNG ĐÃ XỬ LÝ LƯU ĐỘC LẬP; DỮ LIỆU XÉT = ĐÃ XỬ LÝ + ĐẦU VÀO",
+    effectiveInputData,
+    readProcessedSplitStorage,
+    writeProcessedSplitStorage
+  }
+);
 
 // Dấu xác nhận dùng cho kiểm tra tải mã trên trình duyệt.
 window.SEQUENCE_APP_LOADED = true;

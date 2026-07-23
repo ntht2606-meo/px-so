@@ -572,3 +572,14 @@ footer{
     min-height:40px;
   }
 }
+
+
+/* v0.5.93 — hai nút thao tác cho vùng Đã tách */
+.split-actions{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 92px;
+  gap:8px;
+}
+.split-actions button{
+  margin:0;
+}

@@ -1,4 +1,4 @@
-// Phân tích số v0.5.92 — tách theo vùng, gom sau khi xét điều kiện
+// Phân tích số v0.5.93 — lưu vùng đã tách và xét tối đa theo lịch sử
 // Input -> Bảng trung gian -> Tính giá trị
 // In: chuẩn tên vùng, gom đồng giá, xuống dòng <=22 ký tự
 
@@ -4326,5 +4326,319 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
     version:VERSION, cache:CACHE, status:"ỨNG VIÊN ĐANG KIỂM THỬ",
     atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
+  };
+})(typeof window !== "undefined" ? window : globalThis);
+
+
+/* v0.5.93 / cache5670 — vùng Đã tách là bộ nhớ atomic trong ngày.
+   Quy tắc khóa:
+   1) Khi bấm Tách, cộng dữ liệu atomic đã lưu với input mới rồi xét max.
+   2) Nếu chỉ một atomic của dòng mới làm vượt max, giữ nguyên toàn bộ dòng nguồn mới.
+   3) Dòng bị từ chối không làm thay đổi bộ nhớ Đã tách.
+   4) Dòng được chấp nhận chỉ bổ sung phần đủ điều kiện vào vùng Đã tách.
+   5) Vùng Đã tách tồn tại theo ngày và workspace đến khi bấm Xóa.
+*/
+(function installPersistentAtomicSplitLedger(global){
+  "use strict";
+
+  const VERSION = "0.5.93";
+  const CACHE = "5670";
+  const STORAGE_PREFIX = "pxso.v0.5.93.splitLedger.";
+
+  const baseBuildTach = buildTach;
+  const baseClearRun = clearRun;
+
+  function splitLedgerKey(workspace=activeWorkspace){
+    const region = ["MN","MT","HN"].includes(workspace) ? workspace : "MN";
+    return STORAGE_PREFIX + dateKey() + "." + region;
+  }
+
+  function readSplitLedger(){
+    try{
+      const data = JSON.parse(localStorage.getItem(splitLedgerKey()) || "{}");
+      return {
+        version: 1,
+        date: dateKey(),
+        workspace: activeWorkspace,
+        sourceText: String(data.sourceText || "")
+      };
+    }catch(e){
+      console.error(e);
+      return {version:1, date:dateKey(), workspace:activeWorkspace, sourceText:""};
+    }
+  }
+
+  function writeSplitLedger(sourceText){
+    const data = {
+      version: 1,
+      date: dateKey(),
+      workspace: activeWorkspace,
+      sourceText: String(sourceText || "").trim()
+    };
+    try{
+      localStorage.setItem(splitLedgerKey(), JSON.stringify(data));
+      return true;
+    }catch(e){
+      console.error(e);
+      return false;
+    }
+  }
+
+  function oneLineBlock(block, rawLine){
+    return {
+      ...block,
+      dais:(block.dais || []).slice(),
+      mainDais:(block.mainDais || []).slice(),
+      lines:[normalizeLine(rawLine)]
+    };
+  }
+
+  function addAmount(map, key, amount){
+    const n = Math.round((Number(amount || 0)) * 100) / 100;
+    if(!(n > 0)) return;
+    map.set(key, Math.round(((map.get(key) || 0) + n) * 100) / 100);
+  }
+
+  function maxAtomsForLine(block, rawLine){
+    const out = new Map();
+    const parts = parseDataLine(rawLine);
+    if(!parts) return out;
+
+    const region = block.region || "MN";
+    const zones = buildRegionZones(region, block.dais || []);
+    const xoaSet = readXoaSet(region);
+
+    for(const part of parts){
+      const nums = part.nums || [];
+
+      if(part.type === "dv" || part.type === "da"){
+        const mainBlock = region === "HN" ? "HN" : zones.mainPair;
+        if(!mainBlock) continue;
+        const pairs = part.type === "dv"
+          ? uniquePairs(pairNumbers(nums))
+          : (nums.length >= 2 ? [sortPair(nums[0], nums[1])] : []);
+        for(const pair of pairs){
+          if(xoaSet.size && pair.some(num => numInXoa(num, xoaSet))) continue;
+          const key = [region, mainBlock, pair[0], pair[1], "da"].join("|");
+          addAmount(out, key, part.n);
+        }
+        continue;
+      }
+
+      if(part.type === "b"){
+        const targets = region === "HN" ? ["HN"] : (zones.mainDais || []);
+        for(const num of nums){
+          if(String(num).length !== 2) continue;
+          if(xoaSet.size && numInXoa(num, xoaSet)) continue;
+          for(const dai of targets){
+            const key = [region, dai, num, "b2"].join("|");
+            addAmount(out, key, part.n);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function maxForAtomKey(key){
+    if(String(key).endsWith("|da")) return getNum("maxDa", 1);
+    if(String(key).endsWith("|b2")) return getNum("max2", 10);
+    return Infinity;
+  }
+
+  function countsFromSourceText(sourceText){
+    const counts = new Map();
+    if(!String(sourceText || "").trim()) return counts;
+    const blocks = splitBlocks(sourceText);
+    for(const block of blocks){
+      for(const rawLine of block.lines || []){
+        const atoms = maxAtomsForLine(block, rawLine);
+        atoms.forEach((amount, key)=>addAmount(counts, key, amount));
+      }
+    }
+    return counts;
+  }
+
+  function sourceFragment(block, rawLine){
+    return {
+      header:String(block.raw || block.name || "Không rõ vùng").trim(),
+      line:normalizeLine(rawLine)
+    };
+  }
+
+  function renderedTextToFragments(text){
+    const out=[];
+    if(!String(text || "").trim()) return out;
+    const blocks = splitBlocks(text);
+    for(const block of blocks){
+      for(const line of block.lines || []) out.push(sourceFragment(block, line));
+    }
+    return out;
+  }
+
+  function renderFragments(fragments){
+    const order=[];
+    const groups=new Map();
+    for(const item of fragments || []){
+      if(!item || !String(item.line || "").trim()) continue;
+      const header = String(item.header || "Không rõ vùng").trim();
+      const key = normalizeLine(header).toLowerCase();
+      if(!groups.has(key)){
+        groups.set(key, {header, lines:[]});
+        order.push(key);
+      }
+      groups.get(key).lines.push(normalizeLine(item.line));
+    }
+    const out=[];
+    for(const key of order){
+      const group=groups.get(key);
+      out.push(group.header);
+      group.lines.forEach(line=>out.push(...splitTachDisplayLine(line, 22)));
+      out.push("");
+    }
+    return out.join("\n").trim();
+  }
+
+  function appendAcceptedSource(sourceText, acceptedFragments){
+    const chunks=[];
+    const old=String(sourceText || "").trim();
+    if(old) chunks.push(old);
+    for(const item of acceptedFragments || []){
+      chunks.push([item.header, item.line].join("\n"));
+    }
+    return chunks.join("\n\n").trim();
+  }
+
+  function renderLedgerSource(sourceText){
+    const text=String(sourceText || "").trim();
+    if(!text) return "";
+
+    // Vùng Đã tách là dữ liệu đã chốt, nên thay đổi max về sau không được
+    // làm giảm hoặc làm mất phần đã lưu. Tạm nới max chỉ trong lúc dựng lại
+    // giao diện, sau đó khôi phục ngay giá trị cài đặt thật để xét input mới.
+    const maxDaEl=el("maxDa"), max2El=el("max2");
+    const oldMaxDa=maxDaEl ? maxDaEl.value : null;
+    const oldMax2=max2El ? max2El.value : null;
+    try{
+      if(maxDaEl) maxDaEl.value="1000000000";
+      if(max2El) max2El.value="1000000000";
+      const result = baseBuildTach(splitBlocks(text)) || {};
+      return String(result.tach || "").trim();
+    }finally{
+      if(maxDaEl) maxDaEl.value=oldMaxDa == null ? "" : oldMaxDa;
+      if(max2El) max2El.value=oldMax2 == null ? "" : oldMax2;
+    }
+  }
+
+  function evaluateAgainstSavedLedger(blocks, savedSourceText){
+    const provisionalCounts = countsFromSourceText(savedSourceText);
+    const acceptedFragments=[];
+    const keepFragments=[];
+
+    for(const block of blocks || []){
+      for(const rawLine of block.lines || []){
+        const atoms = maxAtomsForLine(block, rawLine);
+        let exceedsMax=false;
+        atoms.forEach((amount,key)=>{
+          if((provisionalCounts.get(key) || 0) + amount > maxForAtomKey(key)) exceedsMax=true;
+        });
+
+        if(exceedsMax){
+          // Khóa toàn dòng nguồn: không tách một phần và không cộng vào bộ nhớ.
+          keepFragments.push(sourceFragment(block, rawLine));
+          continue;
+        }
+
+        const result = baseBuildTach([oneLineBlock(block, rawLine)]) || {};
+        const acceptedText = String(result.tach || "").trim();
+        const remainingText = String(result.khong || "").trim();
+
+        if(acceptedText){
+          acceptedFragments.push(sourceFragment(block, rawLine));
+          atoms.forEach((amount,key)=>addAmount(provisionalCounts,key,amount));
+        }
+
+        if(remainingText){
+          keepFragments.push(...renderedTextToFragments(remainingText));
+        }else if(!acceptedText){
+          keepFragments.push(sourceFragment(block, rawLine));
+        }
+      }
+    }
+
+    const nextSourceText = appendAcceptedSource(savedSourceText, acceptedFragments);
+    return {
+      nextSourceText,
+      acceptedFragments,
+      tach:renderLedgerSource(nextSourceText),
+      khong:renderFragments(keepFragments)
+    };
+  }
+
+  buildTach = function(blocks){
+    const ledger=readSplitLedger();
+    const evaluated=evaluateAgainstSavedLedger(blocks,ledger.sourceText);
+    return {tach:evaluated.tach, khong:evaluated.khong};
+  };
+
+  global.commitAndOpenSplitPanel = function(){
+    try{
+      const ledger=readSplitLedger();
+      const input=val("inputData").trim();
+      const blocks=input ? splitBlocks(input) : [];
+      const evaluated=evaluateAgainstSavedLedger(blocks,ledger.sourceText);
+
+      if(evaluated.acceptedFragments.length){
+        writeSplitLedger(evaluated.nextSourceText);
+      }
+
+      const finalLedger=readSplitLedger();
+      setVal("soTach",renderLedgerSource(finalLedger.sourceText));
+      setVal("soKhongTach",evaluated.khong);
+      scrollTextTop("soTach");
+      scrollTextTop("soKhongTach");
+      closeActionPanels();
+      const panel=el("panel-split");
+      if(panel) panel.hidden=false;
+    }catch(err){
+      console.error(err);
+      alert("Không thể lưu vùng Đã tách: " + (err && err.message ? err.message : err));
+    }
+  };
+
+  global.clearSavedSplit = function(){
+    try{
+      localStorage.removeItem(splitLedgerKey());
+    }catch(e){
+      console.error(e);
+    }
+    setVal("soTach","");
+    setVal("soKhongTach","");
+    scrollTextTop("soTach");
+    scrollTextTop("soKhongTach");
+  };
+
+  clearRun = function(){
+    baseClearRun.apply(this,arguments);
+    const ledger=readSplitLedger();
+    setVal("soTach",renderLedgerSource(ledger.sourceText));
+    scrollTextTop("soTach");
+  };
+
+  document.addEventListener("DOMContentLoaded",()=>{
+    const ledger=readSplitLedger();
+    setVal("soTach",renderLedgerSource(ledger.sourceText));
+    scrollTextTop("soTach");
+  });
+
+  global.PX_PERSISTENT_SPLIT_LEDGER_V0593 = {
+    version:VERSION,
+    cache:CACHE,
+    status:"ỨNG VIÊN ĐÃ KIỂM THỬ",
+    splitLedgerKey,
+    maxAtomsForLine,
+    countsFromSourceText,
+    evaluateAgainstSavedLedger,
+    renderLedgerSource
   };
 })(typeof window !== "undefined" ? window : globalThis);

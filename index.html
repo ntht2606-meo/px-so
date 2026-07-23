@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Phân tích số v0.5.92</title>
-  <link rel="stylesheet" href="style.css?v=5669" />
+  <title>Phân tích số v0.5.93</title>
+  <link rel="stylesheet" href="style.css?v=5670" />
 </head>
 <body>
   <div class="app">
@@ -49,7 +49,7 @@
           <div class="action-rail">
             <button type="button" onclick="openPrintOverlay(this)">In</button>
             <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
-            <button type="button" onclick="toggleActionPanel('split')">Tách</button>
+            <button type="button" onclick="commitAndOpenSplitPanel()">Tách</button>
             <button type="button" onclick="toggleActionPanel('wins')">Đạt</button>
             <button type="button" onclick="openRegionDataPanel('xoa')">Loại trừ</button>
             <button type="button" onclick="openRegionDataPanel('result')">Tham chiếu</button>
@@ -105,7 +105,10 @@
         <div class="grid2 splitPair">
           <label>Đã tách
             <textarea id="soTach" readonly></textarea>
-            <button type="button" onclick="copyText('soTach')">Sao chép phần đã tách</button>
+            <div class="split-actions">
+              <button type="button" onclick="copyText('soTach')">Sao chép phần đã tách</button>
+              <button type="button" class="gray" onclick="clearSavedSplit()">Xóa</button>
+            </div>
           </label>
           <label>Giữ nguyên
             <textarea id="soKhongTach" readonly></textarea>
@@ -238,7 +241,7 @@
       <textarea id="detail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Phân tích số v0.5.92 — tách theo vùng, gom sau khi xét điều kiện</footer>
+    <footer>Phân tích số v0.5.93 — lưu vùng đã tách và xét tối đa theo lịch sử</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -253,6 +256,6 @@
       <pre id="printOverlayText"></pre>
     </div>
   </section>
-  <script src="app.js?v=5669"></script>
+  <script src="app.js?v=5670"></script>
 </body>
 </html>

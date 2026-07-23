@@ -109,7 +109,7 @@ button.gray,
 }
 .screen[hidden],
 #main-newwork[hidden],
-#main-pxso[hidden],
+#main-sequence[hidden],
 .action-panel[hidden],
 .setting-panel[hidden],
 .newwork-section[hidden]{
@@ -279,7 +279,7 @@ textarea{
 .splitPair textarea{
   min-height:170px;
 }
-#copyFast{
+#printOutput{
   min-height:210px;
 }
 .print-overlay{
@@ -346,7 +346,7 @@ textarea{
   line-height:1.22;
   letter-spacing:0;
 }
-#soTrung{
+#matchedOutput{
   min-height:150px;
 }
 .settings-menu{

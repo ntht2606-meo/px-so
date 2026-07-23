@@ -3,44 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Phân tích số v0.5.91</title>
-  <link rel="stylesheet" href="style.css?v=5668" />
+  <title>Xử lý dữ liệu chuỗi v0.5.92</title>
+  <link rel="stylesheet" href="style.css?v=5669" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <label class="header-title-input">Tên công việc / ghi chú
         <span class="header-title-row">
-          <input id="appTitleInput" value="Phân tích số" oninput="saveAppTitle()" />
+          <input id="appTitleInput" value="Xử lý dữ liệu chuỗi" oninput="saveAppTitle()" />
           <button type="button" class="header-save-btn" onclick="saveAppTitleNote(this)">Lưu</button>
         </span>
       </label>
     </header>
 
     <nav class="main-tabs" aria-label="Chọn công việc chính">
-      <button type="button" class="main-tab active" data-main="pxso" onclick="showMainApp('pxso')">Phân tích số</button>
-      <button type="button" class="main-tab" data-main="newwork" onclick="showMainApp('newwork')">Làm việc mới</button>
+      <button type="button" class="main-tab active" data-main="sequence" onclick="showMainWorkspace('sequence')">Xử lý chuỗi</button>
+      <button type="button" class="main-tab" data-main="newwork" onclick="showMainWorkspace('newwork')">Làm việc mới</button>
     </nav>
 
-    <div id="main-pxso">
+    <div id="main-sequence">
     <nav class="region-tabs" aria-label="Chọn màn hình">
-      <button type="button" class="tab-btn active" data-tab="MN" onclick="selectWorkspace('MN')">Miền Nam</button>
-      <button type="button" class="tab-btn" data-tab="MT" onclick="selectWorkspace('MT')">Miền Trung</button>
-      <button type="button" class="tab-btn" data-tab="HN" onclick="selectWorkspace('HN')">Hà Nội</button>
+      <button type="button" class="tab-btn active" data-tab="MN" onclick="selectWorkspace('MN')">Vùng A</button>
+      <button type="button" class="tab-btn" data-tab="MT" onclick="selectWorkspace('MT')">Vùng B</button>
+      <button type="button" class="tab-btn" data-tab="HN" onclick="selectWorkspace('HN')">Vùng C</button>
       <button type="button" class="tab-btn" data-tab="SETTINGS" onclick="selectWorkspace('SETTINGS')">Cài đặt</button>
     </nav>
 
     <main id="workScreen" class="screen">
       <section class="panel work-panel">
         <div class="money-chips">
-          <label>Đầu vào:
-            <input id="ghi" readonly value="">
+          <label>Giá trị đầu vào:
+            <input id="inputValue" readonly value="">
           </label>
-          <label>Đạt:
-            <input id="thuong" readonly value="0">
+          <label>Giá trị phù hợp:
+            <input id="matchedValue" readonly value="0">
           </label>
-          <label>Còn lại:
-            <input id="tong" readonly value="">
+          <label>Chênh lệch:
+            <input id="remainingValue" readonly value="">
           </label>
         </div>
 
@@ -50,39 +50,39 @@
             <button type="button" onclick="openPrintOverlay(this)">In</button>
             <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
             <button type="button" onclick="toggleActionPanel('split')">Tách</button>
-            <button type="button" onclick="toggleActionPanel('wins')">Đạt</button>
-            <button type="button" onclick="openRegionDataPanel('xoa')">Loại trừ</button>
-            <button type="button" onclick="openRegionDataPanel('result')">Tham chiếu</button>
+            <button type="button" onclick="toggleActionPanel('matches')">Đối chiếu</button>
+            <button type="button" onclick="openRegionDataPanel('exclusion')">Loại trừ</button>
+            <button type="button" onclick="openRegionDataPanel('reference')">Tham chiếu</button>
             <button type="button" class="gray" onclick="clearRun()">Xóa</button>
           </div>
         </div>
-        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng tab MN / MT / HN được lưu riêng trong trình duyệt.</p>
+        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng vùng A / B / C được lưu riêng trong trình duyệt.</p>
       </section>
 
-      <section id="panel-region-xoa" class="panel action-panel region-overlay-panel" hidden>
+      <section id="panel-region-exclusion" class="panel action-panel region-overlay-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
           <h2>Loại trừ</h2>
         </div>
         <div class="panel-title-row">
-          <label id="activeXoaLabel" class="region-data-box">Loại trừ MN</label>
+          <label id="activeExclusionLabel" class="region-data-box">Loại trừ Vùng A</label>
           <button type="button" class="save-mini" onclick="saveRegionRelatedData(this)">Lưu</button>
-          <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('xoa')">Xóa</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('exclusion')">Xóa</button>
         </div>
-        <textarea id="activeXoaData" placeholder="Dữ liệu loại trừ của miền đang chọn..."></textarea>
+        <textarea id="activeExclusionData" placeholder="Dữ liệu loại trừ của vùng đang chọn..."></textarea>
       </section>
 
-      <section id="panel-region-result" class="panel action-panel region-overlay-panel" hidden>
+      <section id="panel-region-reference" class="panel action-panel region-overlay-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
           <h2>Tham chiếu</h2>
         </div>
         <div class="panel-title-row">
-          <label id="activeResultLabel" class="region-data-box">Tham chiếu MN</label>
+          <label id="activeReferenceLabel" class="region-data-box">Tham chiếu Vùng A</label>
           <button type="button" class="save-mini" onclick="saveRegionRelatedData(this)">Lưu</button>
-          <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('result')">Xóa</button>
+          <button type="button" class="save-mini gray-mini" onclick="clearRegionRelatedData('reference')">Xóa</button>
         </div>
-        <textarea id="activeResultData" placeholder="Dữ liệu tham chiếu của miền đang chọn..."></textarea>
+        <textarea id="activeReferenceData" placeholder="Dữ liệu tham chiếu của vùng đang chọn..."></textarea>
       </section>
 
       <section id="panel-copy" class="panel action-panel" hidden>
@@ -94,70 +94,70 @@
           <span></span>
           <button type="button" class="save-mini" onclick="copyPrintFast(this)">Sao chép</button>
         </div>
-        <textarea id="copyFast" readonly placeholder="Dữ liệu đã chuẩn tên vùng, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
+        <textarea id="printOutput" readonly placeholder="Dữ liệu đã chuẩn tên vùng, giữ cấu trúc gốc, tự xuống dòng..."></textarea>
       </section>
 
       <section id="panel-split" class="panel action-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Đã tách / Giữ nguyên</h2>
+          <h2>Đã xử lý / Giữ nguyên</h2>
         </div>
         <div class="grid2 splitPair">
-          <label>Đã tách
-            <textarea id="soTach" readonly></textarea>
-            <button type="button" onclick="copyText('soTach')">Sao chép phần đã tách</button>
+          <label>Đã xử lý
+            <textarea id="processedOutput" readonly></textarea>
+            <button type="button" onclick="copyText('processedOutput')">Sao chép phần đã xử lý</button>
           </label>
           <label>Giữ nguyên
-            <textarea id="soKhongTach" readonly></textarea>
-            <button type="button" onclick="copyText('soKhongTach')">Sao chép phần giữ nguyên</button>
+            <textarea id="unchangedOutput" readonly></textarea>
+            <button type="button" onclick="copyText('unchangedOutput')">Sao chép phần giữ nguyên</button>
           </label>
         </div>
       </section>
 
-      <section id="panel-wins" class="panel action-panel" hidden>
+      <section id="panel-matches" class="panel action-panel" hidden>
         <div class="overlay-title-row">
           <button type="button" class="back-mini" onclick="closeActionPanels()">Quay về</button>
-          <h2>Đạt điều kiện / Không đạt điều kiện</h2>
+          <h2>Phù hợp / Không phù hợp</h2>
         </div>
         <div class="panel-title-row">
           <span></span>
-          <button type="button" class="save-mini" onclick="copyText('soTrung')">Sao chép</button>
+          <button type="button" class="save-mini" onclick="copyText('matchedOutput')">Sao chép</button>
         </div>
-        <textarea id="soTrung" readonly></textarea>
+        <textarea id="matchedOutput" readonly></textarea>
       </section>
     </main>
 
     <main id="settingsScreen" class="screen" hidden>
       <section class="panel settings-menu">
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Trọng số</button>
-        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Dữ liệu lưu trong ngày MN, MT, HN</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('coef')">Quy tắc quy đổi</button>
+        <button type="button" class="setting-tile" onclick="toggleSettingsPanel('daily')">Dữ liệu lưu trong ngày theo vùng A, B, C</button>
       </section>
 
-      <section id="settings-coef" class="panel settings-panel save-panel setting-panel" hidden>
+      <section id="settings-weights" class="panel settings-panel save-panel setting-panel" hidden>
         <div class="panel-title-row">
-          <h2>Trọng số / cài đặt</h2>
+          <h2>Quy tắc quy đổi / cài đặt</h2>
           <button type="button" class="save-mini" onclick="saveSettingsData()">Lưu</button>
         </div>
         <div class="grid settings">
-          <label>Nhân <input id="rate" value="0.8"></label>
-          <label>Ghép 2 vùng <input id="coefDa2" value="550"></label>
-          <label>Ghép trong 1 vùng <input id="coefDa1" value="750"></label>
-          <label>Ghép vùng HN <input id="coefDaHN" value="650"></label>
-          <label>2 số <input id="coef2" value="75"></label>
-          <label>3 số <input id="coef3" value="630"></label>
-          <label>4 số <input id="coef4" value="5500"></label>
-          <label>Giới hạn 2 số <input id="max2" value="10"></label>
-          <label>Ngưỡng ghép <input id="maxDa" value="1"></label>
+          <label>Hệ số chung <input id="scaleFactor" value="0.8"></label>
+          <label>Kết hợp 2 nguồn <input id="weightPair2Sources" value="550"></label>
+          <label>Kết hợp trong 1 nguồn <input id="weightPair1Source" value="750"></label>
+          <label>Kết hợp vùng C <input id="weightPairRegionC" value="650"></label>
+          <label>Chuỗi 2 ký tự <input id="weightLength2" value="75"></label>
+          <label>Chuỗi 3 ký tự <input id="weightLength3" value="630"></label>
+          <label>Chuỗi 4 ký tự <input id="weightLength4" value="5500"></label>
+          <label>Giới hạn chuỗi 2 ký tự <input id="limitLength2" value="10"></label>
+          <label>Giới hạn kết hợp <input id="limitPair" value="1"></label>
         </div>
       </section>
 
       <div class="hidden-data-fields" hidden>
-        <textarea id="xoaMn"></textarea>
-        <textarea id="xoaMt"></textarea>
-        <textarea id="xoaHn"></textarea>
-        <textarea id="kqMn"></textarea>
-        <textarea id="kqMt"></textarea>
-        <textarea id="kqHn"></textarea>
+        <textarea id="excludeA"></textarea>
+        <textarea id="excludeB"></textarea>
+        <textarea id="excludeC"></textarea>
+        <textarea id="referenceA"></textarea>
+        <textarea id="referenceB"></textarea>
+        <textarea id="referenceC"></textarea>
       </div>
 
       <section id="settings-daily" class="panel daily-backup-panel setting-panel" hidden>
@@ -213,21 +213,21 @@
     </main>
 
     <section class="panel parsed-results-panel" style="display:none !important;">
-      <h2>Dữ liệu đã phân tích</h2>
-      <textarea id="parsedResults" readonly></textarea>
+      <h2>Dữ liệu đã chuẩn hóa</h2>
+      <textarea id="parsedReference" readonly></textarea>
     </section>
 
     <section class="panel intermediate-panel" style="display:none !important;">
       <h2>Bảng trung gian</h2>
       <div class="tableWrap">
-        <table id="interTable">
+        <table id="intermediateTable">
           <thead>
             <tr>
               <th>Khối</th>
               <th>Vùng xét</th>
               <th>Loại</th>
-              <th>Số</th>
-              <th>N</th>
+              <th>Phần tử</th>
+              <th>Mức</th>
               <th>Vùng</th>
               <th>Giá trị</th>
             </tr>
@@ -235,10 +235,10 @@
           <tbody></tbody>
         </table>
       </div>
-      <textarea id="detail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
+      <textarea id="auditDetail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Phân tích số v0.5.91 — tách theo vùng, gom sau khi xét điều kiện</footer>
+    <footer>Xử lý dữ liệu chuỗi v0.5.92 — phân vùng, đối chiếu và tổng hợp theo quy tắc</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -253,6 +253,6 @@
       <pre id="printOverlayText"></pre>
     </div>
   </section>
-  <script src="app.js?v=5668"></script>
+  <script src="app.js?v=5669"></script>
 </body>
 </html>

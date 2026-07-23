@@ -1,8 +1,8 @@
-// Phân tích số v0.5.91 — tách theo vùng, gom sau khi xét điều kiện
-// Input -> Bảng trung gian -> Tính giá trị
-// In: chuẩn tên vùng, gom đồng giá, xuống dòng <=20 ký tự
+// Xử lý dữ liệu chuỗi v0.5.92 — tách theo vùng, gom sau khi xét điều kiện
+// Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
+// Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
-const MN_MAP = {
+const REGION_A_SCHEDULE = {
   1:["Tpho","Dthap","Cmau"],
   2:["Btre","Vtau","Blieu"],
   3:["Dnai","Ctho","Strang"],
@@ -11,7 +11,7 @@ const MN_MAP = {
   6:["Tpho","Lan","Bphuoc","Hgiang"],
   0:["Tgiang","Kgiang","Dlat"]
 };
-const MT_MAP = {
+const REGION_B_SCHEDULE = {
   1:["Pyen","Hue"],
   2:["Dlac","Qnam"],
   3:["Dnang","Khoa"],
@@ -21,14 +21,14 @@ const MT_MAP = {
   0:["Ktum","Khoa","Hue"]
 };
 
-const KNOWN_DAI = [
+const KNOWN_SOURCE_CODES = [
   "Tninh","Agiang","Bthuan","Dnai","Ctho","Strang","Tpho","Dthap","Cmau",
   "Btre","Vtau","Blieu","Vlong","Bduong","Tvinh","Lan","Bphuoc","Hgiang",
   "Tgiang","Kgiang","Dlat","Pyen","Hue","Dlac","Qnam","Dnang","Khoa",
   "Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum","HN"
 ];
 
-const NAME_MAP = {
+const SOURCE_ALIAS_MAP = {
   "tay ninh":"Tninh","tây ninh":"Tninh","tninh":"Tninh",
   "an giang":"Agiang","agiang":"Agiang",
   "binh thuan":"Bthuan","bình thuận":"Bthuan","bthuan":"Bthuan",
@@ -68,11 +68,24 @@ const NAME_MAP = {
   "ha noi":"HN","hà nội":"HN","hn":"HN","mb":"HN"
 };
 
-const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
+// Các mã ngắn dưới đây chỉ được giữ để đọc dữ liệu cũ; logic nội bộ và giao diện dùng thuật ngữ trung tính.
+const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 const STORAGE_KEYS = {
+  settings: "sequence.v1.saved.settings",
+  exclusions: "sequence.v1.saved.exclusions",
+  references: "sequence.v1.saved.references",
+  dailyInputPrefix: "sequence.v1.dailyInput.",
+  appTitle: "sequence.v1.appTitle",
+  newWorkData: "sequence.v1.newWorkData",
+  activeWorkspace: "sequence.v1.activeWorkspace",
+  lastWorkRegion: "sequence.v1.lastWorkRegion",
+  workspacePrefix: "sequence.v1.workspace."
+};
+// Chỉ dùng để đọc dữ liệu đã lưu bởi bản cũ; mọi lần ghi mới dùng khóa trung tính ở trên.
+const LEGACY_STORAGE_KEYS = {
   settings: "pxso.v0.saved.settings",
-  xoa: "pxso.v0.saved.xoa",
-  results: "pxso.v0.saved.results",
+  exclusions: "pxso.v0.saved.xoa",
+  references: "pxso.v0.saved.results",
   dailyInputPrefix: "pxso.v0.dailyInput.",
   appTitle: "pxso.v0.5.58.appTitle",
   newWorkData: "pxso.v0.5.45.newWorkData",
@@ -80,7 +93,7 @@ const STORAGE_KEYS = {
   lastWorkRegion: "pxso.v0.5.40.lastWorkRegion",
   workspacePrefix: "pxso.v0.5.40.workspace."
 };
-const SETTINGS_IDS = ["rate","coefDa2","coefDa1","coefDaHN","coef2","coef3","coef4","max2","maxDa"];
+const WEIGHT_SETTING_IDS = ["scaleFactor","weightPair2Sources","weightPair1Source","weightPairRegionC","weightLength2","weightLength3","weightLength4","limitLength2","limitPair"];
 let activeWorkspace = "MN";
 
 function dayIndex(){ return new Date().getDay(); }
@@ -121,25 +134,28 @@ function saveActiveWorkspaceInput(){
 }
 function loadWorkspaceInput(region){
   try{
-    setVal("inputData", localStorage.getItem(workspaceKey(region)) || "");
+    setVal("inputData", readTextWithLegacy(workspaceKey(region), LEGACY_STORAGE_KEYS.workspacePrefix + region));
   }catch(e){
     setVal("inputData", "");
   }
 }
 function regionUiName(region=activeWorkspace){
-  if(region === "MT") return "Miền trung";
-  if(region === "HN") return "Hà Nội";
-  return "Miền nam";
+  if(region === "MT") return "Vùng B";
+  if(region === "HN") return "Vùng C";
+  return "Vùng A";
 }
 function regionShortName(region=activeWorkspace){
-  if(region === "MT") return "MT";
-  if(region === "HN") return "HN";
-  return "MN";
+  if(region === "MT") return "B";
+  if(region === "HN") return "C";
+  return "A";
+}
+function regionDisplayCode(region){
+  return regionShortName(region);
 }
 function regionRelatedIds(region=activeWorkspace){
-  if(region === "MT") return {xoa:"xoaMt", result:"kqMt"};
-  if(region === "HN") return {xoa:"xoaHn", result:"kqHn"};
-  return {xoa:"xoaMn", result:"kqMn"};
+  if(region === "MT") return {exclusion:"excludeB", reference:"referenceB"};
+  if(region === "HN") return {exclusion:"excludeC", reference:"referenceC"};
+  return {exclusion:"excludeA", reference:"referenceA"};
 }
 function syncRegionRelatedPanel(){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
@@ -147,14 +163,14 @@ function syncRegionRelatedPanel(){
   const shortName = regionShortName(activeWorkspace);
   const uiName = regionUiName(activeWorkspace);
   const title = el("regionDataTitle");
-  const xoaLabel = el("activeXoaLabel");
-  const resultLabel = el("activeResultLabel");
+  const exclusionLabel = el("activeExclusionLabel");
+  const referenceLabel = el("activeReferenceLabel");
 
   if(title) title.textContent = "Dữ liệu liên quan " + uiName;
-  if(xoaLabel) xoaLabel.textContent = "Loại trừ " + shortName;
-  if(resultLabel) resultLabel.textContent = "Tham chiếu " + shortName;
-  setVal("activeXoaData", val(ids.xoa));
-  setVal("activeResultData", val(ids.result));
+  if(exclusionLabel) exclusionLabel.textContent = "Loại trừ " + shortName;
+  if(referenceLabel) referenceLabel.textContent = "Tham chiếu " + shortName;
+  setVal("activeExclusionData", val(ids.exclusion));
+  setVal("activeReferenceData", val(ids.reference));
 }
 function toggleRegionDataBox(kind){
   openRegionDataPanel(kind);
@@ -162,17 +178,17 @@ function toggleRegionDataBox(kind){
 function openRegionDataPanel(kind){
   syncRegionRelatedPanel();
   closeActionPanels();
-  const panel = el(kind === "result" ? "panel-region-result" : "panel-region-xoa");
+  const panel = el(kind === "reference" ? "panel-region-reference" : "panel-region-exclusion");
   if(panel) panel.hidden = false;
 }
 function saveRegionRelatedData(btn){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
   const ids = regionRelatedIds(activeWorkspace);
-  setVal(ids.xoa, val("activeXoaData"));
-  setVal(ids.result, val("activeResultData"));
-  writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
-  writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
-  parseResultsOnly();
+  setVal(ids.exclusion, val("activeExclusionData"));
+  setVal(ids.reference, val("activeReferenceData"));
+  writeStorage(STORAGE_KEYS.exclusions, collectValues(["excludeA","excludeB","excludeC"]));
+  writeStorage(STORAGE_KEYS.references, collectValues(["referenceA","referenceB","referenceC"]));
+  parseReferencesOnly();
   runAll();
   if(btn) flashSaveButton(btn);
 }
@@ -180,15 +196,15 @@ function clearRegionRelatedData(kind){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
   const ids = regionRelatedIds(activeWorkspace);
 
-  if(kind === "result"){
-    setVal("activeResultData", "");
-    setVal(ids.result, "");
-    writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
-    parseResultsOnly();
+  if(kind === "reference"){
+    setVal("activeReferenceData", "");
+    setVal(ids.reference, "");
+    writeStorage(STORAGE_KEYS.references, collectValues(["referenceA","referenceB","referenceC"]));
+    parseReferencesOnly();
   }else{
-    setVal("activeXoaData", "");
-    setVal(ids.xoa, "");
-    writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
+    setVal("activeExclusionData", "");
+    setVal(ids.exclusion, "");
+    writeStorage(STORAGE_KEYS.exclusions, collectValues(["excludeA","excludeB","excludeC"]));
   }
 
   runAll();
@@ -211,20 +227,20 @@ function saveAppTitleNote(btn){
 }
 function loadAppTitle(){
   try{
-    const title = localStorage.getItem(STORAGE_KEYS.appTitle);
+    const title = readTextWithLegacy(STORAGE_KEYS.appTitle, LEGACY_STORAGE_KEYS.appTitle);
     if(title) setVal("appTitleInput", title);
   }catch(e){
     console.error(e);
   }
 }
-function showMainApp(name){
+function showMainWorkspace(name){
   const isNew = name === "newwork";
-  const pxso = el("main-pxso");
+  const sequenceWorkspace = el("main-sequence");
   const newwork = el("main-newwork");
-  if(pxso) pxso.hidden = isNew;
+  if(sequenceWorkspace) sequenceWorkspace.hidden = isNew;
   if(newwork) newwork.hidden = !isNew;
   document.querySelectorAll(".main-tab").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.main === (isNew ? "newwork" : "pxso"));
+    btn.classList.toggle("active", btn.dataset.main === (isNew ? "newwork" : "sequence"));
   });
 }
 function showNewWorkPanel(id){
@@ -262,14 +278,14 @@ function clearNewWorkData(){
 }
 function loadNewWorkData(){
   try{
-    setVal("newWorkData", localStorage.getItem(STORAGE_KEYS.newWorkData) || "");
+    setVal("newWorkData", readTextWithLegacy(STORAGE_KEYS.newWorkData, LEGACY_STORAGE_KEYS.newWorkData));
   }catch(e){
     setVal("newWorkData", "");
   }
   updateNewWorkPreview();
 }
 function closeActionPanels(){
-  ["panel-copy","panel-split","panel-wins","panel-region-xoa","panel-region-result"].forEach(id=>{
+  ["panel-copy","panel-split","panel-matches","panel-region-exclusion","panel-region-reference"].forEach(id=>{
     const panel = el(id);
     if(panel) panel.hidden = true;
   });
@@ -326,7 +342,7 @@ function selectWorkspace(tab){
 
 
 function getRate(){
-  let s = val("rate").trim().replace(",",".").replace("%","");
+  let s = val("scaleFactor").trim().replace(",",".").replace("%","");
   let n = parseFloat(s);
   if(isNaN(n)) n = 0.8;
   if(n > 1) n = n / 100;
@@ -369,14 +385,14 @@ function parseAmount(s){
   return parseFloat(String(s||"0").replace(",",".")) || 0;
 }
 
-function orderDaisBySchedule(dais){
-  const list = (dais || []).filter(Boolean);
+function orderSourcesBySchedule(sources){
+  const list = (sources || []).filter(Boolean);
   if(list.length <= 1) return list.slice();
 
   const candidates = [];
-  [MN_MAP, MT_MAP].forEach(map=>{
+  [REGION_A_SCHEDULE, REGION_B_SCHEDULE].forEach(map=>{
     Object.values(map).forEach(arr=>{
-      if(list.every(dai => arr.includes(dai))){
+      if(list.every(source => arr.includes(source))){
         candidates.push(arr);
       }
     });
@@ -396,13 +412,13 @@ function orderDaisBySchedule(dais){
   });
 }
 
-function getDaisFromName(name){
+function getSourcesFromName(name){
   if(!name) return [];
   const raw = name.trim();
   const lower = raw.toLowerCase();
   if(lower==="hn" || lower==="mb") return ["HN"];
   const found = [];
-  for(const d of KNOWN_DAI){
+  for(const d of KNOWN_SOURCE_CODES){
     if(d === "HN") continue;
     const idx = lower.indexOf(d.toLowerCase());
     if(idx >= 0) found.push({d, idx});
@@ -411,34 +427,34 @@ function getDaisFromName(name){
     if(a.idx !== b.idx) return a.idx - b.idx;
     return b.d.length - a.d.length;
   });
-  return found.length ? orderDaisBySchedule(found.map(item => item.d)) : [raw];
+  return found.length ? orderSourcesBySchedule(found.map(item => item.d)) : [raw];
 }
-function detectRegionByDais(dais){
-  if(dais.includes("HN")) return "HN";
+function detectRegionBySources(sources){
+  if(sources.includes("HN")) return "HN";
   const mt = ["Pyen","Hue","Dlac","Qnam","Dnang","Khoa","Bdinh","Qtri","Qbinh","Glai","Nthuan","Qngai","Dnong","Ktum"];
-  return dais.some(d => mt.includes(d)) ? "MT" : "MN";
+  return sources.some(d => mt.includes(d)) ? "MT" : "MN";
 }
-function compactThreeDaiLabel(block){
-  // Khóa thứ tự tên vùng sau khi atomic được gom lại.
-  // Không lấy thứ tự block xuất hiện trong input, mà luôn theo lịch vùng chuẩn.
-  const dais = orderDaisBySchedule(getDaisFromName(block).filter(Boolean));
-  const canonicalBlock = dais.length ? dais.join("") : block;
-  const region = detectRegionByDais(dais);
+function compactMultiSourceLabel(block){
+  // Khóa thứ tự tên nguồn sau khi atomic được gom lại.
+  // Không lấy thứ tự block xuất hiện trong input, mà luôn theo thứ tự nguồn chuẩn.
+  const sources = orderSourcesBySchedule(getSourcesFromName(block).filter(Boolean));
+  const canonicalBlock = sources.length ? sources.join("") : block;
+  const region = detectRegionBySources(sources);
   if(region === "HN") return canonicalBlock;
 
   // Chỉ rút thành ký hiệu nhóm khi block là đúng dải đầu của lịch NGÀY HIỆN TẠI.
   // Ví dụ thứ Bảy:
   // TphoLanBphuoc -> 3dmn
   // TphoLanHgiang -> giữ nguyên, vì bỏ mất vùng thứ 3 là Bphuoc.
-  const count = dais.length;
+  const count = sources.length;
   if(count !== 3 && !(region === "MN" && count === 4)) return canonicalBlock;
 
   const todaySchedule = region === "MT"
-    ? (MT_MAP[dayIndex()] || [])
-    : (MN_MAP[dayIndex()] || []);
+    ? (REGION_B_SCHEDULE[dayIndex()] || [])
+    : (REGION_A_SCHEDULE[dayIndex()] || []);
   const key = region === "MT" ? "3dmt" : `${count}dmn`;
   const matchesTodayPrefix = todaySchedule.length >= count &&
-    dais.every((dai, idx) => dai === todaySchedule[idx]);
+    sources.every((source, idx) => source === todaySchedule[idx]);
   return matchesTodayPrefix ? key : canonicalBlock;
 }
 function isHeader(line){
@@ -446,12 +462,12 @@ function isHeader(line){
   if(/^(hn|mb|2dmn|3dmn|4dmn|2dmt|3dmt)$/.test(l)) return true;
   return !/\d/.test(line) && /^[a-zA-ZÀ-ỹ]+$/.test(line.trim());
 }
-function pickDayForGeneric(region, count, hintDais=[]){
-  const map = region==="MT" ? MT_MAP : MN_MAP;
-  const hints = (hintDais || []).filter(Boolean);
+function pickDayForGeneric(region, count, sourceHints=[]){
+  const map = region==="MT" ? REGION_B_SCHEDULE : REGION_A_SCHEDULE;
+  const hints = (sourceHints || []).filter(Boolean);
   if(hints.length){
     for(const [d, arr] of Object.entries(map)){
-      if(arr.length >= count && hints.every(dai => arr.includes(dai))){
+      if(arr.length >= count && hints.every(source => arr.includes(source))){
         return parseInt(d,10);
       }
     }
@@ -464,18 +480,18 @@ function pickDayForGeneric(region, count, hintDais=[]){
   }
   return today;
 }
-function resolveHeader(raw, hintDais=[]){
+function resolveHeader(raw, sourceHints=[]){
   const l = normalizeLine(raw).toLowerCase();
-  let dais;
-  if(l==="hn" || l==="mb") dais=["HN"];
-  else if(l==="2dmn") dais=MN_MAP[pickDayForGeneric("MN",2,hintDais)].slice(0,2);
-  else if(l==="3dmn") dais=MN_MAP[pickDayForGeneric("MN",3,hintDais)].slice(0,3);
-  else if(l==="4dmn") dais=MN_MAP[pickDayForGeneric("MN",4,hintDais)].slice(0,4);
-  else if(l==="2dmt") dais=MT_MAP[pickDayForGeneric("MT",2,hintDais)].slice(0,2);
-  else if(l==="3dmt") dais=MT_MAP[pickDayForGeneric("MT",3,hintDais)].slice(0,3);
-  else dais=getDaisFromName(raw.trim());
+  let sources;
+  if(l==="hn" || l==="mb") sources=["HN"];
+  else if(l==="2dmn") sources=REGION_A_SCHEDULE[pickDayForGeneric("MN",2,sourceHints)].slice(0,2);
+  else if(l==="3dmn") sources=REGION_A_SCHEDULE[pickDayForGeneric("MN",3,sourceHints)].slice(0,3);
+  else if(l==="4dmn") sources=REGION_A_SCHEDULE[pickDayForGeneric("MN",4,sourceHints)].slice(0,4);
+  else if(l==="2dmt") sources=REGION_B_SCHEDULE[pickDayForGeneric("MT",2,sourceHints)].slice(0,2);
+  else if(l==="3dmt") sources=REGION_B_SCHEDULE[pickDayForGeneric("MT",3,sourceHints)].slice(0,3);
+  else sources=getSourcesFromName(raw.trim());
   const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
-  return {raw:raw.trim(), name:dais.join(""), dais, region:detectRegionByDais(dais), mainDais:dais.slice(0,2), generic, lines:[]};
+  return {raw:raw.trim(), name:sources.join(""), sources, region:detectRegionBySources(sources), primarySources:sources.slice(0,2), generic, lines:[]};
 }
 function splitBlocks(text){
   const lines = (text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
@@ -484,10 +500,10 @@ function splitBlocks(text){
     if(isHeader(raw)){
       cur = resolveHeader(raw, lastExplicit);
       blocks.push(cur);
-      if(!cur.generic) lastExplicit = cur.dais;
+      if(!cur.generic) lastExplicit = cur.sources;
     }else{
       if(!cur){
-        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", dais:["Không rõ vùng"], region:"MN", mainDais:["Không rõ vùng"], generic:false, lines:[]};
+        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", sources:["Không rõ vùng"], region:"MN", primarySources:["Không rõ vùng"], generic:false, lines:[]};
         blocks.push(cur);
       }
       cur.lines.push(normalizeLine(raw));
@@ -529,10 +545,10 @@ function pairNumbers(nums){
   }
   return out;
 }
-function pairDais(dais){
+function pairSources(sources){
   const out=[];
-  for(let i=0;i<dais.length;i++){
-    for(let j=i+1;j<dais.length;j++) out.push([dais[i], dais[j]]);
+  for(let i=0;i<sources.length;i++){
+    for(let j=i+1;j<sources.length;j++) out.push([sources[i], sources[j]]);
   }
   return out;
 }
@@ -561,7 +577,7 @@ function parseDataLine(line){
   const rest = baseMatch[2] || "";
   if(!rest) return null;
 
-  const segRe = new RegExp("(?:^|\\.)" + TYPE_RE + "([\\d,.]+)n","ig");
+  const segRe = new RegExp("(?:^|\\.)" + LEGACY_TYPE_TOKEN_RE + "([\\d,.]+)n","ig");
   const parts=[];
   let lastEnd=0, m;
   while((m = segRe.exec(rest)) !== null){
@@ -576,7 +592,7 @@ function parseDataLine(line){
 function makeLine(nums, type, n){
   return `${Array.isArray(nums)?nums.join("."):nums}${type}${fmtN(n)}n`;
 }
-function makeDaLine(a,b,n){
+function makePairLine(a,b,n){
   return `${a}.${b}da${fmtN(n)}n`;
 }
 function sortNumsAsc(nums){
@@ -609,14 +625,14 @@ function buildIntermediate(blocks){
   const rows=[];
   const meta = block => ({
     sourceBlock:block.name,
-    sourceDais:(block.dais||[]).slice(),
+    originSources:(block.sources||[]).slice(),
     sourceGeneric:!!block.generic
   });
   for(const block of blocks){
     for(const rawLine of block.lines){
       const parts = parseDataLine(rawLine);
       if(!parts){
-        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, daiCount:1, ...meta(block)});
+        rows.push({block:block.name, line:rawLine, type:"?", nums:[rawLine], n:0, region:block.region, calc:false, sourceCount:1, ...meta(block)});
         continue;
       }
       for(const part of parts){
@@ -624,25 +640,25 @@ function buildIntermediate(blocks){
         const nums=part.nums || [];
         if(t==="dv"){
           const numPairs = uniquePairs(pairNumbers(nums));
-          const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
-          for(const dp of daiPairs){
+          const sourcePairs = block.sources.length>=2 ? pairSources(block.sources) : [[block.name]];
+          for(const dp of sourcePairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
             for(const np of numPairs){
               const pair = sortPair(np[0], np[1]);
-              rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1), ...meta(block)});
+              rows.push({block:bname, line:makePairLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, sourceCount:(dp.length===2?2:1), ...meta(block)});
             }
           }
         }else if(t==="da"){
           const pair = sortPair(nums[0], nums[1]);
-          const daiPairs = block.dais.length>=2 ? pairDais(block.dais) : [[block.name]];
-          for(const dp of daiPairs){
+          const sourcePairs = block.sources.length>=2 ? pairSources(block.sources) : [[block.name]];
+          for(const dp of sourcePairs){
             const bname = dp.length===2 ? dp[0]+dp[1] : block.name;
-            rows.push({block:bname, line:makeDaLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:(dp.length===2?2:1), ...meta(block)});
+            rows.push({block:bname, line:makePairLine(pair[0],pair[1],part.n), type:"da", nums:pair, n:part.n, region:block.region, calc:true, raw:rawLine, sourceCount:(dp.length===2?2:1), ...meta(block)});
           }
         }else{
-          for(const dai of block.dais){
+          for(const source of block.sources){
             for(const num of nums){
-              rows.push({block:dai, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine, daiCount:1, ...meta(block)});
+              rows.push({block:source, line:makeLine(num,t,part.n), type:t, nums:[num], n:part.n, region:block.region, calc:true, raw:rawLine, sourceCount:1, ...meta(block)});
             }
           }
         }
@@ -661,11 +677,11 @@ function calcRow(row){
   let base=0, qty=1;
 
   if(t==="da"){
-    // Lấy số vùng từ bảng trung gian đã bung, không đoán lại bằng tên block.
+    // Lấy số nguồn từ bảng trung gian đã bung, không đoán lại bằng tên block.
     // MN/MT ghép cặp 1 vùng: 36 x 1 x n x 0.8 = 28,8k cho 1n.
     // MN/MT ghép cặp 2 vùng: 36 x 2 x n x 0.8 = 57,6k cho 1n.
-    const daiCount = row.daiCount || 1;
-    base = region==="HN" ? 54 : 36 * daiCount;
+    const sourceCount = row.sourceCount || 1;
+    base = region==="HN" ? 54 : 36 * sourceCount;
 
   }else if(t==="b"){
     const len = num.length;
@@ -700,7 +716,7 @@ function calcRow(row){
 }
 
 function renderIntermediate(rows){
-  const tbody = document.querySelector("#interTable tbody");
+  const tbody = document.querySelector("#intermediateTable tbody");
   if(tbody){
     tbody.innerHTML = "";
     for(const row of rows){
@@ -711,7 +727,7 @@ function renderIntermediate(rows){
         row.type,
         (row.nums||[]).join("."),
         fmtN(row.n),
-        String(row.daiCount || 1),
+        String(row.sourceCount || 1),
         money(calcRow(row))
       ];
       for(const c of cells){
@@ -724,9 +740,9 @@ function renderIntermediate(rows){
   }
   const lines=[];
   for(const row of rows){
-    lines.push([row.block,row.line,row.type,(row.nums||[]).join("."),fmtN(row.n),String(row.daiCount||1),money(calcRow(row))].join("\t"));
+    lines.push([row.block,row.line,row.type,(row.nums||[]).join("."),fmtN(row.n),String(row.sourceCount||1),money(calcRow(row))].join("\t"));
   }
-  setVal("detail", lines.join("\n"));
+  setVal("auditDetail", lines.join("\n"));
 }
 
 function totalMoney(rows){
@@ -741,7 +757,7 @@ function roundedMoney(n){
 }
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
-// Chỉ đổi header tổng quát thành tên vùng thật và chỉ ngắt dòng khi dãy số gốc quá dài.
+// Chỉ đổi header tổng quát thành tên nguồn thật và chỉ ngắt dòng khi dãy số gốc quá dài.
 function splitCopyLineOriginal(rawLine, maxLen=20){
   const s = normalizeLine(rawLine);
   if(!s || s.length <= maxLen) return s ? [s] : [];
@@ -903,76 +919,76 @@ function splitTachDisplayLine(line, maxLen=20){
   return out;
 }
 
-function scheduledDaisForRegion(region, hintDais=[]){
+function scheduledSourcesForRegion(region, sourceHints=[]){
   if(region === "HN") return ["HN"];
-  const map = region === "MT" ? MT_MAP : MN_MAP;
+  const map = region === "MT" ? REGION_B_SCHEDULE : REGION_A_SCHEDULE;
   const maxCount = region === "MT" ? 3 : 4;
-  const hints = (hintDais || []).filter(Boolean);
+  const hints = (sourceHints || []).filter(Boolean);
   const count = Math.min(maxCount, Math.max(1, hints.length || maxCount));
   const day = pickDayForGeneric(region, count, hints);
   const arr = map[day] || hints;
   return arr.slice(0, maxCount);
 }
 
-function buildRegionZones(region, hintDais=[]){
-  const dais = scheduledDaisForRegion(region, hintDais);
+function buildRegionZones(region, sourceHints=[]){
+  const sources = scheduledSourcesForRegion(region, sourceHints);
   if(region === "HN"){
     return {
       region,
-      dais:["HN"],
-      singles:[{key:"D1", block:"HN", dais:["HN"]}],
+      sources:["HN"],
+      singles:[{key:"D1", block:"HN", sources:["HN"]}],
       pairs:[],
-      all:[{key:"D1", block:"HN", dais:["HN"]}],
-      mainDais:["HN"],
+      all:[{key:"D1", block:"HN", sources:["HN"]}],
+      primarySources:["HN"],
       mainPair:""
     };
   }
 
-  const singles = dais.map((dai, idx)=>({
+  const singles = sources.map((source, idx)=>({
     key:"D" + (idx + 1),
-    block:dai,
-    dais:[dai]
+    block:source,
+    sources:[source]
   }));
   const pairs = [];
-  for(let i=0; i<dais.length; i++){
-    for(let j=i+1; j<dais.length; j++){
+  for(let i=0; i<sources.length; i++){
+    for(let j=i+1; j<sources.length; j++){
       pairs.push({
         key:"D" + (i + 1) + "-" + (j + 1),
-        block:dais[i] + dais[j],
-        dais:[dais[i], dais[j]]
+        block:sources[i] + sources[j],
+        sources:[sources[i], sources[j]]
       });
     }
   }
 
   return {
     region,
-    dais,
+    sources,
     singles,
     pairs,
     all:singles.concat(pairs),
-    mainDais:dais.slice(0,2),
-    mainPair:dais.length >= 2 ? dais[0] + dais[1] : ""
+    primarySources:sources.slice(0,2),
+    mainPair:sources.length >= 2 ? sources[0] + sources[1] : ""
   };
 }
 
 function regionZonesForRow(row){
-  return buildRegionZones(row.region || "MN", row.sourceDais || []);
+  return buildRegionZones(row.region || "MN", row.originSources || []);
 }
 
 function twoDigit(n){
   return String(n == null ? "" : n).replace(/\D/g, "").slice(-2).padStart(2, "0");
 }
-function readXoaSet(region){
-  const id = region==="MT" ? "xoaMt" : region==="HN" ? "xoaHn" : "xoaMn";
+function readExclusionSet(region){
+  const id = region==="MT" ? "excludeB" : region==="HN" ? "excludeC" : "excludeA";
   const nums = val(id).match(/\d+/g) || [];
   return new Set(nums.map(twoDigit).filter(x => x.length===2));
 }
-function numInXoa(num, xoaSet){
-  return xoaSet.has(twoDigit(num));
+function valueInExclusion(num, exclusionSet){
+  return exclusionSet.has(twoDigit(num));
 }
 
 function buildTach(blocks){
-  const max2=getNum("max2",10), maxDa=getNum("maxDa",1);
+  const limitLength2=getNum("limitLength2",10), limitPair=getNum("limitPair",1);
   const tach=[], khong=[];
   const typeOrder = ["b","bdao","xc","xcdao","dd","dau","duoi","xcdau","xcduoi"];
   const typeRank = {};
@@ -995,26 +1011,26 @@ function buildTach(blocks){
     if(keep > 0) pushRow(tach, row, keep, block);
     if(overflow > 0) pushRow(khong, row, overflow, block);
   };
-  const mainDaisForRow = row => {
+  const primarySourcesForRow = row => {
     if(row.region === "HN") return ["HN"];
-    return regionZonesForRow(row).mainDais || [];
+    return regionZonesForRow(row).primarySources || [];
   };
-  const mainPairForRow = row => row.region === "HN" ? "" : (regionZonesForRow(row).mainPair || "");
-  const hasXoa = row => {
-    const xoaSet = readXoaSet(row.region);
-    return xoaSet.size > 0 && (row.nums || []).some(num => numInXoa(num, xoaSet));
+  const primaryPairForRow = row => row.region === "HN" ? "" : (regionZonesForRow(row).mainPair || "");
+  const hasExclusion = row => {
+    const exclusionSet = readExclusionSet(row.region);
+    return exclusionSet.size > 0 && (row.nums || []).some(num => valueInExclusion(num, exclusionSet));
   };
-  const isBao2Scope = row => {
+  const isSuffix2Scope = row => {
     const num = row.nums && row.nums[0] ? row.nums[0] : "";
-    return row.type === "b" && String(num).length === 2 && mainDaisForRow(row).includes(row.block);
+    return row.type === "b" && String(num).length === 2 && primarySourcesForRow(row).includes(row.block);
   };
-  const isDaScope = row => {
+  const isPairScope = row => {
     if(row.type !== "da") return false;
     if(row.region === "HN") return true;
-    return row.block === mainPairForRow(row);
+    return row.block === primaryPairForRow(row);
   };
-  const blockDais = block => {
-    const found = getDaisFromName(block).filter(Boolean);
+  const blockSources = block => {
+    const found = getSourcesFromName(block).filter(Boolean);
     return found.length ? found : [block];
   };
   const makeRank = rows => {
@@ -1024,25 +1040,25 @@ function buildTach(blocks){
     // từ input, object/group hoặc quá trình tách rồi ráp atomic.
     // Ví dụ thứ Bảy luôn: Tpho -> Lan -> Bphuoc -> Hgiang.
     const today = dayIndex();
-    [...(MN_MAP[today] || []), ...(MT_MAP[today] || []), "HN"].forEach(dai=>{
-      if(rank[dai] == null) rank[dai] = i++;
+    [...(REGION_A_SCHEDULE[today] || []), ...(REGION_B_SCHEDULE[today] || []), "HN"].forEach(source=>{
+      if(rank[source] == null) rank[source] = i++;
     });
     for(const block of blocks){
-      (block.dais || []).forEach(dai=>{
-        if(rank[dai] == null) rank[dai] = i++;
+      (block.sources || []).forEach(source=>{
+        if(rank[source] == null) rank[source] = i++;
       });
     }
     for(const row of rows || []){
-      (row.sourceDais || []).forEach(dai=>{
-        if(rank[dai] == null) rank[dai] = i++;
+      (row.originSources || []).forEach(source=>{
+        if(rank[source] == null) rank[source] = i++;
       });
     }
-    KNOWN_DAI.forEach(dai=>{
-      if(rank[dai] == null) rank[dai] = i++;
+    KNOWN_SOURCE_CODES.forEach(source=>{
+      if(rank[source] == null) rank[source] = i++;
     });
     return rank;
   };
-  const sortDaisByRank = (dais, rank) => (dais || []).slice().sort((a,b)=>{
+  const sortSourcesByRank = (sources, rank) => (sources || []).slice().sort((a,b)=>{
     const ra = rank[a] == null ? 9999 : rank[a];
     const rb = rank[b] == null ? 9999 : rank[b];
     if(ra !== rb) return ra - rb;
@@ -1050,10 +1066,10 @@ function buildTach(blocks){
   });
   const combineBlocks = (blockList, rank) => {
     const set = new Set();
-    blockList.forEach(block => blockDais(block).forEach(dai => set.add(dai)));
+    blockList.forEach(block => blockSources(block).forEach(source => set.add(source)));
     // Tên block ghép phải theo lịch chuẩn, không theo rank phát sinh từ thứ tự input.
     // Ví dụ hôm T6: Vlong trước Bduong, dù block Bduong xuất hiện trước trong tin.
-    return orderDaisBySchedule(Array.from(set)).join("");
+    return orderSourcesBySchedule(Array.from(set)).join("");
   };
   const numSortValue = num => parseInt(String(num || "").replace(/\D/g,""), 10) || 0;
   const compareNum = (a,b) => {
@@ -1066,11 +1082,11 @@ function buildTach(blocks){
   };
   const buildAtomicRows = () => {
     const rows=[];
-    const addAtomic = (block, sourceBlock, sourceDais, region, nums, type, n, rawLine) => {
+    const addAtomic = (block, sourceBlock, originSources, region, nums, type, n, rawLine) => {
       rows.push({
         block,
         sourceBlock,
-        sourceDais:(sourceDais || []).slice(),
+        originSources:(originSources || []).slice(),
         nums:(nums || []).slice(),
         type,
         n,
@@ -1088,26 +1104,26 @@ function buildTach(blocks){
           const nums = part.nums || [];
           if(type === "dv"){
             const numPairs = uniquePairs(pairNumbers(nums));
-            const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
-            for(const dp of daiPairs){
+            const sourcePairs = block.sources.length >= 2 ? pairSources(block.sources) : [[block.name]];
+            for(const dp of sourcePairs){
               const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
               for(const np of numPairs){
-                addAtomic(bname, block.name, block.dais, block.region, sortPair(np[0], np[1]), "da", part.n, rawLine);
+                addAtomic(bname, block.name, block.sources, block.region, sortPair(np[0], np[1]), "da", part.n, rawLine);
               }
             }
           }else if(type === "da"){
             const pair = sortPair(nums[0], nums[1]);
-            const daiPairs = block.dais.length >= 2 ? pairDais(block.dais) : [[block.name]];
-            for(const dp of daiPairs){
+            const sourcePairs = block.sources.length >= 2 ? pairSources(block.sources) : [[block.name]];
+            for(const dp of sourcePairs){
               const bname = dp.length === 2 ? dp[0] + dp[1] : block.name;
-              addAtomic(bname, block.name, block.dais, block.region, pair, "da", part.n, rawLine);
+              addAtomic(bname, block.name, block.sources, block.region, pair, "da", part.n, rawLine);
             }
           }else{
             const outTypes = type === "dd" ? ["dau","duoi"] : [type];
-            for(const dai of block.dais){
+            for(const source of block.sources){
               for(const num of nums){
                 outTypes.forEach(outType=>{
-                  addAtomic(dai, block.name, block.dais, block.region, [num], outType, part.n, rawLine);
+                  addAtomic(source, block.name, block.sources, block.region, [num], outType, part.n, rawLine);
                 });
               }
             }
@@ -1120,65 +1136,65 @@ function buildTach(blocks){
 
   const atomicRows = buildAtomicRows();
   const used = new Set();
-  const baoGroups = new Map();
-  const daGroups = new Map();
+  const suffix2Groups = new Map();
+  const pairGroups = new Map();
 
-  // Quan trọng: bao 2 số phải tổng theo atomic vùng thật trước khi xét max.
+  // Quan trọng: nhóm cuối 2 ký tự phải tổng theo atomic nguồn thật trước khi xét max.
   // Không được đưa từng dòng gốc vào Tin tách rồi mới gom, vì sẽ lọt case:
   // Dnai 68b5n + DnaiCtho 68b11n => Dnai 68b16n vượt max.
-  const addBaoAtomic = row => {
-    const main = mainDaisForRow(row);
+  const addSuffix2Atomic = row => {
+    const main = primarySourcesForRow(row);
     if(!main.includes(row.block)) return false;
     const key = [row.region, main.join("+"), row.nums[0]].join("|");
-    if(!baoGroups.has(key)){
-      baoGroups.set(key, {
+    if(!suffix2Groups.has(key)){
+      suffix2Groups.set(key, {
         main:main.slice(),
-        amountByDai:{},
-        sampleByDai:{},
+        amountBySource:{},
+        sampleBySource:{},
         sample:row
       });
     }
-    const group = baoGroups.get(key);
-    group.amountByDai[row.block] = Math.round(((group.amountByDai[row.block] || 0) + row.n) * 100) / 100;
-    if(!group.sampleByDai[row.block]) group.sampleByDai[row.block] = row;
+    const group = suffix2Groups.get(key);
+    group.amountBySource[row.block] = Math.round(((group.amountBySource[row.block] || 0) + row.n) * 100) / 100;
+    if(!group.sampleBySource[row.block]) group.sampleBySource[row.block] = row;
     return true;
   };
 
   for(const [idx, row] of atomicRows.entries()){
-    if(hasXoa(row)){
+    if(hasExclusion(row)){
       used.add(idx);
       pushRow(khong, row);
       continue;
     }
 
-    if(isBao2Scope(row)){
+    if(isSuffix2Scope(row)){
       used.add(idx);
-      addBaoAtomic(row);
+      addSuffix2Atomic(row);
       continue;
     }
 
-    if(isDaScope(row)){
+    if(isPairScope(row)){
       used.add(idx);
       const pair = sortPair(row.nums[0], row.nums[1]);
       const key = [row.region, row.block, pair[0], pair[1]].join("|");
-      if(!daGroups.has(key)){
-        daGroups.set(key, {...row, nums:pair, n:0});
+      if(!pairGroups.has(key)){
+        pairGroups.set(key, {...row, nums:pair, n:0});
       }
-      daGroups.get(key).n = Math.round((daGroups.get(key).n + row.n) * 100) / 100;
+      pairGroups.get(key).n = Math.round((pairGroups.get(key).n + row.n) * 100) / 100;
     }
   }
 
-  for(const group of baoGroups.values()){
-    for(const dai of group.main){
-      const total = Math.round((group.amountByDai[dai] || 0) * 100) / 100;
+  for(const group of suffix2Groups.values()){
+    for(const source of group.main){
+      const total = Math.round((group.amountBySource[source] || 0) * 100) / 100;
       if(!(total > 0)) continue;
-      const sample = group.sampleByDai[dai] || group.sample;
-      pushSplit({...sample, block:dai}, total, max2, dai);
+      const sample = group.sampleBySource[source] || group.sample;
+      pushSplit({...sample, block:source}, total, limitLength2, source);
     }
   }
 
-  for(const group of daGroups.values()){
-    pushSplit(group, group.n, maxDa);
+  for(const group of pairGroups.values()){
+    pushSplit(group, group.n, limitPair);
   }
 
   for(const [idx, row] of atomicRows.entries()){
@@ -1277,18 +1293,18 @@ function buildTach(blocks){
       if(item.type !== "da" || item.blocks.length <= 1) return true;
 
       const pairSet = new Set();
-      const daiSet = new Set();
+      const sourceSet = new Set();
       for(const block of item.blocks){
-        const dais = blockDais(block);
-        if(dais.length !== 2) return false;
-        const pair = sortDaisByRank(dais, rank);
+        const sources = blockSources(block);
+        if(sources.length !== 2) return false;
+        const pair = sortSourcesByRank(sources, rank);
         pairSet.add(pair.join("|"));
-        pair.forEach(dai => daiSet.add(dai));
+        pair.forEach(source => sourceSet.add(source));
       }
 
-      const unionDais = sortDaisByRank(Array.from(daiSet), rank);
-      if(unionDais.length <= 2) return true;
-      return pairDais(unionDais).every(pair => pairSet.has(pair.join("|")));
+      const unionSources = sortSourcesByRank(Array.from(sourceSet), rank);
+      if(unionSources.length <= 2) return true;
+      return pairSources(unionSources).every(pair => pairSet.has(pair.join("|")));
     };
 
     for(const item of bySignature.values()){
@@ -1310,7 +1326,7 @@ function buildTach(blocks){
       }
       return line;
     };
-    const compactDaPairsToDv = (pairs, amount) => {
+    const compactPairsToSet = (pairs, amount) => {
       const remaining = new Map();
       const pairKey = pair => sortPair(pair[0], pair[1]).join(".");
       uniquePairs(pairs).forEach(pair => remaining.set(pairKey(pair), sortPair(pair[0], pair[1])));
@@ -1422,10 +1438,10 @@ function buildTach(blocks){
           if(a0 !== b0) return a0 - b0;
           return numSortValue(a[1]) - numSortValue(b[1]);
         })
-        .forEach(pair => lines.push(makeDaLine(pair[0], pair[1], amount)));
+        .forEach(pair => lines.push(makePairLine(pair[0], pair[1], amount)));
       return lines;
     };
-    const renderDaLines = (items, block) => {
+    const renderPairLines = (items, block) => {
       const byAmount = {};
       items.forEach(item => {
         const key = fmtN(item.n);
@@ -1435,15 +1451,15 @@ function buildTach(blocks){
       const lines=[];
       Object.keys(byAmount).sort((a,b)=>parseAmount(a)-parseAmount(b)).forEach(key=>{
         const pairs = uniquePairs(byAmount[key]);
-        lines.push(...compactDaPairsToDv(pairs, parseAmount(key)));
+        lines.push(...compactPairsToSet(pairs, parseAmount(key)));
       });
       return lines;
     };
-    const mergeDaWithSameNumLines = lines => {
-      const daByNums = new Map();
+    const mergePairWithSameValueLines = lines => {
+      const pairByValues = new Map();
       lines.forEach((line, idx) => {
         const m = String(line || "").match(/^([0-9]+(?:\.[0-9]+)+)da[\d,.]+n$/i);
-        if(m) daByNums.set(m[1], { line, idx });
+        if(m) pairByValues.set(m[1], { line, idx });
       });
 
       const consumed = new Set();
@@ -1453,7 +1469,7 @@ function buildTach(blocks){
         const m = String(line || "").match(/^([0-9]+(?:\.[0-9]+)+)([a-z].*)$/i);
         if(m){
           const suffix = m[2].toLowerCase();
-          const da = daByNums.get(m[1]);
+          const da = pairByValues.get(m[1]);
           if(da && da.idx !== idx && !suffix.startsWith("da") && !suffix.startsWith("dv")){
             merged.push(da.line + "." + m[2]);
             consumed.add(da.idx);
@@ -1466,7 +1482,7 @@ function buildTach(blocks){
     };
 
     const blockNames = Object.keys(groupedByBlock).sort((a,b)=>{
-      const ad = blockDais(a), bd = blockDais(b);
+      const ad = blockSources(a), bd = blockSources(b);
       if(ad.length !== bd.length) return ad.length - bd.length;
       const len = Math.max(ad.length, bd.length);
       for(let i=0; i<len; i++){
@@ -1481,9 +1497,9 @@ function buildTach(blocks){
     for(const block of blockNames){
       const items = groupedByBlock[block];
       const normalGroups = {};
-      const daItems = [];
+      const pairItems = [];
       items.forEach(item => {
-        if(item.type === "da") daItems.push(item);
+        if(item.type === "da") pairItems.push(item);
         else{
           const key = item.nums[0];
           if(!normalGroups[key]) normalGroups[key] = [];
@@ -1525,11 +1541,11 @@ function buildTach(blocks){
       normalLineItems
         .sort((a,b)=>compareNum(a.num, b.num))
         .forEach(item => lines.push(item.line));
-      const daLines = renderDaLines(daItems, block);
+      const pairLines = renderPairLines(pairItems, block);
       if(block === "HN"){
-        lines.push(...daLines);
+        lines.push(...pairLines);
       }else{
-        lines.push(...daLines.sort((a,b)=>{
+        lines.push(...pairLines.sort((a,b)=>{
         const pa = (a.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
         const pb = (b.match(/^(\d+)\.(\d+)/) || []).slice(1).map(numSortValue);
         if((pa[0] || 0) !== (pb[0] || 0)) return (pa[0] || 0) - (pb[0] || 0);
@@ -1538,8 +1554,8 @@ function buildTach(blocks){
       }
 
       if(!lines.length) continue;
-      out.push(compactThreeDaiLabel(block));
-      mergeDaWithSameNumLines(groupDuplicateSuffixLines(lines)).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
+      out.push(compactMultiSourceLabel(block));
+      mergePairWithSameValueLines(groupDuplicateSuffixLines(lines)).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
       out.push("");
     }
     return out.join("\n").trim();
@@ -1551,31 +1567,31 @@ function buildTach(blocks){
   };
 }
 
-function mapDaiName(line){
+function mapSourceName(line){
   const c = cleanName(line);
-  for(const [k,v] of Object.entries(NAME_MAP)){
+  for(const [k,v] of Object.entries(SOURCE_ALIAS_MAP)){
     if(cleanName(k)===c) return v;
   }
   return null;
 }
-function findDaiInLine(line){
-  const exact = mapDaiName(line);
+function findSourceInLine(line){
+  const exact = mapSourceName(line);
   if(exact) return exact;
 
   const c = " " + cleanName(line) + " ";
-  const entries = Object.entries(NAME_MAP).sort((a,b)=>cleanName(b[0]).length-cleanName(a[0]).length);
+  const entries = Object.entries(SOURCE_ALIAS_MAP).sort((a,b)=>cleanName(b[0]).length-cleanName(a[0]).length);
   for(const [k,v] of entries){
     const kk = " " + cleanName(k) + " ";
     if(c.includes(kk)) return v;
   }
   return null;
 }
-function normalizeResultNumBySection(n, section, region){
+function normalizeReferenceValueBySection(n, section, region){
   let x = String(n || "").replace(/\D/g, "");
   if(!x) return "";
 
-  // Khi copy kết quả, các số có 0 đầu thường bị rút gọn.
-  // Chuẩn hóa lại đúng độ dài theo giải để tạo vùng XC/DD chính xác.
+  // Khi copy tham chiếu, các số có 0 đầu thường bị rút gọn.
+  // Chuẩn hóa lại đúng độ dài theo nhóm để tạo vùng đối chiếu chính xác.
   if(region === "HN"){
     if(section === "g6" && x.length < 3) x = x.padStart(3, "0");
     if(section === "g7" && x.length < 2) x = x.padStart(2, "0");
@@ -1586,7 +1602,7 @@ function normalizeResultNumBySection(n, section, region){
   return x;
 }
 
-function detectPrizeSection(line){
+function detectLegacyGroupSection(line){
   const raw = String(line || "");
   const norm = raw.toLowerCase()
     .replace(/đ/g, "d")
@@ -1609,8 +1625,9 @@ function detectPrizeSection(line){
   for(const [name, re] of patterns){
     if(!re.test(norm)) continue;
 
-    // Cắt phần nhãn giải ở đầu dòng, giữ lại phần số phía sau.
+    // Cắt nhãn nhóm ở đầu dòng và giữ phần dữ liệu phía sau.
     // Không dựa vào \b unicode để tránh lỗi với dấu tiếng Việt.
+    // Lớp tương thích: nhận các nhãn nhóm của dữ liệu cũ, sau đó chuyển sang vùng trung tính.
     const m = raw.match(/^\s*(?:giải|giai|g)?\s*(?:đb|db|đặc\s*biệt|dac\s*biet|nhất|nhat|nhì|nhi|ba|tư|tu|năm|nam|sáu|sau|bảy|bay|tám|tam|[1-8])\s*[\.\:\-\t ]*/i);
     const rest = m ? raw.slice(m[0].length) : raw;
     return {section:name, rest};
@@ -1618,19 +1635,19 @@ function detectPrizeSection(line){
   return {section:"", rest:raw};
 }
 
-function isResultMetaLine(line){
+function isReferenceMetaLine(line){
   const s = String(line || "").trim();
   if(!s) return true;
   if(/^kết\s*quả/i.test(s) || /^ket\s*qua/i.test(s)) return true;
   if(/^hà\s*nội$/i.test(s) || /^ha\s*noi$/i.test(s) || /^hn$/i.test(s)) return true;
-  // Không đưa ngày/giờ hoặc dòng mã kỳ vào atomic kết quả.
+  // Không đưa ngày/giờ hoặc dòng mã kỳ vào atomic tham chiếu.
   if(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/.test(s)) return true;
   if(/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(s)) return true;
   if(/\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s)) return true;
   return false;
 }
 
-function shapeResultRecord(dai, numsRaw, position={}){
+function shapeReferenceRecord(source, numsRaw, position={}){
   const nums = (numsRaw || []).filter(Boolean).map(x=>String(x));
   const firstByLen = len => nums.find(n => String(n).length >= len) || "";
   const lastByLen = len => nums.slice().reverse().find(n => String(n).length >= len) || "";
@@ -1644,82 +1661,87 @@ function shapeResultRecord(dai, numsRaw, position={}){
   const rec = {
     full: nums,
 
-    // Bao = toàn bộ giải theo độ dài cần xét.
-    bao2: nums.map(n=>n.slice(-2)),
-    bao3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
-    bao4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
+    // Nhóm cuối = toàn bộ giá trị theo độ dài cần xét.
+    suffix2: nums.map(n=>n.slice(-2)),
+    suffix3: nums.filter(n=>n.length>=3).map(n=>n.slice(-3)),
+    suffix4: nums.filter(n=>n.length>=4).map(n=>n.slice(-4)),
 
-    // Mặc định khi chưa có nhãn giải rõ ràng.
-    dau2: first2 ? [first2.slice(-2)] : [],
-    duoi2: last2 ? [last2.slice(-2)] : [],
-    dau3: first3 ? [first3.slice(-3)] : [],
-    duoi3: last3 ? [last3.slice(-3)] : [],
-    dau4: first4 ? [first4.slice(-4)] : [],
-    duoi4: last4 ? [last4.slice(-4)] : []
+    // Mặc định khi chưa có nhãn nhóm rõ ràng.
+    leading2: first2 ? [first2.slice(-2)] : [],
+    trailing2: last2 ? [last2.slice(-2)] : [],
+    leading3: first3 ? [first3.slice(-3)] : [],
+    trailing3: last3 ? [last3.slice(-3)] : [],
+    leading4: first4 ? [first4.slice(-4)] : [],
+    trailing4: last4 ? [last4.slice(-4)] : []
   };
 
-  // Nếu parser đã biết vị trí giải thật thì dùng vị trí đó để xét dau/duoi/xc.
-  if(position.dau2) rec.dau2 = position.dau2.slice();
-  if(position.duoi2) rec.duoi2 = position.duoi2.slice();
-  if(position.dau3) rec.dau3 = position.dau3.slice();
-  if(position.duoi3) rec.duoi3 = position.duoi3.slice();
-  if(position.dau4) rec.dau4 = position.dau4.slice();
-  if(position.duoi4) rec.duoi4 = position.duoi4.slice();
+  // Khi parser đã biết vị trí nhóm, dùng đúng vùng đó để đối chiếu.
+  if(position.leading2) rec.leading2 = position.leading2.slice();
+  if(position.trailing2) rec.trailing2 = position.trailing2.slice();
+  if(position.leading3) rec.leading3 = position.leading3.slice();
+  if(position.trailing3) rec.trailing3 = position.trailing3.slice();
+  if(position.leading4) rec.leading4 = position.leading4.slice();
+  if(position.trailing4) rec.trailing4 = position.trailing4.slice();
 
-  // Vùng vùng 3 ký tự riêng. Không xét XC bằng bao3 chung.
-  rec.xc3 = position.xc3 ? position.xc3.slice() : rec.dau3.concat(rec.duoi3);
+  // Vùng vùng 3 ký tự riêng. Không xét XC bằng suffix3 chung.
+  rec.edge3 = position.edge3 ? position.edge3.slice() : rec.leading3.concat(rec.trailing3);
 
   // Alias cũ để không làm gãy các phần đang đúng.
-  rec.all2 = rec.bao2;
-  rec.all3 = rec.bao3;
-  rec.all4 = rec.bao4;
+  rec.all2 = rec.suffix2;
+  rec.all3 = rec.suffix3;
+  rec.all4 = rec.suffix4;
   return rec;
 }
 
-function buildPositionFromSections(sections, region){
+function buildReferenceZonesFromSections(sections, region, sectionOrder=[]){
   const db = (sections.db || [])[0] || "";
   const db2 = db ? [db.slice(-2)] : [];
   const db3 = db ? [db.slice(-3)] : [];
   const db4 = db ? [db.slice(-4)] : [];
 
   if(region === "HN"){
-    const g6 = (sections.g6 || []).map(n=>String(n).slice(-3));
-    const g7 = (sections.g7 || []).map(n=>String(n).slice(-2));
+    const group3BeforeLeading2 = (sections.g6 || []).slice(0,3).map(value=>String(value).padStart(3,"0").slice(-3));
+    const leading2Group = (sections.g7 || []).map(value=>String(value).padStart(2,"0").slice(-2));
+    const g6Index = sectionOrder.lastIndexOf("g6");
+    const g7Index = sectionOrder.indexOf("g7", g6Index + 1);
+    const labelsAreAdjacent = g6Index >= 0 && g7Index === g6Index + 1;
+    const hasAdjacentPair = labelsAreAdjacent && group3BeforeLeading2.length === 3 && leading2Group.length > 0;
+    const leading3Group = hasAdjacentPair ? group3BeforeLeading2 : [];
     return {
-      // HN: đầu 2 số = giải bảy; đuôi 2 số = 2 số cuối ĐB.
-      dau2:g7,
-      duoi2:db2,
-      // HN: xcdau = giải sáu; xcduoi = 3 số cuối ĐB.
-      dau3:g6,
-      duoi3:db3,
-      dau4:db4,
-      duoi4:db4,
-      xc3:g6.concat(db3)
+      // Vùng C: nhóm đầu 3 ký tự chỉ hợp lệ khi có đúng 3 phần tử
+      // và nằm sát ngay trước nhóm đầu 2 ký tự trong cấu trúc tham chiếu.
+      leading2:hasAdjacentPair ? leading2Group : [],
+      trailing2:db2,
+      leading3:leading3Group,
+      trailing3:db3,
+      leading4:db4,
+      trailing4:db4,
+      edge3:leading3Group.concat(db3)
     };
   }
 
   const g8 = (sections.g8 || []).map(n=>String(n).slice(-2));
   const g7 = (sections.g7 || []).map(n=>String(n).slice(-3));
   return {
-    // MN/MT: đầu 2 số = giải tám; đuôi 2 số = 2 số cuối ĐB.
-    dau2:g8,
-    duoi2:db2,
-    // MN/MT: xcdau = giải bảy; xcduoi = 3 số cuối ĐB.
-    dau3:g7,
-    duoi3:db3,
-    dau4:db4,
-    duoi4:db4,
-    xc3:g7.concat(db3)
+    // Vùng A/B: nhóm đầu 2 ký tự lấy từ nhóm cuối cùng; nhóm cuối chuẩn lấy từ nhóm đặc biệt.
+    leading2:g8,
+    trailing2:db2,
+    // Vùng A/B: nhóm đầu 3 ký tự lấy từ nhóm liền trước; nhóm cuối chuẩn lấy 3 ký tự cuối của nhóm đặc biệt.
+    leading3:g7,
+    trailing3:db3,
+    leading4:db4,
+    trailing4:db4,
+    edge3:g7.concat(db3)
   };
 }
 
-function collectLooseResultNums(text){
+function collectLooseReferenceValues(text){
   const out = [];
   const lines = (text || "").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   for(const raw of lines){
-    if(isResultMetaLine(raw)) continue;
-    if(findDaiInLine(raw)) continue;
-    const detected = detectPrizeSection(raw);
+    if(isReferenceMetaLine(raw)) continue;
+    if(findSourceInLine(raw)) continue;
+    const detected = detectLegacyGroupSection(raw);
     const line = detected && detected.section ? detected.rest : raw;
     const nums = line.match(/\d+/g) || [];
     nums.forEach(n=>{
@@ -1730,84 +1752,121 @@ function collectLooseResultNums(text){
   return out;
 }
 
-function shapeHnLooseResultByOrder(numsRaw){
-  const raw = (numsRaw || []).map(n=>String(n || "").replace(/\D/g, "")).filter(Boolean);
+function resolveRegionCAdjacentZonesFromLooseOrder(valuesRaw){
+  const values = (valuesRaw || []).map(value=>String(value || "").replace(/\D/g, "")).filter(Boolean);
+  if(values.length < 4) return null;
+
+  // Vùng đầu 2 ký tự là nhóm 1–4 phần tử 1/2 chữ số ở cuối dữ liệu.
+  // Vùng đầu 3 ký tự phải là đúng 3 phần tử đứng sát ngay trước nhóm đó.
+  let leading2Start = -1;
+  const scanFrom = Math.max(3, values.length - 7);
+  for(let index=scanFrom; index<values.length; index++){
+    const suffix = values.slice(index);
+    if(suffix.length < 1 || suffix.length > 4) continue;
+    if(suffix.every(value=>value.length <= 2)){
+      leading2Start = index;
+      break;
+    }
+  }
+  if(leading2Start < 3) return null;
+
+  const leading3Raw = values.slice(leading2Start - 3, leading2Start);
+  const leading2Raw = values.slice(leading2Start);
+  if(leading3Raw.length !== 3 || !leading2Raw.length) return null;
+
+  return {
+    leading3:leading3Raw.map(value=>value.padStart(3, "0").slice(-3)),
+    leading2:leading2Raw.map(value=>value.padStart(2, "0").slice(-2)),
+    leading2Start
+  };
+}
+
+function shapeRegionCLooseReferenceByOrder(valuesRaw){
+  const raw = (valuesRaw || []).map(value=>String(value || "").replace(/\D/g, "")).filter(Boolean);
   if(!raw.length) return {};
 
-  // HN không nhãn giải nhưng dán đủ theo thứ tự chuẩn:
-  // ĐB(1), G1(1), G2(2), G3(6), G4(4), G5(6), G6(3), G7(4).
-  // XC đầu HN phải lấy G6; XC đuôi lấy 3 số cuối ĐB.
-  if(raw.length >= 23){
-    const sec = {db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[],g8:[]};
-    sec.db = raw.slice(0,1).map(n=>normalizeResultNumBySection(n,"db","HN"));
-    sec.g1 = raw.slice(1,2).map(n=>normalizeResultNumBySection(n,"g1","HN"));
-    sec.g2 = raw.slice(2,4).map(n=>normalizeResultNumBySection(n,"g2","HN"));
-    sec.g3 = raw.slice(4,10).map(n=>normalizeResultNumBySection(n,"g3","HN"));
-    sec.g4 = raw.slice(10,14).map(n=>normalizeResultNumBySection(n,"g4","HN"));
-    sec.g5 = raw.slice(14,20).map(n=>normalizeResultNumBySection(n,"g5","HN"));
-    sec.g6 = raw.slice(20,23).map(n=>normalizeResultNumBySection(n,"g6","HN"));
-    sec.g7 = raw.slice(23,27).map(n=>normalizeResultNumBySection(n,"g7","HN"));
-    const ordered = [].concat(sec.db, sec.g1, sec.g2, sec.g3, sec.g4, sec.g5, sec.g6, sec.g7).filter(Boolean);
-    return { HN: shapeResultRecord("HN", ordered, buildPositionFromSections(sec, "HN")) };
+  const adjacent = resolveRegionCAdjacentZonesFromLooseOrder(raw);
+  if(adjacent){
+    const normalized = raw.map((value,index)=>{
+      if(index >= adjacent.leading2Start) return value.padStart(2, "0").slice(-2);
+      if(index >= adjacent.leading2Start - 3) return value.padStart(3, "0").slice(-3);
+      return value;
+    });
+    const special = normalized[0] || "";
+    const position = {
+      leading2:adjacent.leading2,
+      trailing2:special ? [special.slice(-2)] : [],
+      leading3:adjacent.leading3,
+      trailing3:special ? [special.slice(-3)] : [],
+      leading4:special ? [special.slice(-4)] : [],
+      trailing4:special ? [special.slice(-4)] : [],
+      edge3:adjacent.leading3.concat(special ? [special.slice(-3)] : [])
+    };
+    return { HN: shapeReferenceRecord("HN", normalized, position) };
   }
 
-  // Fallback cuối cùng: không đủ cấu trúc thì vẫn tạo bao theo dữ liệu thô, nhưng không được dùng để kết luận sai XC.
-  const cleaned = raw.filter(n => n.length >= 2);
+  // Không có cặp nhóm liền kề rõ ràng thì chỉ tạo vùng hậu tố chung,
+  // không tự suy đoán vùng đầu 3 ký tự để tránh đối chiếu sai.
+  const cleaned = raw.filter(value => value.length >= 2);
   if(!cleaned.length) return {};
-  return { HN: shapeResultRecord("HN", cleaned) };
+  return { HN: shapeReferenceRecord("HN", cleaned, {leading3:[], leading2:[], edge3:[]}) };
 }
 
-function parseHnResultText(text){
-  const parsed = parseStructuredResultText(text, "HN", "HN");
+function parseRegionCReferenceText(text){
+  const parsed = parseStructuredReferenceText(text, "HN", "HN");
   if(parsed && parsed.HN && parsed.HN.full && parsed.HN.full.length) return parsed;
 
-  // Nếu HN dán dạng chỉ có số, suy luận vị trí theo thứ tự giải HN chuẩn.
+  // Nếu Vùng C chỉ có dữ liệu rời, xác định vùng theo thứ tự nhóm chuẩn.
   // Lỗi cũ: fallback lấy xcdau = số 3 chữ số đầu tiên và xcduoi = số 3 chữ số cuối,
-  // nên 707 ở Giải 6 bị rơi khỏi vùng XC dù bao3 vẫn có 707.
-  const nums = collectLooseResultNums(text);
-  return shapeHnLooseResultByOrder(nums);
+  // nên một phần tử thuộc nhóm đầu 3 ký tự có thể bị bỏ sót khỏi vùng đối chiếu.
+  const nums = collectLooseReferenceValues(text);
+  return shapeRegionCLooseReferenceByOrder(nums);
 }
 
-function parseStructuredResultText(text, region, fallbackDai=""){
+function parseStructuredReferenceText(text, region, fallbackSource=""){
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={};
-  const sectionsByDai={};
-  const sectionCurByDai={};
-  let cur = fallbackDai || null;
+  const sectionsBySource={};
+  const sectionCurrentBySource={};
+  const sectionOrderBySource={};
+  let cur = fallbackSource || null;
   let sawPrizeLabel=false;
 
-  const ensure = dai => {
-    if(!dai) return;
-    if(!out[dai]) out[dai]=[];
-    if(!sectionsByDai[dai]) sectionsByDai[dai]={db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[],g8:[]};
+  const ensure = source => {
+    if(!source) return;
+    if(!out[source]) out[source]=[];
+    if(!sectionsBySource[source]) sectionsBySource[source]={db:[],g1:[],g2:[],g3:[],g4:[],g5:[],g6:[],g7:[],g8:[]};
+    if(!sectionOrderBySource[source]) sectionOrderBySource[source]=[];
   };
 
   if(cur) ensure(cur);
 
   for(const raw of lines){
-    if(isResultMetaLine(raw)) continue;
+    if(isReferenceMetaLine(raw)) continue;
 
-    const dai = findDaiInLine(raw);
-    if(dai){
-      cur = dai;
+    const source = findSourceInLine(raw);
+    if(source){
+      cur = source;
       ensure(cur);
-      // Dòng tên vùng chỉ đổi vùng vùng, không lấy số ngày/giờ/mã trong dòng này.
+      // Dòng tên nguồn chỉ đổi vùng vùng, không lấy số ngày/giờ/mã trong dòng này.
       continue;
     }
 
     if(!cur) continue;
     ensure(cur);
 
-    const detected = detectPrizeSection(raw);
+    const detected = detectLegacyGroupSection(raw);
     let line = raw;
     let section = "";
     if(detected.section){
       section = detected.section;
-      sectionCurByDai[cur] = section;
+      sectionCurrentBySource[cur] = section;
+      const order = sectionOrderBySource[cur] || (sectionOrderBySource[cur] = []);
+      if(order[order.length - 1] !== section) order.push(section);
       sawPrizeLabel = true;
       line = detected.rest;
     }else{
-      section = sectionCurByDai[cur] || "";
+      section = sectionCurrentBySource[cur] || "";
     }
 
     const nums = line.match(/\d+/g) || [];
@@ -1815,9 +1874,9 @@ function parseStructuredResultText(text, region, fallbackDai=""){
 
     if(section){
       nums.forEach(n=>{
-        const x = normalizeResultNumBySection(n, section, region);
+        const x = normalizeReferenceValueBySection(n, section, region);
         if(!x || x.length < 2) return;
-        sectionsByDai[cur][section].push(x);
+        sectionsBySource[cur][section].push(x);
         out[cur].push(x);
       });
     }else{
@@ -1828,35 +1887,37 @@ function parseStructuredResultText(text, region, fallbackDai=""){
   if(!sawPrizeLabel) return null;
 
   const shaped={};
-  for(const [dai, numsRaw] of Object.entries(out)){
-    shaped[dai] = shapeResultRecord(dai, numsRaw, buildPositionFromSections(sectionsByDai[dai] || {}, region));
+  for(const [source, numsRaw] of Object.entries(out)){
+    shaped[source] = shapeReferenceRecord(source, numsRaw, buildReferenceZonesFromSections(
+      sectionsBySource[source] || {}, region, sectionOrderBySource[source] || []
+    ));
   }
   return shaped;
 }
 
-function parseResultText(text, fallbackDai="", regionHint=""){
-  const region = regionHint || (fallbackDai === "HN" ? "HN" : "MN");
+function parseReferenceText(text, fallbackSource="", regionHint=""){
+  const region = regionHint || (fallbackSource === "HN" ? "HN" : "MN");
 
-  if(fallbackDai === "HN"){
-    const hn = parseHnResultText(text);
+  if(fallbackSource === "HN"){
+    const hn = parseRegionCReferenceText(text);
     if(hn && hn.HN && hn.HN.full && hn.HN.full.length) return hn;
   }
 
-  const structured = parseStructuredResultText(text, region, fallbackDai);
+  const structured = parseStructuredReferenceText(text, region, fallbackSource);
   if(structured && Object.keys(structured).length) return structured;
 
   const lines=(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const out={}; let cur=null;
 
   for(const line of lines){
-    const dai=findDaiInLine(line);
-    if(dai){
-      cur=dai;
+    const source=findSourceInLine(line);
+    if(source){
+      cur=source;
       if(!out[cur]) out[cur]=[];
       continue;
     }
 
-    if(isResultMetaLine(line)) continue;
+    if(isReferenceMetaLine(line)) continue;
 
     const nums=line.match(/\d+/g);
     if(nums && cur){
@@ -1864,93 +1925,93 @@ function parseResultText(text, fallbackDai="", regionHint=""){
     }
   }
 
-  if(!Object.keys(out).length && fallbackDai){
+  if(!Object.keys(out).length && fallbackSource){
     const nums = (text || "").match(/\d+/g) || [];
     const cleaned = nums.filter(n => n.length >= 2);
-    if(cleaned.length) out[fallbackDai] = cleaned;
+    if(cleaned.length) out[fallbackSource] = cleaned;
   }
 
   const shaped={};
-  for(const [dai, numsRaw] of Object.entries(out)){
-    shaped[dai] = shapeResultRecord(dai, numsRaw);
+  for(const [source, numsRaw] of Object.entries(out)){
+    shaped[source] = shapeReferenceRecord(source, numsRaw);
   }
   return shaped;
 }
 function syncActiveRegionDataBuffer(){
-  // Lỗi cũ: app chỉ đọc kqMn/kqMt/kqHn, còn ô đang dán trên overlay là activeResultData.
-  // Nếu chưa kịp bấm Lưu hoặc debounce chưa chạy, runAll sẽ xét bằng vùng kết quả rỗng.
+  // Lỗi cũ: app chỉ đọc referenceA/referenceB/referenceC, còn ô đang dán trên overlay là activeReferenceData.
+  // Nếu chưa kịp bấm Lưu hoặc debounce chưa chạy, runAll sẽ xét bằng vùng tham chiếu rỗng.
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
   const ids = regionRelatedIds(activeWorkspace);
-  const activeResult = val("activeResultData");
-  const activeXoa = val("activeXoaData");
-  if(activeResult.trim()) setVal(ids.result, activeResult);
-  if(activeXoa.trim()) setVal(ids.xoa, activeXoa);
+  const activeReference = val("activeReferenceData");
+  const activeExclusion = val("activeExclusionData");
+  if(activeReference.trim()) setVal(ids.reference, activeReference);
+  if(activeExclusion.trim()) setVal(ids.exclusion, activeExclusion);
 }
-function resultRegionHasData(obj, region){
+function referenceRegionHasData(obj, region){
   return !!(obj && obj[region] && Object.keys(obj[region]).length);
 }
-function parseAllResults(rows){
+function parseAllReferences(rows){
   syncActiveRegionDataBuffer();
 
   const obj = {
-    MN:parseResultText(val("kqMn"), "", "MN"),
-    MT:parseResultText(val("kqMt"), "", "MT"),
-    HN:parseResultText(val("kqHn"), "HN", "HN")
+    MN:parseReferenceText(val("referenceA"), "", "MN"),
+    MT:parseReferenceText(val("referenceB"), "", "MT"),
+    HN:parseReferenceText(val("referenceC"), "HN", "HN")
   };
 
-  // Fallback theo atomic đang xét: nếu tin là HN nhưng kqHn rỗng,
-  // lấy ngay dữ liệu đang nằm trong ô Kết quả đang mở để tạo vùng HN.
-  const activeText = val("activeResultData").trim();
+  // Fallback theo atomic đang xét: nếu tin là HN nhưng referenceC rỗng,
+  // lấy ngay dữ liệu đang nằm trong ô Tham chiếu đang mở để tạo vùng HN.
+  const activeText = val("activeReferenceData").trim();
   const needRegions = new Set((rows || []).map(r => r.region).filter(Boolean));
   if(activeText){
     for(const region of needRegions){
-      if(resultRegionHasData(obj, region)) continue;
-      const fallbackDai = region === "HN" ? "HN" : "";
-      const parsed = parseResultText(activeText, fallbackDai, region);
+      if(referenceRegionHasData(obj, region)) continue;
+      const fallbackSource = region === "HN" ? "HN" : "";
+      const parsed = parseReferenceText(activeText, fallbackSource, region);
       if(parsed && Object.keys(parsed).length) obj[region] = parsed;
     }
   }
   return obj;
 }
-function renderParsedResults(obj){
+function renderParsedReferences(obj){
   const lines=[];
   for(const region of ["MN","MT","HN"]){
     const data=obj[region];
     if(!data || !Object.keys(data).length) continue;
-    lines.push(region);
-    for(const [dai,r] of Object.entries(data)){
-      lines.push(dai);
-      lines.push("Đầy đủ: "+r.full.join("."));
-      lines.push("Bao 2 số: "+r.bao2.join("."));
-      lines.push("Đầu 2 số: "+r.dau2.join("."));
-      lines.push("Đuôi 2 số: "+r.duoi2.join("."));
-      lines.push("Bao 3 số: "+r.bao3.join("."));
-      lines.push("Đầu 3 số: "+r.dau3.join("."));
-      lines.push("Đuôi 3 số: "+r.duoi3.join("."));
-      lines.push("XC 3 số: "+(r.xc3 || []).join("."));
-      lines.push("Bao 4 số: "+r.bao4.join("."));
-      lines.push("Đầu 4 số: "+r.dau4.join("."));
-      lines.push("Đuôi 4 số: "+r.duoi4.join("."));
+    lines.push("Vùng " + regionDisplayCode(region));
+    for(const [source,r] of Object.entries(data)){
+      lines.push(source);
+      lines.push("Toàn bộ: "+r.full.join("."));
+      lines.push("Nhóm cuối 2 ký tự: "+r.suffix2.join("."));
+      lines.push("Nhóm đầu 2 ký tự: "+r.leading2.join("."));
+      lines.push("Nhóm cuối chuẩn 2 ký tự: "+r.trailing2.join("."));
+      lines.push("Nhóm cuối 3 ký tự: "+r.suffix3.join("."));
+      lines.push("Nhóm đầu 3 ký tự: "+r.leading3.join("."));
+      lines.push("Nhóm cuối chuẩn 3 ký tự: "+r.trailing3.join("."));
+      lines.push("Nhóm biên 3 ký tự: "+(r.edge3 || []).join("."));
+      lines.push("Nhóm cuối 4 ký tự: "+r.suffix4.join("."));
+      lines.push("Nhóm đầu 4 ký tự: "+r.leading4.join("."));
+      lines.push("Nhóm cuối chuẩn 4 ký tự: "+r.trailing4.join("."));
       lines.push("");
     }
   }
-  setVal("parsedResults", lines.join("\n").trim());
+  setVal("parsedReference", lines.join("\n").trim());
 }
-function parseResultsOnly(){
-  renderParsedResults(parseAllResults());
+function parseReferencesOnly(){
+  renderParsedReferences(parseAllReferences());
 }
 
 
-function hasAnyResults(results){
-  return ["MN","MT","HN"].some(region => results && results[region] && Object.keys(results[region]).length);
+function hasAnyReferences(references){
+  return ["MN","MT","HN"].some(region => references && references[region] && Object.keys(references[region]).length);
 }
-function resultFor(results, region, dai){
-  if(!results || !dai) return null;
+function referenceFor(references, region, source){
+  if(!references || !source) return null;
   const r = region || "MN";
-  if(results[r] && results[r][dai]) return results[r][dai];
-  if(results.MN && results.MN[dai]) return results.MN[dai];
-  if(results.MT && results.MT[dai]) return results.MT[dai];
-  if(results.HN && results.HN[dai]) return results.HN[dai];
+  if(references[r] && references[r][source]) return references[r][source];
+  if(references.MN && references.MN[source]) return references.MN[source];
+  if(references.MT && references.MT[source]) return references.MT[source];
+  if(references.HN && references.HN[source]) return references.HN[source];
   return null;
 }
 function countExact(arr, num){
@@ -1967,103 +2028,103 @@ function countPerm(arr, num){
   const s = String(num || "");
   return (arr || []).filter(x => isPermOf(x,s)).length;
 }
-function winCoefForRow(row){
+function matchWeightForRow(row){
   const t = row.type;
   const num = row.nums && row.nums[0] ? String(row.nums[0]) : "";
   const len = num.length;
   if(t === "da"){
-    const dc = row.daiCount || 1;
-    if((row.region || "MN") === "HN") return getNum("coefDaHN",650);
-    return dc >= 2 ? getNum("coefDa2",550) : getNum("coefDa1",750);
+    const dc = row.sourceCount || 1;
+    if((row.region || "MN") === "HN") return getNum("weightPairRegionC",650);
+    return dc >= 2 ? getNum("weightPair2Sources",550) : getNum("weightPair1Source",750);
   }
   if(t === "b" || t === "bdao"){
-    if(len === 2) return getNum("coef2",75);
-    if(len === 3) return getNum("coef3",630);
-    if(len === 4) return getNum("coef4",5500);
+    if(len === 2) return getNum("weightLength2",75);
+    if(len === 3) return getNum("weightLength3",630);
+    if(len === 4) return getNum("weightLength4",5500);
   }
-  if(t === "dd" || t === "dau" || t === "duoi") return getNum("coef2",75);
-  if(t === "xc" || t === "xcdau" || t === "xcduoi" || t === "xcdao") return getNum("coef3",630);
+  if(t === "dd" || t === "dau" || t === "duoi") return getNum("weightLength2",75);
+  if(t === "xc" || t === "xcdau" || t === "xcduoi" || t === "xcdao") return getNum("weightLength3",630);
   return 0;
 }
-function calcWinRow(row, results){
-  if(!row || !row.calc || !hasAnyResults(results)) return null;
+function evaluateRowMatch(row, references){
+  if(!row || !row.calc || !hasAnyReferences(references)) return null;
 
   const t = row.type;
   const nums = row.nums || [];
   const n = Number(row.n || 0);
   const region = row.region || "MN";
-  const dais = getDaisFromName(row.block);
+  const sources = getSourcesFromName(row.block);
   let hit = 0;
 
   if(t === "da"){
     if(nums.length < 2) return null;
     const a = nums[0], b = nums[1];
 
-    if((row.daiCount || 1) >= 2 && dais.length >= 2){
-      const r1 = resultFor(results, region, dais[0]);
-      const r2 = resultFor(results, region, dais[1]);
+    if((row.sourceCount || 1) >= 2 && sources.length >= 2){
+      const r1 = referenceFor(references, region, sources[0]);
+      const r2 = referenceFor(references, region, sources[1]);
       if(!r1 || !r2) return null;
 
       // DA/DV tính theo cặp, không nhân chéo.
       // Hit 2 vùng = min(A vùng 1, B vùng 2) + min(B vùng 1, A vùng 2).
-      const c1a = countExact(r1.bao2, a);
-      const c2b = countExact(r2.bao2, b);
-      const c1b = countExact(r1.bao2, b);
-      const c2a = countExact(r2.bao2, a);
+      const c1a = countExact(r1.suffix2, a);
+      const c2b = countExact(r2.suffix2, b);
+      const c1b = countExact(r1.suffix2, b);
+      const c2a = countExact(r2.suffix2, a);
       const ab = Math.min(c1a, c2b);
       const ba = (a === b) ? 0 : Math.min(c1b, c2a);
       hit = ab + ba;
     }else{
-      const r = resultFor(results, region, dais[0]);
+      const r = referenceFor(references, region, sources[0]);
       if(!r) return null;
-      const ca = countExact(r.bao2, a);
-      const cb = countExact(r.bao2, b);
+      const ca = countExact(r.suffix2, a);
+      const cb = countExact(r.suffix2, b);
 
       // DA/DV 1 vùng = min(A,B), không A*B.
       hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
     }
 
   }else{
-    const dai = dais[0];
-    const r = resultFor(results, region, dai);
+    const source = sources[0];
+    const r = referenceFor(references, region, source);
     if(!r) return null;
 
     const num = nums[0] || "";
     const len = String(num).length;
 
     if(t === "b"){
-      if(len === 2) hit = countExact(r.bao2, num);
-      else if(len === 3) hit = countExact(r.bao3, num);
-      else if(len === 4) hit = countExact(r.bao4, num);
+      if(len === 2) hit = countExact(r.suffix2, num);
+      else if(len === 3) hit = countExact(r.suffix3, num);
+      else if(len === 4) hit = countExact(r.suffix4, num);
 
     }else if(t === "bdao"){
-      if(len === 3) hit = countPerm(r.bao3, num);
-      else if(len === 4) hit = countPerm(r.bao4, num);
+      if(len === 3) hit = countPerm(r.suffix3, num);
+      else if(len === 4) hit = countPerm(r.suffix4, num);
 
     }else if(t === "dd"){
-      hit = countExact(r.dau2, num) + countExact(r.duoi2, num);
+      hit = countExact(r.leading2, num) + countExact(r.trailing2, num);
 
     }else if(t === "dau"){
-      hit = countExact(r.dau2, num);
+      hit = countExact(r.leading2, num);
 
     }else if(t === "duoi"){
-      hit = countExact(r.duoi2, num);
+      hit = countExact(r.trailing2, num);
 
     }else if(t === "xc"){
-      hit = r.xc3 ? countExact(r.xc3, num) : (countExact(r.dau3, num) + countExact(r.duoi3, num));
+      hit = r.edge3 ? countExact(r.edge3, num) : (countExact(r.leading3, num) + countExact(r.trailing3, num));
 
     }else if(t === "xcdau"){
-      hit = countExact(r.dau3, num);
+      hit = countExact(r.leading3, num);
 
     }else if(t === "xcduoi"){
-      hit = countExact(r.duoi3, num);
+      hit = countExact(r.trailing3, num);
 
     }else if(t === "xcdao"){
-      hit = countPerm(r.dau3, num) + countPerm(r.duoi3, num);
+      hit = countPerm(r.leading3, num) + countPerm(r.trailing3, num);
     }
   }
 
-  const coef = winCoefForRow(row);
+  const coef = matchWeightForRow(row);
   if(!hit || !coef || !n) return null;
   return {
     block: row.block,
@@ -2073,11 +2134,11 @@ function calcWinRow(row, results){
     coef
   };
 }
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   let total = 0;
   for(const row of rows || []){
-    const w = calcWinRow(row, results);
+    const w = evaluateRowMatch(row, references);
     if(w && w.amount > 0){
       items.push(w);
       total += w.amount;
@@ -2085,13 +2146,13 @@ function calcWinners(rows, results){
   }
   return {items,total};
 }
-function buildWinReport(pack){
+function buildMatchReport(pack){
   const items = pack && pack.items ? pack.items : [];
   if(!items.length) return "";
   const blockGroups = {};
   const blockOrder = [];
   const groupableTypes = new Set(["b","bdao","xc","xcdao","xcdau","xcduoi","dd","dau","duoi"]);
-  const parseWinLine = (line)=>{
+  const parseMatchLine = (line)=>{
     const s = String(line || "");
     const da = s.match(/^(\d+)\.(\d+)da([\d,.]+)n$/i);
     if(da){
@@ -2107,7 +2168,7 @@ function buildWinReport(pack){
   };
   const addBlockGroup = (block)=>{
     if(!blockGroups[block]){
-      blockGroups[block] = {normal:{}, normalOrder:[], da:{}, daOrder:[], other:[]};
+      blockGroups[block] = {normal:{}, normalOrder:[], da:{}, pairOrder:[], other:[]};
       blockOrder.push(block);
     }
     return blockGroups[block];
@@ -2115,7 +2176,7 @@ function buildWinReport(pack){
 
   for(const w of items){
     const group = addBlockGroup(w.block);
-    const parsed = parseWinLine(w.line);
+    const parsed = parseMatchLine(w.line);
     if(!parsed){
       group.other.push(`${w.line} ${money(w.amount)}`);
       continue;
@@ -2125,14 +2186,14 @@ function buildWinReport(pack){
       const key = parsed.nums.join(".");
       if(!group.da[key]){
         group.da[key] = {nums:parsed.nums, n:0, amount:0};
-        group.daOrder.push(key);
+        group.pairOrder.push(key);
       }
       group.da[key].n += parsed.n;
       group.da[key].amount += w.amount;
       continue;
     }
 
-    // Dòng đạt điều kiện từ bảng trung gian thường đã là 1 số/dòng. Nếu gặp nhiều số
+    // Dòng phù hợp từ bảng trung gian thường đã là 1 số/dòng. Nếu gặp nhiều số
     // trong cùng dòng thì chia giá trị đều để vẫn gom được mà không lệch tổng.
     const perNumAmount = w.amount / parsed.nums.length;
     for(const num of parsed.nums){
@@ -2174,9 +2235,9 @@ function buildWinReport(pack){
       lines.push(`${makeLine(nums, item.type, item.n)} ${money(item.amount)}`);
     }
 
-    for(const key of group.daOrder){
+    for(const key of group.pairOrder){
       const item = group.da[key];
-      lines.push(`${makeDaLine(item.nums[0], item.nums[1], item.n)} ${money(item.amount)}`);
+      lines.push(`${makePairLine(item.nums[0], item.nums[1], item.n)} ${money(item.amount)}`);
     }
 
     lines.push(...group.other);
@@ -2189,17 +2250,17 @@ function buildWinReport(pack){
 }
 
 
-// V0.5.63 - Atomic condition engine: kết quả -> vùng kết quả -> atomic -> ĐẠT ĐIỀU KIỆN / KHÔNG ĐẠT ĐIỀU KIỆN.
-// Không dùng nhánh gom công thức cũ để quyết định đạt điều kiện. Gom chỉ được làm sau khi atomic đã phân vùng đúng.
-function atomicWinEvaluateRow(row, results){
-  if(!row || !row.calc || !hasAnyResults(results)) return null;
+// V0.5.63 - Atomic condition engine: tham chiếu -> vùng tham chiếu -> atomic -> PHÙ HỢP / KHÔNG PHÙ HỢP.
+// Không dùng nhánh gom công thức cũ để quyết định phù hợp. Gom chỉ được làm sau khi atomic đã phân vùng đúng.
+function evaluateAtomicMatchRow(row, references){
+  if(!row || !row.calc || !hasAnyReferences(references)) return null;
 
   const t = row.type;
   const nums = row.nums || [];
   const n = Number(row.n || 0);
   const region = row.region || "MN";
-  const dais = getDaisFromName(row.block);
-  const coef = winCoefForRow(row);
+  const sources = getSourcesFromName(row.block);
+  const coef = matchWeightForRow(row);
   let hit = 0;
   let zone = "";
 
@@ -2210,56 +2271,56 @@ function atomicWinEvaluateRow(row, results){
   if(t === "da"){
     if(nums.length < 2) return {row, hit:0, amount:0, coef, zone:"da"};
     const a = nums[0], b = nums[1];
-    if((row.daiCount || 1) >= 2 && dais.length >= 2){
-      const r1 = resultFor(results, region, dais[0]);
-      const r2 = resultFor(results, region, dais[1]);
-      zone = "ghép cặp 2 vùng / bao2 chéo";
+    if((row.sourceCount || 1) >= 2 && sources.length >= 2){
+      const r1 = referenceFor(references, region, sources[0]);
+      const r2 = referenceFor(references, region, sources[1]);
+      zone = "ghép cặp 2 vùng / suffix2 chéo";
       if(!r1 || !r2) return {row, hit:0, amount:0, coef, zone};
-      const ab = Math.min(countExact(r1.bao2, a), countExact(r2.bao2, b));
-      const ba = (a === b) ? 0 : Math.min(countExact(r1.bao2, b), countExact(r2.bao2, a));
+      const ab = Math.min(countExact(r1.suffix2, a), countExact(r2.suffix2, b));
+      const ba = (a === b) ? 0 : Math.min(countExact(r1.suffix2, b), countExact(r2.suffix2, a));
       hit = ab + ba;
     }else{
-      const r = resultFor(results, region, dais[0]);
-      zone = "ghép cặp 1 vùng / bao2";
+      const r = referenceFor(references, region, sources[0]);
+      zone = "ghép cặp 1 vùng / suffix2";
       if(!r) return {row, hit:0, amount:0, coef, zone};
-      const ca = countExact(r.bao2, a);
-      const cb = countExact(r.bao2, b);
+      const ca = countExact(r.suffix2, a);
+      const cb = countExact(r.suffix2, b);
       hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
     }
   }else{
-    const dai = dais[0];
-    const r = resultFor(results, region, dai);
+    const source = sources[0];
+    const r = referenceFor(references, region, source);
     const num = nums[0] || "";
     const len = String(num).length;
-    if(!r) return {row, hit:0, amount:0, coef, zone:"thiếu kết quả"};
+    if(!r) return {row, hit:0, amount:0, coef, zone:"thiếu tham chiếu"};
 
     if(t === "b"){
-      if(len === 2){ hit = countExact(r.bao2, num); zone = "bao2"; }
-      else if(len === 3){ hit = countExact(r.bao3, num); zone = "bao3"; }
-      else if(len === 4){ hit = countExact(r.bao4, num); zone = "bao4"; }
+      if(len === 2){ hit = countExact(r.suffix2, num); zone = "suffix2"; }
+      else if(len === 3){ hit = countExact(r.suffix3, num); zone = "suffix3"; }
+      else if(len === 4){ hit = countExact(r.suffix4, num); zone = "suffix4"; }
     }else if(t === "bdao"){
-      if(len === 3){ hit = countPerm(r.bao3, num); zone = "bao3 đảo"; }
-      else if(len === 4){ hit = countPerm(r.bao4, num); zone = "bao4 đảo"; }
+      if(len === 3){ hit = countPerm(r.suffix3, num); zone = "suffix3 đảo"; }
+      else if(len === 4){ hit = countPerm(r.suffix4, num); zone = "suffix4 đảo"; }
     }else if(t === "dd"){
-      hit = countExact(r.dau2, num) + countExact(r.duoi2, num);
+      hit = countExact(r.leading2, num) + countExact(r.trailing2, num);
       zone = "đầu2 + đuôi2";
     }else if(t === "dau"){
-      hit = countExact(r.dau2, num);
+      hit = countExact(r.leading2, num);
       zone = "đầu2";
     }else if(t === "duoi"){
-      hit = countExact(r.duoi2, num);
+      hit = countExact(r.trailing2, num);
       zone = "đuôi2";
     }else if(t === "xc"){
-      hit = countExact(r.xc3 || [], num);
+      hit = countExact(r.edge3 || [], num);
       zone = "xc = xcdau + xcduoi";
     }else if(t === "xcdau"){
-      hit = countExact(r.dau3, num);
+      hit = countExact(r.leading3, num);
       zone = "xcdau";
     }else if(t === "xcduoi"){
-      hit = countExact(r.duoi3, num);
+      hit = countExact(r.trailing3, num);
       zone = "xcduoi";
     }else if(t === "xcdao"){
-      hit = countPerm(r.dau3, num) + countPerm(r.duoi3, num);
+      hit = countPerm(r.leading3, num) + countPerm(r.trailing3, num);
       zone = "xc đảo";
     }
   }
@@ -2268,14 +2329,14 @@ function atomicWinEvaluateRow(row, results){
   return {row, block:row.block, line:row.line, hit, coef, amount, zone};
 }
 
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   const misses = [];
   let total = 0;
-  if(!hasAnyResults(results)) return {items, misses, total};
+  if(!hasAnyReferences(references)) return {items, misses, total};
 
   for(const row of rows || []){
-    const ev = atomicWinEvaluateRow(row, results);
+    const ev = evaluateAtomicMatchRow(row, references);
     if(!ev) continue;
     if(ev.hit > 0 && ev.amount > 0){
       items.push({block:ev.block, line:ev.line, amount:ev.amount, hit:ev.hit, coef:ev.coef, zone:ev.zone, row:ev.row});
@@ -2306,10 +2367,10 @@ function buildAtomicSection(title, rows, showMoney){
     out.push(block);
     for(const item of groups[block]){
       if(showMoney){
-        const meta = item.zone ? ` [${item.zone}; lượt đạt=${item.hit}]` : "";
+        const meta = item.zone ? ` [${item.zone}; lượt khớp=${item.hit}]` : "";
         out.push(`${item.line} ${money(item.amount)}${meta}`);
       }else{
-        const meta = item.zone ? ` [${item.zone}; lượt đạt=0]` : "";
+        const meta = item.zone ? ` [${item.zone}; lượt khớp=0]` : "";
         out.push(`${item.line}${meta}`);
       }
     }
@@ -2318,18 +2379,18 @@ function buildAtomicSection(title, rows, showMoney){
   return out.join("\n").trim();
 }
 
-function buildWinReport(pack){
+function buildMatchReport(pack){
   const items = pack && pack.items ? pack.items : [];
   const misses = pack && pack.misses ? pack.misses : [];
   if(!items.length && !misses.length) return "";
   return [
-    buildAtomicSection("ĐẠT ĐIỀU KIỆN", items, true),
+    buildAtomicSection("PHÙ HỢP", items, true),
     "",
-    buildAtomicSection("KHÔNG ĐẠT ĐIỀU KIỆN", misses, false)
+    buildAtomicSection("KHÔNG PHÙ HỢP", misses, false)
   ].join("\n").trim();
 }
 
-function buildWinStepTrace(rows, results, pack){
+function buildMatchStepTrace(rows, references, pack){
   const lines = [];
   lines.push("KIỂM TRA ĐIỀU KIỆN TỪNG PHẦN TỬ");
   lines.push("");
@@ -2339,30 +2400,30 @@ function buildWinStepTrace(rows, results, pack){
     lines.push(`${r.region || ""} | ${r.block} | ${r.line} | type=${r.type} | n=${r.n}`);
   });
   lines.push("");
-  lines.push("B2. Vùng kết quả:");
+  lines.push("B2. Vùng tham chiếu:");
   ["MN","MT","HN"].forEach(region=>{
-    const data = results && results[region];
+    const data = references && references[region];
     if(!data || !Object.keys(data).length) return;
-    lines.push(region);
-    Object.entries(data).forEach(([dai,r])=>{
-      lines.push(`${dai} bao3=${(r.bao3||[]).join(".")}`);
-      lines.push(`${dai} xcdau=${(r.dau3||[]).join(".")}`);
-      lines.push(`${dai} xcduoi=${(r.duoi3||[]).join(".")}`);
-      lines.push(`${dai} xc=${(r.xc3||[]).join(".")}`);
+    lines.push("Vùng " + regionDisplayCode(region));
+    Object.entries(data).forEach(([source,r])=>{
+      lines.push(`${source} suffix3=${(r.suffix3||[]).join(".")}`);
+      lines.push(`${source} xcdau=${(r.leading3||[]).join(".")}`);
+      lines.push(`${source} xcduoi=${(r.trailing3||[]).join(".")}`);
+      lines.push(`${source} xc=${(r.edge3||[]).join(".")}`);
     });
   });
   lines.push("");
-  lines.push("B3. Kết quả từng phần tử:");
+  lines.push("B3. Tham chiếu từng phần tử:");
   const all = []
     .concat((pack && pack.items) || [])
     .concat((pack && pack.misses) || []);
   all.forEach(item=>{
-    const status = item.hit > 0 ? "ĐẠT ĐIỀU KIỆN" : "KHÔNG";
+    const status = item.hit > 0 ? "PHÙ HỢP" : "KHÔNG";
     const amount = item.amount ? ` | giá trị=${money(item.amount)}` : "";
-    lines.push(`${status} | ${item.block} | ${item.line} | vùng=${item.zone || ""} | lượt đạt=${item.hit}${amount}`);
+    lines.push(`${status} | ${item.block} | ${item.line} | vùng=${item.zone || ""} | lượt khớp=${item.hit}${amount}`);
   });
   lines.push("");
-  lines.push(`Giá trị đạt điều kiện=${money((pack && pack.total) || 0)}`);
+  lines.push(`Giá trị phù hợp=${money((pack && pack.total) || 0)}`);
   return lines.join("\n").trim();
 }
 
@@ -2378,33 +2439,33 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    // CHẠY không hiện chuẩn hóa kết quả. Chỉ xét ngầm nếu đã có dữ liệu kết quả.
-    const resultObj = parseAllResults(rows);
-    const winPack = calcWinners(rows, resultObj);
-    setVal("thuong", winPack.total ? money(winPack.total) : "0");
-    setVal("tong", money(total - winPack.total));
-    setVal("soTrung", buildWinReport(winPack));
-    setVal("detail", buildWinStepTrace(rows, resultObj, winPack));
-    scrollTextTop("soTrung");
+    // CHẠY không hiện chuẩn hóa tham chiếu. Chỉ xét ngầm nếu đã có dữ liệu tham chiếu.
+    const referencePack = parseAllReferences(rows);
+    const matchPack = evaluateMatches(rows, referencePack);
+    setVal("matchedValue", matchPack.total ? money(matchPack.total) : "0");
+    setVal("remainingValue", money(total - matchPack.total));
+    setVal("matchedOutput", buildMatchReport(matchPack));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, matchPack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 function clearRun(){
-  ["inputData","copyFast","ghi","tong","thuong","soTach","soKhongTach","soTrung","parsedResults","detail"].forEach(id=>setVal(id,""));
-  const tbody = document.querySelector("#interTable tbody");
+  ["inputData","printOutput","inputValue","remainingValue","matchedValue","processedOutput","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  const tbody = document.querySelector("#intermediateTable tbody");
   if(tbody) tbody.innerHTML = "";
-  setVal("thuong","0");
+  setVal("matchedValue","0");
   saveActiveWorkspaceInput();
 }
 async function copyText(id){
@@ -2430,13 +2491,13 @@ function flashActionButton(btn, text, fallback){
 async function copyPrintFast(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
-  const text = val("copyFast").trim();
+  const text = val("printOutput").trim();
   if(!text){
     alert("Chưa có dữ liệu để in");
     return;
   }
 
-  const ok = await copyText("copyFast");
+  const ok = await copyText("printOutput");
   if(ok) flashActionButton(btn, "Đã sao chép", "In");
 }
 function splitPrintOverlayText(text){
@@ -2466,7 +2527,7 @@ function splitPrintOverlayText(text){
     }
     lines.splice(first, 1);
   }
-  if(!amount) amount = val("ghi").trim();
+  if(!amount) amount = val("inputValue").trim();
 
   while(lines.length && !lines[0].trim()) lines.shift();
   while(lines.length && !lines[lines.length - 1].trim()) lines.pop();
@@ -2479,7 +2540,7 @@ function splitPrintOverlayText(text){
 function openPrintOverlay(btn){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(val("inputData").trim()) runAll();
-  const text = val("copyFast").trim();
+  const text = val("printOutput").trim();
   if(!text){
     alert("Chưa có dữ liệu để in");
     return;
@@ -2532,19 +2593,19 @@ function wrapPrintLine(line, ctx, maxWidth){
     const nums = dataLineMatch[1].split(".").filter(Boolean);
     const suffix = dataLineMatch[2];
     const firstType = (suffix.match(/^([a-z]+)/i) || [,""])[1].toLowerCase();
-    const isLongDa = firstType === "da" || firstType === "dv";
+    const isLongPair = firstType === "da" || firstType === "dv";
     const out = [];
     let i = 0;
     while(i < nums.length){
       let best = i;
       for(let j = i; j < nums.length; j++){
         const finalLine = j === nums.length - 1;
-        const candidate = nums.slice(i, j + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix);
+        const candidate = nums.slice(i, j + 1).join(".") + (isLongPair ? (finalLine ? suffix : ".") : suffix);
         if(ctx.measureText(candidate).width <= maxWidth) best = j;
         else break;
       }
       const finalLine = best === nums.length - 1;
-      out.push(nums.slice(i, best + 1).join(".") + (isLongDa ? (finalLine ? suffix : ".") : suffix));
+      out.push(nums.slice(i, best + 1).join(".") + (isLongPair ? (finalLine ? suffix : ".") : suffix));
       i = best + 1;
     }
     return out;
@@ -2650,15 +2711,15 @@ async function makePrintImageFile(text){
   });
 
   const blob = await canvasToBlob(canvas);
-  return new File([blob], `pxso-in-${dateKey()}.png`, {type:"image/png"});
+  return new File([blob], `sequence-output-${dateKey()}.png`, {type:"image/png"});
 }
 
 async function sharePrintImage(file){
   if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
     await navigator.share({
       files:[file],
-      title:"Phân tích số — in ảnh",
-      text:"Ảnh Phân tích số"
+      title:"Xử lý dữ liệu chuỗi — in ảnh",
+      text:"Ảnh dữ liệu chuỗi"
     });
     return true;
   }
@@ -2669,7 +2730,7 @@ function downloadFile(file){
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
-  a.download = file.name || "pxso-in.png";
+  a.download = file.name || "sequence-output.png";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -2682,6 +2743,43 @@ function readStorage(key){
   }catch(e){
     return {};
   }
+}
+function readStorageWithLegacy(primaryKey, legacyKey){
+  const primary = readStorage(primaryKey);
+  if(primary && Object.keys(primary).length) return primary;
+  return legacyKey ? readStorage(legacyKey) : {};
+}
+function readTextWithLegacy(primaryKey, legacyKey){
+  try{
+    const current = localStorage.getItem(primaryKey);
+    if(current != null && current !== "") return current;
+    return legacyKey ? (localStorage.getItem(legacyKey) || "") : "";
+  }catch(e){
+    return "";
+  }
+}
+function migrateLegacySettingIds(data){
+  const map = {
+    rate:"scaleFactor", coefDa2:"weightPair2Sources", coefDa1:"weightPair1Source",
+    coefDaHN:"weightPairRegionC", coef2:"weightLength2", coef3:"weightLength3",
+    coef4:"weightLength4", max2:"limitLength2", maxDa:"limitPair"
+  };
+  const out = {...(data || {})};
+  Object.entries(map).forEach(([oldId,newId])=>{
+    if(out[newId] == null && out[oldId] != null) out[newId] = out[oldId];
+  });
+  return out;
+}
+function migrateLegacyRegionIds(data){
+  const map = {
+    xoaMn:"excludeA", xoaMt:"excludeB", xoaHn:"excludeC",
+    kqMn:"referenceA", kqMt:"referenceB", kqHn:"referenceC"
+  };
+  const out = {...(data || {})};
+  Object.entries(map).forEach(([oldId,newId])=>{
+    if(out[newId] == null && out[oldId] != null) out[newId] = out[oldId];
+  });
+  return out;
 }
 function writeStorage(key, data){
   try{
@@ -2713,56 +2811,56 @@ function flashSaveButton(btn){
     btn.classList.remove("saved");
   }, 900);
 }
-function saveXoaData(){
-  const ok = writeStorage(STORAGE_KEYS.xoa, collectValues(["xoaMn","xoaMt","xoaHn"]));
+function saveExclusionData(){
+  const ok = writeStorage(STORAGE_KEYS.exclusions, collectValues(["excludeA","excludeB","excludeC"]));
   if(ok){
     syncRegionRelatedPanel();
-    flashSaveButton(document.querySelector(".xoa-panel .save-mini"));
+    flashSaveButton(document.querySelector(".exclusions-panel .save-mini"));
   }
 }
-function clearXoaData(){
-  ["xoaMn","xoaMt","xoaHn"].forEach(id=>setVal(id,""));
+function clearExclusionData(){
+  ["excludeA","excludeB","excludeC"].forEach(id=>setVal(id,""));
   syncRegionRelatedPanel();
   try{
-    localStorage.removeItem(STORAGE_KEYS.xoa);
+    localStorage.removeItem(STORAGE_KEYS.exclusions);
   }catch(e){
     console.error(e);
   }
   runAll();
 }
 function saveSettingsData(){
-  const ok = writeStorage(STORAGE_KEYS.settings, collectValues(SETTINGS_IDS));
+  const ok = writeStorage(STORAGE_KEYS.settings, collectValues(WEIGHT_SETTING_IDS));
   if(ok){
     runAll();
     flashSaveButton(document.querySelector(".settings-panel .save-mini"));
   }
 }
-function saveResultData(){
-  const ok = writeStorage(STORAGE_KEYS.results, collectValues(["kqMn","kqMt","kqHn"]));
+function saveReferenceData(){
+  const ok = writeStorage(STORAGE_KEYS.references, collectValues(["referenceA","referenceB","referenceC"]));
   if(ok){
     syncRegionRelatedPanel();
-    parseResultsOnly();
+    parseReferencesOnly();
     runAll();
     flashSaveButton(document.querySelector(".result-input-panel-visible .save-mini"));
   }
 }
-function clearResultData(){
-  ["kqMn","kqMt","kqHn","parsedResults","soTrung"].forEach(id=>setVal(id,""));
+function clearReferenceData(){
+  ["referenceA","referenceB","referenceC","parsedReference","matchedOutput"].forEach(id=>setVal(id,""));
   syncRegionRelatedPanel();
   try{
-    localStorage.removeItem(STORAGE_KEYS.results);
+    localStorage.removeItem(STORAGE_KEYS.references);
   }catch(e){
     console.error(e);
   }
-  setVal("thuong","0");
-  parseResultsOnly();
+  setVal("matchedValue","0");
+  parseReferencesOnly();
   runAll();
 }
 function saveDailyInputBackup(){
   const text = val("inputData").trim();
   if(!text) return "empty";
   try{
-    const old = localStorage.getItem(dailyInputKey()) || "";
+    const old = readTextWithLegacy(dailyInputKey(), LEGACY_STORAGE_KEYS.dailyInputPrefix + dateKey());
     const entries = old.trim() ? old.trim().split(/\n\n---\n\n/) : [];
     const last = entries.length ? entries[entries.length - 1].replace(/^#\d+\n/, "").trim() : "";
     if(last === text){
@@ -2783,7 +2881,7 @@ function saveDailyInputBackup(){
 }
 function loadDailyInputBackup(){
   try{
-    setVal("savedInputToday", localStorage.getItem(dailyInputKey()) || "");
+    setVal("savedInputToday", readTextWithLegacy(dailyInputKey(), LEGACY_STORAGE_KEYS.dailyInputPrefix + dateKey()));
   }catch(e){
     setVal("savedInputToday", "");
   }
@@ -2807,9 +2905,12 @@ function clearDailyInputBackup(){
   setVal("savedInputToday", "");
 }
 function loadSavedData(){
-  applyValues(readStorage(STORAGE_KEYS.settings));
-  applyValues(readStorage(STORAGE_KEYS.xoa));
-  applyValues(readStorage(STORAGE_KEYS.results));
+  const settings = migrateLegacySettingIds(readStorageWithLegacy(STORAGE_KEYS.settings, LEGACY_STORAGE_KEYS.settings));
+  const exclusions = migrateLegacyRegionIds(readStorageWithLegacy(STORAGE_KEYS.exclusions, LEGACY_STORAGE_KEYS.exclusions));
+  const references = migrateLegacyRegionIds(readStorageWithLegacy(STORAGE_KEYS.references, LEGACY_STORAGE_KEYS.references));
+  applyValues(settings);
+  applyValues(exclusions);
+  applyValues(references);
   loadDailyInputBackup();
 }
 
@@ -2838,7 +2939,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 
-  ["activeXoaData","activeResultData"].forEach(id=>{
+  ["activeExclusionData","activeReferenceData"].forEach(id=>{
     const x=el(id);
     if(x){
       x.addEventListener("input", regionRelatedAutoSave);
@@ -2847,24 +2948,24 @@ window.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 
-  // Dán kết quả MN/MT/HN cũng tự cập nhật xét/đạt điều kiện.
-  ["kqMn","kqMt","kqHn"].forEach(id=>{
+  // Dán tham chiếu MN/MT/HN cũng tự cập nhật xét/phù hợp.
+  ["referenceA","referenceB","referenceC"].forEach(id=>{
     const x=el(id);
     if(x){
       x.addEventListener("input", ()=>{
-        parseResultsOnly();
+        parseReferencesOnly();
         syncRegionRelatedPanel();
         autoRun();
       });
       x.addEventListener("paste", ()=>{
         setTimeout(()=>{
-          parseResultsOnly();
+          parseReferencesOnly();
           syncRegionRelatedPanel();
           runAll();
         },50);
       });
       x.addEventListener("change", ()=>{
-        parseResultsOnly();
+        parseReferencesOnly();
         syncRegionRelatedPanel();
         runAll();
       });
@@ -2872,7 +2973,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   });
 
   // Thay đổi hệ số/cài đặt thì tự tính lại nếu đang có dữ liệu.
-  SETTINGS_IDS.forEach(id=>{
+  WEIGHT_SETTING_IDS.forEach(id=>{
     const x=el(id);
     if(x){
       x.addEventListener("input", autoRun);
@@ -2892,17 +2993,17 @@ window.addEventListener("DOMContentLoaded", ()=>{
     }, 30));
   }
 
-  parseResultsOnly();
+  parseReferencesOnly();
   let savedTab = "MN";
   try{
-    savedTab = localStorage.getItem(STORAGE_KEYS.activeWorkspace) || "MN";
+    savedTab = readTextWithLegacy(STORAGE_KEYS.activeWorkspace, LEGACY_STORAGE_KEYS.activeWorkspace) || "MN";
   }catch(e){
     savedTab = "MN";
   }
   if(!["MN","MT","HN","SETTINGS"].includes(savedTab)) savedTab = "MN";
   if(savedTab === "SETTINGS"){
     try{
-      activeWorkspace = localStorage.getItem(STORAGE_KEYS.lastWorkRegion) || "MN";
+      activeWorkspace = readTextWithLegacy(STORAGE_KEYS.lastWorkRegion, LEGACY_STORAGE_KEYS.lastWorkRegion) || "MN";
     }catch(e){
       activeWorkspace = "MN";
     }
@@ -2923,10 +3024,10 @@ window.addEventListener("DOMContentLoaded", ()=>{
 });
 
 /* V0.5.65 - DATA ZONE TRACE ONLY
-   Xóa nhánh báo giá trị đạt điều kiện khỏi panel Số đạt điều kiện.
-   Panel này chỉ còn: vùng kết quả -> atomic tin ghi -> đạt điều kiện/không đạt điều kiện từng con.
+   Xóa nhánh báo giá trị phù hợp điều kiện khỏi panel Dữ liệu phù hợp.
+   Panel này chỉ còn: vùng tham chiếu -> atomic dữ liệu đầu vào -> phù hợp/không phù hợp từng con.
 */
-const PX_DATA_TRACE_BUILD = "Phân tích số v0.5.66 — theo dõi vùng dữ liệu — bộ nhớ đệm 5643";
+const SEQ_DATA_TRACE_BUILD = "Xử lý dữ liệu chuỗi v0.5.66 — theo dõi vùng dữ liệu — bộ nhớ đệm 5643";
 
 function traceJoin(arr){
   return (arr || []).length ? (arr || []).join(".") : "Trống";
@@ -2934,11 +3035,11 @@ function traceJoin(arr){
 function rowAtomicNumber(row){
   return row && row.nums && row.nums.length ? String(row.nums[0]) : "";
 }
-function zoneForAtomic(row, results){
+function matchZoneForAtomic(row, references){
   if(!row || !row.calc) return null;
   const t = row.type;
   const region = row.region || "MN";
-  const dais = getDaisFromName(row.block);
+  const sources = getSourcesFromName(row.block);
   const nums = row.nums || [];
   const num = nums[0] || "";
   const len = String(num).length;
@@ -2946,77 +3047,77 @@ function zoneForAtomic(row, results){
   if(t === "da"){
     if(nums.length < 2) return {row, zone:"ghép cặp", values:[], hit:0, note:"thiếu cặp số"};
     const a = nums[0], b = nums[1];
-    if((row.daiCount || 1) >= 2 && dais.length >= 2){
-      const r1 = resultFor(results, region, dais[0]);
-      const r2 = resultFor(results, region, dais[1]);
-      const v1 = r1 ? (r1.bao2 || []) : [];
-      const v2 = r2 ? (r2.bao2 || []) : [];
+    if((row.sourceCount || 1) >= 2 && sources.length >= 2){
+      const r1 = referenceFor(references, region, sources[0]);
+      const r2 = referenceFor(references, region, sources[1]);
+      const v1 = r1 ? (r1.suffix2 || []) : [];
+      const v2 = r2 ? (r2.suffix2 || []) : [];
       const ab = Math.min(countExact(v1, a), countExact(v2, b));
       const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
-      return {row, zone:`ghép cặp 2 vùng: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], hit:ab+ba, note:`${a}.${b}`};
+      return {row, zone:`ghép cặp 2 vùng: ${sources[0]}.suffix2 + ${sources[1]}.suffix2`, values:[`${sources[0]}=${traceJoin(v1)}`, `${sources[1]}=${traceJoin(v2)}`], hit:ab+ba, note:`${a}.${b}`};
     }
-    const r = resultFor(results, region, dais[0]);
-    const values = r ? (r.bao2 || []) : [];
+    const r = referenceFor(references, region, sources[0]);
+    const values = r ? (r.suffix2 || []) : [];
     const ca = countExact(values, a);
     const cb = countExact(values, b);
     const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
-    return {row, zone:`${dais[0] || row.block}.bao2`, values, hit, note:`${a}.${b}`};
+    return {row, zone:`${sources[0] || row.block}.suffix2`, values, hit, note:`${a}.${b}`};
   }
 
-  const dai = dais[0] || row.block;
-  const r = resultFor(results, region, dai);
-  if(!r) return {row, zone:`${dai}.thiếu_kết_quả`, values:[], hit:0, note:num};
+  const source = sources[0] || row.block;
+  const r = referenceFor(references, region, source);
+  if(!r) return {row, zone:`${source}.thiếu_kết_quả`, values:[], hit:0, note:num};
 
   let zone = "";
   let values = [];
   let hit = 0;
   if(t === "b"){
-    if(len === 2){ zone = `${dai}.bao2`; values = r.bao2 || []; hit = countExact(values, num); }
-    else if(len === 3){ zone = `${dai}.bao3`; values = r.bao3 || []; hit = countExact(values, num); }
-    else if(len === 4){ zone = `${dai}.bao4`; values = r.bao4 || []; hit = countExact(values, num); }
+    if(len === 2){ zone = `${source}.suffix2`; values = r.suffix2 || []; hit = countExact(values, num); }
+    else if(len === 3){ zone = `${source}.suffix3`; values = r.suffix3 || []; hit = countExact(values, num); }
+    else if(len === 4){ zone = `${source}.suffix4`; values = r.suffix4 || []; hit = countExact(values, num); }
   }else if(t === "bdao"){
-    if(len === 3){ zone = `${dai}.bao3 đảo`; values = r.bao3 || []; hit = countPerm(values, num); }
-    else if(len === 4){ zone = `${dai}.bao4 đảo`; values = r.bao4 || []; hit = countPerm(values, num); }
+    if(len === 3){ zone = `${source}.suffix3 đảo`; values = r.suffix3 || []; hit = countPerm(values, num); }
+    else if(len === 4){ zone = `${source}.suffix4 đảo`; values = r.suffix4 || []; hit = countPerm(values, num); }
   }else if(t === "dd"){
-    zone = `${dai}.dau2 + ${dai}.duoi2`;
-    values = [`dau2=${traceJoin(r.dau2 || [])}`, `duoi2=${traceJoin(r.duoi2 || [])}`];
-    hit = countExact(r.dau2 || [], num) + countExact(r.duoi2 || [], num);
+    zone = `${source}.leading2 + ${source}.trailing2`;
+    values = [`leading2=${traceJoin(r.leading2 || [])}`, `trailing2=${traceJoin(r.trailing2 || [])}`];
+    hit = countExact(r.leading2 || [], num) + countExact(r.trailing2 || [], num);
   }else if(t === "dau"){
-    zone = `${dai}.dau2`;
-    values = r.dau2 || [];
+    zone = `${source}.leading2`;
+    values = r.leading2 || [];
     hit = countExact(values, num);
   }else if(t === "duoi"){
-    zone = `${dai}.duoi2`;
-    values = r.duoi2 || [];
+    zone = `${source}.trailing2`;
+    values = r.trailing2 || [];
     hit = countExact(values, num);
   }else if(t === "xc"){
-    zone = `${dai}.xc = xcdau + xcduoi`;
-    values = r.xc3 || [];
+    zone = `${source}.xc = xcdau + xcduoi`;
+    values = r.edge3 || [];
     hit = countExact(values, num);
   }else if(t === "xcdau"){
-    zone = `${dai}.xcdau`;
-    values = r.dau3 || [];
+    zone = `${source}.xcdau`;
+    values = r.leading3 || [];
     hit = countExact(values, num);
   }else if(t === "xcduoi"){
-    zone = `${dai}.xcduoi`;
-    values = r.duoi3 || [];
+    zone = `${source}.xcduoi`;
+    values = r.trailing3 || [];
     hit = countExact(values, num);
   }else if(t === "xcdao"){
-    zone = `${dai}.xc đảo = xcdau + xcduoi đảo`;
-    values = [`xcdau=${traceJoin(r.dau3 || [])}`, `xcduoi=${traceJoin(r.duoi3 || [])}`];
-    hit = countPerm(r.dau3 || [], num) + countPerm(r.duoi3 || [], num);
+    zone = `${source}.xc đảo = xcdau + xcduoi đảo`;
+    values = [`xcdau=${traceJoin(r.leading3 || [])}`, `xcduoi=${traceJoin(r.trailing3 || [])}`];
+    hit = countPerm(r.leading3 || [], num) + countPerm(r.trailing3 || [], num);
   }else{
-    zone = `${dai}.không_rõ_loại`;
+    zone = `${source}.không_rõ_loại`;
   }
   return {row, zone, values, hit, note:num};
 }
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   const misses = [];
   let hitCount = 0;
-  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, traceOnly:true};
+  if(!hasAnyReferences(references)) return {items, misses, total:0, hitCount:0, traceOnly:true};
   for(const row of rows || []){
-    const ev = zoneForAtomic(row, results);
+    const ev = matchZoneForAtomic(row, references);
     if(!ev) continue;
     hitCount += Number(ev.hit || 0);
     const item = {block:row.block, line:row.line, row, zone:ev.zone, values:ev.values || [], hit:ev.hit || 0, note:ev.note || ""};
@@ -3025,27 +3126,27 @@ function calcWinners(rows, results){
   }
   return {items, misses, total:0, hitCount, traceOnly:true};
 }
-function buildResultZoneBlock(results){
+function buildResultZoneBlock(references){
   const out = [];
   out.push("A. VÙNG THAM CHIẾU ĐÃ TẠO");
   let any = false;
   for(const region of ["MN","MT","HN"]){
-    const data = results && results[region];
+    const data = references && references[region];
     if(!data || !Object.keys(data).length) continue;
     any = true;
     out.push("");
     out.push(`[${region}]`);
-    for(const [dai,r] of Object.entries(data)){
-      out.push(dai);
+    for(const [source,r] of Object.entries(data)){
+      out.push(source);
       out.push(`full=${traceJoin(r.full || [])}`);
-      out.push(`bao2=${traceJoin(r.bao2 || [])}`);
-      out.push(`dau2=${traceJoin(r.dau2 || [])}`);
-      out.push(`duoi2=${traceJoin(r.duoi2 || [])}`);
-      out.push(`bao3=${traceJoin(r.bao3 || [])}`);
-      out.push(`xcdau=${traceJoin(r.dau3 || [])}`);
-      out.push(`xcduoi=${traceJoin(r.duoi3 || [])}`);
-      out.push(`xc=${traceJoin(r.xc3 || [])}`);
-      out.push(`bao4=${traceJoin(r.bao4 || [])}`);
+      out.push(`suffix2=${traceJoin(r.suffix2 || [])}`);
+      out.push(`leading2=${traceJoin(r.leading2 || [])}`);
+      out.push(`trailing2=${traceJoin(r.trailing2 || [])}`);
+      out.push(`suffix3=${traceJoin(r.suffix3 || [])}`);
+      out.push(`xcdau=${traceJoin(r.leading3 || [])}`);
+      out.push(`xcduoi=${traceJoin(r.trailing3 || [])}`);
+      out.push(`xc=${traceJoin(r.edge3 || [])}`);
+      out.push(`suffix4=${traceJoin(r.suffix4 || [])}`);
       out.push("");
     }
   }
@@ -3059,7 +3160,7 @@ function buildAtomicInputBlock(rows){
   for(const row of rows || []){
     if(!row.calc) continue;
     count++;
-    out.push(`${count}. ${row.region || ""} | ${row.block} | ${row.line} | số=${(row.nums || []).join(".")} | loại=${row.type} | n=${fmtN(row.n)} | vùng=${row.daiCount || 1}`);
+    out.push(`${count}. ${row.region || ""} | ${row.block} | ${row.line} | số=${(row.nums || []).join(".")} | loại=${row.type} | n=${fmtN(row.n)} | vùng=${row.sourceCount || 1}`);
   }
   if(!count) out.push("Trống");
   return out.join("\n").trim();
@@ -3073,28 +3174,28 @@ function buildAtomicDecisionSection(title, items){
   }
   items.forEach((item, idx)=>{
     const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-    out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt đạt=${item.hit}`);
+    out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt khớp=${item.hit}`);
     out.push(`   vùng=${traceJoin(item.values || [])}`);
   });
   return out.join("\n").trim();
 }
-function buildWinReport(pack, results, rows){
+function buildMatchReport(pack, references, rows){
   const out = [];
-  out.push(PX_DATA_TRACE_BUILD);
+  out.push(SEQ_DATA_TRACE_BUILD);
   out.push("CHẾ ĐỘ: PHÂN TÍCH DỮ LIỆU, KHÔNG NHÂN GIÁ TRỊ, KHÔNG GOM");
-  out.push(`Tổng phần tử đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Không đạt điều kiện: ${((pack && pack.misses) || []).length} dòng`);
+  out.push(`Tổng phần tử phù hợp: ${((pack && pack.items) || []).length} dòng | Không phù hợp: ${((pack && pack.misses) || []).length} dòng`);
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   out.push("");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("C. ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("C. PHÙ HỢP — TÁCH RIÊNG TỪNG CON", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("D. KHÔNG ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("D. KHÔNG PHÙ HỢP — TÁCH RIÊNG TỪNG CON", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
-function buildWinStepTrace(rows, results, pack){
-  return buildWinReport(pack, results, rows);
+function buildMatchStepTrace(rows, references, pack){
+  return buildMatchReport(pack, references, rows);
 }
 function runAll(){
   try{
@@ -3107,45 +3208,45 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    const resultObj = parseAllResults(rows);
-    const pack = calcWinners(rows, resultObj);
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
 
-    // Chế độ trace: không dùng ô Đạt điều kiện tổng để đếm hit nữa, tránh hiểu nhầm 1 con/2 con.
-    // Nguồn kiểm đúng là bảng soTrung bên dưới: vùng kết quả + atomic + đạt điều kiện/không đạt điều kiện.
-    setVal("thuong", "Xem bảng");
-    setVal("tong", money(total));
-    setVal("soTrung", buildWinReport(pack, resultObj, rows));
-    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
-    scrollTextTop("soTrung");
+    // Chế độ trace: không dùng ô Phù hợp tổng để đếm hit nữa, tránh hiểu nhầm 1 con/2 con.
+    // Nguồn kiểm đúng là bảng matchedOutput bên dưới: vùng tham chiếu + atomic + phù hợp/không phù hợp.
+    setVal("matchedValue", "Xem bảng");
+    setVal("remainingValue", money(total));
+    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 
 /* V0.5.67 - ATOMIC CONDITION VALUE ENGINE
    Khóa lỗi: 707b1n.xc5n phải tách thành 707b1n + 707xc5n.
-   Xét theo vùng atomic, đạt điều kiện tách riêng từng con, sau đó mới nhân hệ số từng dòng.
+   Xét theo vùng atomic, phù hợp tách riêng từng con, sau đó mới nhân hệ số từng dòng.
 */
-const PX_ATOMIC_WIN_BUILD = "Phân tích số v0.5.67 — xử lý giá trị theo từng phần tử — bộ nhớ đệm 5644";
+const SEQ_ATOMIC_MATCH_BUILD = "Xử lý dữ liệu chuỗi v0.5.67 — xử lý giá trị theo từng phần tử — bộ nhớ đệm 5644";
 
 function parseDataLine(line){
   const s = normalizeLine(line);
   if(!s) return null;
 
   // Dạng ghép cặp trực tiếp vẫn đọc thẳng.
-  const daOnly = s.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
-  if(daOnly){
-    return [{nums:parseNums(daOnly[1]), type:daOnly[2].toLowerCase(), n:parseAmount(daOnly[3]), source:s}];
+  const pairOnly = s.match(/^([0-9.]+)(da|dv)([\d,.]+)n$/i);
+  if(pairOnly){
+    return [{nums:parseNums(pairOnly[1]), type:pairOnly[2].toLowerCase(), n:parseAmount(pairOnly[3]), source:s}];
   }
 
   // Parser atomic có kế thừa số phía trước.
@@ -3187,27 +3288,27 @@ function parseDataLine(line){
   return parts.length ? parts : null;
 }
 
-function atomicWinAmount(row, hit){
-  const coef = winCoefForRow(row);
+function atomicMatchValue(row, hit){
+  const coef = matchWeightForRow(row);
   const n = Number(row && row.n || 0);
   return {coef, n, amount: hit > 0 ? hit * n * coef : 0};
 }
 
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   const misses = [];
   let total = 0;
   let hitCount = 0;
 
-  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, traceOnly:false};
+  if(!hasAnyReferences(references)) return {items, misses, total:0, hitCount:0, traceOnly:false};
 
   for(const row of rows || []){
     if(!row || !row.calc) continue;
-    const ev = zoneForAtomic(row, results);
+    const ev = matchZoneForAtomic(row, references);
     if(!ev) continue;
 
     const hit = Number(ev.hit || 0);
-    const calc = atomicWinAmount(row, hit);
+    const calc = atomicMatchValue(row, hit);
     const item = {
       block:row.block,
       line:row.line,
@@ -3232,9 +3333,9 @@ function calcWinners(rows, results){
   return {items, misses, total, hitCount, traceOnly:false};
 }
 
-function buildWinMoneySection(items){
+function buildMatchValueSection(items){
   const out = [];
-  out.push("ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON");
+  out.push("PHÙ HỢP — TÁCH RIÊNG TỪNG CON");
   if(!items || !items.length){
     out.push("Trống");
     return out.join("\n");
@@ -3255,7 +3356,7 @@ function buildWinMoneySection(items){
 
 function buildMissSection(items){
   const out = [];
-  out.push("KHÔNG ĐẠT ĐIỀU KIỆN — TÁCH RIÊNG TỪNG CON");
+  out.push("KHÔNG PHÙ HỢP — TÁCH RIÊNG TỪNG CON");
   if(!items || !items.length){
     out.push("Trống");
     return out.join("\n");
@@ -3269,7 +3370,7 @@ function buildMissSection(items){
       out.push(block);
       curBlock = block;
     }
-    out.push(`${item.line} | xét=${item.zone || ""} | lượt đạt=0`);
+    out.push(`${item.line} | xét=${item.zone || ""} | lượt khớp=0`);
   }
   return out.join("\n").trim();
 }
@@ -3279,30 +3380,30 @@ function buildAtomicAuditBlock(rows, pack){
   out.push("KIỂM TỪNG PHẦN TỬ");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU PHÙ HỢP", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG PHÙ HỢP", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
 
-function buildWinReport(pack, results, rows){
+function buildMatchReport(pack, references, rows){
   const out = [];
-  out.push(PX_ATOMIC_WIN_BUILD);
-  out.push("CHẾ ĐỘ: TÁCH TỪNG PHẦN TỬ → XÉT THEO VÙNG → TÍNH GIÁ TRỊ TỪNG PHẦN, KHÔNG GOM BAO/XC");
-  out.push(`Tổng phần tử đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Tổng lượt đạt: ${(pack && pack.hitCount) || 0} | Tổng giá trị đạt: ${money((pack && pack.total) || 0)}`);
+  out.push(SEQ_ATOMIC_MATCH_BUILD);
+  out.push("CHẾ ĐỘ: TÁCH TỪNG PHẦN TỬ → XÉT THEO VÙNG → TÍNH GIÁ TRỊ TỪNG PHẦN, KHÔNG GỘP NHÓM TƯƠNG THÍCH");
+  out.push(`Tổng phần tử phù hợp: ${((pack && pack.items) || []).length} dòng | Tổng lượt khớp: ${(pack && pack.hitCount) || 0} | Tổng giá trị phù hợp: ${money((pack && pack.total) || 0)}`);
   out.push("");
-  out.push(buildWinMoneySection((pack && pack.items) || []));
+  out.push(buildMatchValueSection((pack && pack.items) || []));
   out.push("");
   out.push(buildMissSection((pack && pack.misses) || []));
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   out.push("");
   out.push(buildAtomicAuditBlock(rows, pack));
   return out.join("\n").trim();
 }
 
-function buildWinStepTrace(rows, results, pack){
-  return buildWinReport(pack, results, rows);
+function buildMatchStepTrace(rows, references, pack){
+  return buildMatchReport(pack, references, rows);
 }
 
 function runAll(){
@@ -3316,46 +3417,46 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    const resultObj = parseAllResults(rows);
-    const pack = calcWinners(rows, resultObj);
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
 
-    setVal("thuong", money(pack.total || 0));
-    setVal("tong", money(total - (pack.total || 0)));
-    setVal("soTrung", buildWinReport(pack, resultObj, rows));
-    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
-    scrollTextTop("soTrung");
+    setVal("matchedValue", money(pack.total || 0));
+    setVal("remainingValue", money(total - (pack.total || 0)));
+    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 
 
 /* V0.5.68 - ATOMIC ZONE OUTPUT ONLY
-   Khóa lại đúng yêu cầu hiện tại: chưa gắn công thức giá trị ở vùng xét kết quả.
-   Luồng: input -> atomic -> vùng kết quả -> output đạt điều kiện/không đạt điều kiện từng con.
-   707b1n.xc5n phải ra output đạt điều kiện 2 dòng: 707b1n và 707xc5n.
+   Khóa lại đúng yêu cầu hiện tại: chưa gắn công thức giá trị ở vùng xét tham chiếu.
+   Luồng: input -> atomic -> vùng tham chiếu -> output phù hợp/không phù hợp từng con.
+   707b1n.xc5n phải ra output phù hợp 2 dòng: 707b1n và 707xc5n.
 */
-const PX_ATOMIC_OUTPUT_BUILD = "Phân tích số v0.5.68 — xuất dữ liệu theo từng phần tử — bộ nhớ đệm 5645";
+const SEQ_ATOMIC_OUTPUT_BUILD = "Xử lý dữ liệu chuỗi v0.5.68 — xuất dữ liệu theo từng phần tử — bộ nhớ đệm 5645";
 
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   const misses = [];
   let hitCount = 0;
-  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0, traceOnly:true};
+  if(!hasAnyReferences(references)) return {items, misses, total:0, hitCount:0, traceOnly:true};
 
   for(const row of rows || []){
     if(!row || !row.calc) continue;
-    const ev = zoneForAtomic(row, results);
+    const ev = matchZoneForAtomic(row, references);
     if(!ev) continue;
     const hit = Number(ev.hit || 0);
     const item = {
@@ -3407,30 +3508,30 @@ function buildAtomicAuditShort(rows, pack){
   out.push("KIỂM TỪNG PHẦN TỬ");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU PHÙ HỢP", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG PHÙ HỢP", (pack && pack.misses) || []));
   return out.join("\n").trim();
 }
 
-function buildWinReport(pack, results, rows){
+function buildMatchReport(pack, references, rows){
   const out = [];
-  out.push(PX_ATOMIC_OUTPUT_BUILD);
+  out.push(SEQ_ATOMIC_OUTPUT_BUILD);
   out.push("CHẾ ĐỘ: KIỂM TỪNG PHẦN TỬ, KHÔNG TÍNH GIÁ TRỊ, KHÔNG GOM");
-  out.push(`Tổng phần tử đạt điều kiện: ${((pack && pack.items) || []).length} dòng | Không đạt điều kiện: ${((pack && pack.misses) || []).length} dòng`);
+  out.push(`Tổng phần tử phù hợp: ${((pack && pack.items) || []).length} dòng | Không phù hợp: ${((pack && pack.misses) || []).length} dòng`);
   out.push("");
-  out.push(buildAtomicPlainOutput("DỮ LIỆU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
+  out.push(buildAtomicPlainOutput("DỮ LIỆU PHÙ HỢP", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicPlainOutput("DỮ LIỆU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
+  out.push(buildAtomicPlainOutput("DỮ LIỆU KHÔNG PHÙ HỢP", (pack && pack.misses) || []));
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   out.push("");
   out.push(buildAtomicAuditShort(rows, pack));
   return out.join("\n").trim();
 }
 
-function buildWinStepTrace(rows, results, pack){
-  return buildWinReport(pack, results, rows);
+function buildMatchStepTrace(rows, references, pack){
+  return buildMatchReport(pack, references, rows);
 }
 
 function runAll(){
@@ -3444,35 +3545,35 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    const resultObj = parseAllResults(rows);
-    const pack = calcWinners(rows, resultObj);
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
 
-    // Không hiển thị giá trị đạt ở bước kiểm vùng xét. Nguồn kiểm là DỮ LIỆU ĐẠT ĐIỀU KIỆN trong soTrung.
-    setVal("thuong", "Xem dữ liệu");
-    setVal("tong", money(total));
-    setVal("soTrung", buildWinReport(pack, resultObj, rows));
-    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
-    scrollTextTop("soTrung");
+    // Không hiển thị giá trị phù hợp ở bước kiểm vùng xét. Nguồn kiểm là DỮ LIỆU PHÙ HỢP trong matchedOutput.
+    setVal("matchedValue", "Xem dữ liệu");
+    setVal("remainingValue", money(total));
+    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 
 /* V0.5.69 - FINAL OUTPUT DISPLAY ONLY
-   Panel Số đạt điều kiện chỉ hiển thị kết quả đạt điều kiện/không đạt điều kiện theo atomic.
-   Không in vùng kết quả, không in bảng audit, không tính giá trị tại panel này.
+   Panel Dữ liệu phù hợp chỉ hiển thị tham chiếu phù hợp/không phù hợp theo atomic.
+   Không in vùng tham chiếu, không in bảng audit, không tính giá trị tại panel này.
 */
-const PX_ATOMIC_DISPLAY_BUILD = "Phân tích số v0.5.70 — sửa thứ tự tham chiếu HN — bộ nhớ đệm 5647";
+const SEQ_ATOMIC_DISPLAY_BUILD = "Xử lý dữ liệu chuỗi v0.5.70 — sửa thứ tự tham chiếu HN — bộ nhớ đệm 5647";
 
 function buildAtomicOutputOnly(title, items){
   const out = [title];
@@ -3493,30 +3594,30 @@ function buildAtomicOutputOnly(title, items){
   return out.join("\n").trim();
 }
 
-function buildAtomicDebugOnly(rows, results, pack){
+function buildAtomicDebugOnly(rows, references, pack){
   const out = [];
-  out.push(PX_ATOMIC_DISPLAY_BUILD);
+  out.push(SEQ_ATOMIC_DISPLAY_BUILD);
   out.push("");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU PHÙ HỢP", (pack && pack.items) || []));
   out.push("");
-  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || []));
+  out.push(buildAtomicDecisionSection("ĐỐI CHIẾU KHÔNG PHÙ HỢP", (pack && pack.misses) || []));
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   return out.join("\n").trim();
 }
 
-function buildWinReport(pack){
+function buildMatchReport(pack){
   return [
-    buildAtomicOutputOnly("ĐẠT ĐIỀU KIỆN", (pack && pack.items) || []),
+    buildAtomicOutputOnly("PHÙ HỢP", (pack && pack.items) || []),
     "",
-    buildAtomicOutputOnly("KHÔNG ĐẠT ĐIỀU KIỆN", (pack && pack.misses) || [])
+    buildAtomicOutputOnly("KHÔNG PHÙ HỢP", (pack && pack.misses) || [])
   ].join("\n").trim();
 }
 
-function buildWinStepTrace(rows, results, pack){
-  return buildAtomicDebugOnly(rows, results, pack);
+function buildMatchStepTrace(rows, references, pack){
+  return buildAtomicDebugOnly(rows, references, pack);
 }
 
 function runAll(){
@@ -3530,61 +3631,61 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    const resultObj = parseAllResults(rows);
-    const pack = calcWinners(rows, resultObj);
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
 
-    setVal("thuong", "Xem dữ liệu");
-    setVal("tong", money(total));
-    setVal("soTrung", buildWinReport(pack));
-    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
-    scrollTextTop("soTrung");
+    setVal("matchedValue", "Xem dữ liệu");
+    setVal("remainingValue", money(total));
+    setVal("matchedOutput", buildMatchReport(pack));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 
 
 
 /* V0.5.72 - ATOMIC CONDITION VALUE DISPLAY NO HEADER
-   Nguồn đúng đã khóa: vùng ĐẠT ĐIỀU KIỆN atomic.
-   Panel Số đạt điều kiện chỉ hiện các dòng đạt điều kiện theo block, không hiện tiêu đề ĐẠT ĐIỀU KIỆN, không hiện KHÔNG ĐẠT ĐIỀU KIỆN.
-   Sau khi atomic đạt điều kiện, đếm hit của số trong vùng xét rồi nhân n và hệ số tương ứng.
-   Bao và XC giữ tách riêng từng dòng, không gom chung.
+   Nguồn đúng đã khóa: vùng PHÙ HỢP atomic.
+   Panel Dữ liệu phù hợp chỉ hiện các dòng phù hợp theo block, không hiện tiêu đề PHÙ HỢP, không hiện KHÔNG PHÙ HỢP.
+   Sau khi atomic phù hợp, đếm hit của số trong vùng xét rồi nhân n và hệ số tương ứng.
+   Các nhóm tương thích được giữ riêng từng dòng, không gộp chung.
 */
-const PX_ATOMIC_WIN_DISPLAY_BUILD = "Phân tích số v0.5.72 — hiển thị giá trị đạt theo từng phần tử — bộ nhớ đệm 5649";
+const SEQ_ATOMIC_MATCH_DISPLAY_BUILD = "Xử lý dữ liệu chuỗi v0.5.72 — hiển thị giá trị phù hợp theo từng phần tử — bộ nhớ đệm 5649";
 
-function atomicMoneyForWinItem(row, hit){
-  const coef = winCoefForRow(row);
+function atomicValueForMatchItem(row, hit){
+  const coef = matchWeightForRow(row);
   const n = Number(row && row.n || 0);
   const amount = hit > 0 ? hit * n * coef : 0;
   return {coef, n, amount};
 }
 
-function calcWinners(rows, results){
+function evaluateMatches(rows, references){
   const items = [];
   const misses = [];
   let total = 0;
   let hitCount = 0;
 
-  if(!hasAnyResults(results)) return {items, misses, total:0, hitCount:0};
+  if(!hasAnyReferences(references)) return {items, misses, total:0, hitCount:0};
 
   for(const row of rows || []){
     if(!row || !row.calc) continue;
-    const ev = zoneForAtomic(row, results);
+    const ev = matchZoneForAtomic(row, references);
     if(!ev) continue;
 
     const hit = Number(ev.hit || 0);
-    const calc = atomicMoneyForWinItem(row, hit);
+    const calc = atomicValueForMatchItem(row, hit);
     const item = {
       block: row.block,
       line: row.line,
@@ -3610,7 +3711,7 @@ function calcWinners(rows, results){
   return {items, misses, total, hitCount};
 }
 
-function buildWinMoneyOutputOnly(pack){
+function buildMatchValueOutputOnly(pack){
   const items = (pack && pack.items) || [];
   const out = [];
   if(!items.length){
@@ -3630,42 +3731,42 @@ function buildWinMoneyOutputOnly(pack){
   }
 
   out.push("");
-  out.push(`Giá trị đạt điều kiện=${money((pack && pack.total) || 0)}`);
+  out.push(`Giá trị phù hợp=${money((pack && pack.total) || 0)}`);
   return out.join("\n").trim();
 }
 
-function buildWinMoneyDebug(rows, results, pack){
+function buildMatchValueDebug(rows, references, pack){
   const out = [];
-  out.push(PX_ATOMIC_WIN_DISPLAY_BUILD);
+  out.push(SEQ_ATOMIC_MATCH_DISPLAY_BUILD);
   out.push("");
-  out.push("A. DỮ LIỆU ĐẠT ĐIỀU KIỆN ĐANG HIỂN THỊ");
-  out.push(buildWinMoneyOutputOnly(pack));
+  out.push("A. DỮ LIỆU PHÙ HỢP ĐANG HIỂN THỊ");
+  out.push(buildMatchValueOutputOnly(pack));
   out.push("");
   out.push("B. DỮ LIỆU ĐẦU VÀO ĐÃ TÁCH");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push("C. ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN + GIÁ TRỊ");
+  out.push("C. ĐỐI CHIẾU PHÙ HỢP + GIÁ TRỊ");
   const items = (pack && pack.items) || [];
   if(!items.length){
     out.push("Trống");
   }else{
     items.forEach((item, idx)=>{
       const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt đạt=${item.hit} | n=${fmtN(item.n)} | trọng số=${item.coef} | giá trị=${money(item.amount)}`);
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt khớp=${item.hit} | n=${fmtN(item.n)} | hệ số quy đổi=${item.coef} | giá trị=${money(item.amount)}`);
       out.push(`   vùng=${traceJoin(item.values || [])}`);
     });
   }
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   return out.join("\n").trim();
 }
 
-function buildWinReport(pack){
-  return buildWinMoneyOutputOnly(pack);
+function buildMatchReport(pack){
+  return buildMatchValueOutputOnly(pack);
 }
 
-function buildWinStepTrace(rows, results, pack){
-  return buildWinMoneyDebug(rows, results, pack);
+function buildMatchStepTrace(rows, references, pack){
+  return buildMatchValueDebug(rows, references, pack);
 }
 
 function runAll(){
@@ -3679,229 +3780,229 @@ function runAll(){
     renderIntermediate(rows);
 
     const total = totalMoney(rows);
-    setVal("copyFast", buildCopyFast(blocks, total));
-    setVal("ghi", money(total));
+    setVal("printOutput", buildCopyFast(blocks, total));
+    setVal("inputValue", money(total));
 
     const tk = buildTach(blocks);
-    setVal("soTach", tk.tach);
-    setVal("soKhongTach", tk.khong);
-    scrollTextTop("soTach");
-    scrollTextTop("soKhongTach");
+    setVal("processedOutput", tk.tach);
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
 
-    const resultObj = parseAllResults(rows);
-    const pack = calcWinners(rows, resultObj);
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
 
-    setVal("thuong", money(pack.total || 0));
-    setVal("tong", money(total - (pack.total || 0)));
-    setVal("soTrung", buildWinReport(pack));
-    setVal("detail", buildWinStepTrace(rows, resultObj, pack));
-    scrollTextTop("soTrung");
+    setVal("matchedValue", money(pack.total || 0));
+    setVal("remainingValue", money(total - (pack.total || 0)));
+    setVal("matchedOutput", buildMatchReport(pack));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
-    setVal("ghi", "Lỗi chạy: " + (err && err.message ? err.message : err));
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 
 
 /* V0.5.73 - MN/MT DA/DV JOINT ZONE MIN HIT
    Khóa rule mới:
-   - Với ghép cặp/DV MN, MT trên block nhiều vùng: tạo vùng bao2 CHUNG của toàn bộ vùng trong block.
+   - Với ghép cặp/DV MN, MT trên block nhiều vùng: tạo vùng suffix2 CHUNG của toàn bộ vùng trong block.
    - Hit cặp = min(countA trong vùng chung, countB trong vùng chung).
    - Không xét chéo từng hướng vùng 1/vùng 2 nữa.
    - Áp dụng cho MN và MT. HN giữ rule cũ theo từng vùng HN.
 */
-const PX_DA_JOINT_ZONE_BUILD = "Phân tích số v0.5.75 — giữ đủ tên vùng ghép khi in — bộ nhớ đệm 5652";
+const SEQ_PAIR_JOINT_ZONE_BUILD = "Xử lý dữ liệu chuỗi v0.5.75 — giữ đủ tên nguồn ghép khi in — bộ nhớ đệm 5652";
 
-function jointBao2ForDais(results, region, dais){
+function jointSuffix2ForSources(references, region, sources){
   const values = [];
   const labels = [];
-  for(const dai of (dais || [])){
-    const r = resultFor(results, region, dai);
-    const arr = r ? (r.bao2 || []) : [];
+  for(const source of (sources || [])){
+    const r = referenceFor(references, region, source);
+    const arr = r ? (r.suffix2 || []) : [];
     values.push(...arr);
-    labels.push(`${dai}=${traceJoin(arr)}`);
+    labels.push(`${source}=${traceJoin(arr)}`);
   }
   return {values, labels};
 }
 
-function isMnMtJointDaRow(row, region, dais){
-  return row && row.type === "da" && region !== "HN" && (row.daiCount || 1) >= 2 && (dais || []).length >= 2;
+function isJointPairRow(row, region, sources){
+  return row && row.type === "da" && region !== "HN" && (row.sourceCount || 1) >= 2 && (sources || []).length >= 2;
 }
 
-function calcDaHitByJointZone(row, results, region, dais){
+function calcPairHitByJointZone(row, references, region, sources){
   const nums = row.nums || [];
   if(nums.length < 2){
     return {hit:0, zone:"ghép cặp", values:[], note:"thiếu cặp số"};
   }
   const a = nums[0], b = nums[1];
-  const joint = jointBao2ForDais(results, region, dais);
+  const joint = jointSuffix2ForSources(references, region, sources);
   const ca = countExact(joint.values, a);
   const cb = countExact(joint.values, b);
   const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
   return {
     hit,
-    zone:`${(dais || []).join("")}.bao2 chung MN/MT`,
+    zone:`${(sources || []).join("")}.suffix2 chung MN/MT`,
     values:joint.labels,
     note:`${a}.${b} | ${a}=${ca}, ${b}=${cb}, min=${hit}`
   };
 }
 
-function calcDaHitOldDirection(row, results, region, dais){
+function calcPairHitByLegacyDirection(row, references, region, sources){
   const nums = row.nums || [];
   if(nums.length < 2){
     return {hit:0, zone:"ghép cặp", values:[], note:"thiếu cặp số"};
   }
   const a = nums[0], b = nums[1];
-  if((row.daiCount || 1) >= 2 && dais.length >= 2){
-    const r1 = resultFor(results, region, dais[0]);
-    const r2 = resultFor(results, region, dais[1]);
-    const v1 = r1 ? (r1.bao2 || []) : [];
-    const v2 = r2 ? (r2.bao2 || []) : [];
+  if((row.sourceCount || 1) >= 2 && sources.length >= 2){
+    const r1 = referenceFor(references, region, sources[0]);
+    const r2 = referenceFor(references, region, sources[1]);
+    const v1 = r1 ? (r1.suffix2 || []) : [];
+    const v2 = r2 ? (r2.suffix2 || []) : [];
     const ab = Math.min(countExact(v1, a), countExact(v2, b));
     const ba = (a === b) ? 0 : Math.min(countExact(v1, b), countExact(v2, a));
-    return {hit:ab + ba, zone:`ghép cặp 2 vùng: ${dais[0]}.bao2 + ${dais[1]}.bao2`, values:[`${dais[0]}=${traceJoin(v1)}`, `${dais[1]}=${traceJoin(v2)}`], note:`${a}.${b}`};
+    return {hit:ab + ba, zone:`ghép cặp 2 vùng: ${sources[0]}.suffix2 + ${sources[1]}.suffix2`, values:[`${sources[0]}=${traceJoin(v1)}`, `${sources[1]}=${traceJoin(v2)}`], note:`${a}.${b}`};
   }
-  const r = resultFor(results, region, dais[0]);
-  const values = r ? (r.bao2 || []) : [];
+  const r = referenceFor(references, region, sources[0]);
+  const values = r ? (r.suffix2 || []) : [];
   const ca = countExact(values, a);
   const cb = countExact(values, b);
   const hit = (a === b) ? Math.floor(ca / 2) : Math.min(ca, cb);
-  return {hit, zone:`${dais[0] || row.block}.bao2`, values, note:`${a}.${b}`};
+  return {hit, zone:`${sources[0] || row.block}.suffix2`, values, note:`${a}.${b}`};
 }
 
-function zoneForAtomic(row, results){
+function matchZoneForAtomic(row, references){
   if(!row || !row.calc) return null;
   const t = row.type;
   const region = row.region || "MN";
-  const dais = getDaisFromName(row.block);
+  const sources = getSourcesFromName(row.block);
   const nums = row.nums || [];
   const num = nums[0] || "";
   const len = String(num).length;
 
   if(t === "da"){
-    const ev = isMnMtJointDaRow(row, region, dais)
-      ? calcDaHitByJointZone(row, results, region, dais)
-      : calcDaHitOldDirection(row, results, region, dais);
+    const ev = isJointPairRow(row, region, sources)
+      ? calcPairHitByJointZone(row, references, region, sources)
+      : calcPairHitByLegacyDirection(row, references, region, sources);
     return {row, zone:ev.zone, values:ev.values || [], hit:ev.hit || 0, note:ev.note || ""};
   }
 
-  const dai = dais[0] || row.block;
-  const r = resultFor(results, region, dai);
-  if(!r) return {row, zone:`${dai}.thiếu_kết_quả`, values:[], hit:0, note:num};
+  const source = sources[0] || row.block;
+  const r = referenceFor(references, region, source);
+  if(!r) return {row, zone:`${source}.thiếu_kết_quả`, values:[], hit:0, note:num};
 
   let zone = "";
   let values = [];
   let hit = 0;
   if(t === "b"){
-    if(len === 2){ zone = `${dai}.bao2`; values = r.bao2 || []; hit = countExact(values, num); }
-    else if(len === 3){ zone = `${dai}.bao3`; values = r.bao3 || []; hit = countExact(values, num); }
-    else if(len === 4){ zone = `${dai}.bao4`; values = r.bao4 || []; hit = countExact(values, num); }
+    if(len === 2){ zone = `${source}.suffix2`; values = r.suffix2 || []; hit = countExact(values, num); }
+    else if(len === 3){ zone = `${source}.suffix3`; values = r.suffix3 || []; hit = countExact(values, num); }
+    else if(len === 4){ zone = `${source}.suffix4`; values = r.suffix4 || []; hit = countExact(values, num); }
   }else if(t === "bdao"){
-    if(len === 3){ zone = `${dai}.bao3 đảo`; values = r.bao3 || []; hit = countPerm(values, num); }
-    else if(len === 4){ zone = `${dai}.bao4 đảo`; values = r.bao4 || []; hit = countPerm(values, num); }
+    if(len === 3){ zone = `${source}.suffix3 đảo`; values = r.suffix3 || []; hit = countPerm(values, num); }
+    else if(len === 4){ zone = `${source}.suffix4 đảo`; values = r.suffix4 || []; hit = countPerm(values, num); }
   }else if(t === "dd"){
-    zone = `${dai}.dau2 + ${dai}.duoi2`;
-    values = [`dau2=${traceJoin(r.dau2 || [])}`, `duoi2=${traceJoin(r.duoi2 || [])}`];
-    hit = countExact(r.dau2 || [], num) + countExact(r.duoi2 || [], num);
+    zone = `${source}.leading2 + ${source}.trailing2`;
+    values = [`leading2=${traceJoin(r.leading2 || [])}`, `trailing2=${traceJoin(r.trailing2 || [])}`];
+    hit = countExact(r.leading2 || [], num) + countExact(r.trailing2 || [], num);
   }else if(t === "dau"){
-    zone = `${dai}.dau2`;
-    values = r.dau2 || [];
+    zone = `${source}.leading2`;
+    values = r.leading2 || [];
     hit = countExact(values, num);
   }else if(t === "duoi"){
-    zone = `${dai}.duoi2`;
-    values = r.duoi2 || [];
+    zone = `${source}.trailing2`;
+    values = r.trailing2 || [];
     hit = countExact(values, num);
   }else if(t === "xc"){
-    zone = `${dai}.xc = xcdau + xcduoi`;
-    values = r.xc3 || [];
+    zone = `${source}.xc = xcdau + xcduoi`;
+    values = r.edge3 || [];
     hit = countExact(values, num);
   }else if(t === "xcdau"){
-    zone = `${dai}.xcdau`;
-    values = r.dau3 || [];
+    zone = `${source}.xcdau`;
+    values = r.leading3 || [];
     hit = countExact(values, num);
   }else if(t === "xcduoi"){
-    zone = `${dai}.xcduoi`;
-    values = r.duoi3 || [];
+    zone = `${source}.xcduoi`;
+    values = r.trailing3 || [];
     hit = countExact(values, num);
   }else if(t === "xcdao"){
-    zone = `${dai}.xc đảo = xcdau + xcduoi đảo`;
-    values = [`xcdau=${traceJoin(r.dau3 || [])}`, `xcduoi=${traceJoin(r.duoi3 || [])}`];
-    hit = countPerm(r.dau3 || [], num) + countPerm(r.duoi3 || [], num);
+    zone = `${source}.xc đảo = xcdau + xcduoi đảo`;
+    values = [`xcdau=${traceJoin(r.leading3 || [])}`, `xcduoi=${traceJoin(r.trailing3 || [])}`];
+    hit = countPerm(r.leading3 || [], num) + countPerm(r.trailing3 || [], num);
   }else{
-    zone = `${dai}.không_rõ_loại`;
+    zone = `${source}.không_rõ_loại`;
   }
   return {row, zone, values, hit, note:num};
 }
 
-function calcWinRow(row, results){
-  if(!row || !row.calc || !hasAnyResults(results)) return null;
-  const ev = zoneForAtomic(row, results);
+function evaluateRowMatch(row, references){
+  if(!row || !row.calc || !hasAnyReferences(references)) return null;
+  const ev = matchZoneForAtomic(row, references);
   if(!ev) return null;
-  const coef = winCoefForRow(row);
+  const coef = matchWeightForRow(row);
   const n = Number(row.n || 0);
   const hit = Number(ev.hit || 0);
   return {hit, coef, amount: hit > 0 ? hit * n * coef : 0, zone:ev.zone, values:ev.values || []};
 }
 
-function buildWinMoneyDebug(rows, results, pack){
+function buildMatchValueDebug(rows, references, pack){
   const out = [];
-  out.push(PX_DA_JOINT_ZONE_BUILD);
+  out.push(SEQ_PAIR_JOINT_ZONE_BUILD);
   out.push("");
-  out.push("A. DỮ LIỆU ĐẠT ĐIỀU KIỆN ĐANG HIỂN THỊ");
-  out.push(buildWinMoneyOutputOnly(pack));
+  out.push("A. DỮ LIỆU PHÙ HỢP ĐANG HIỂN THỊ");
+  out.push(buildMatchValueOutputOnly(pack));
   out.push("");
   out.push("B. DỮ LIỆU ĐẦU VÀO ĐÃ TÁCH");
   out.push(buildAtomicInputBlock(rows));
   out.push("");
-  out.push("C. ĐỐI CHIẾU ĐẠT ĐIỀU KIỆN + GIÁ TRỊ");
+  out.push("C. ĐỐI CHIẾU PHÙ HỢP + GIÁ TRỊ");
   const items = (pack && pack.items) || [];
   if(!items.length){
     out.push("Trống");
   }else{
     items.forEach((item, idx)=>{
       const nums = item.row && item.row.nums ? item.row.nums.join(".") : "";
-      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt đạt=${item.hit} | n=${fmtN(item.n)} | trọng số=${item.coef} | giá trị=${money(item.amount)}`);
+      out.push(`${idx+1}. ${item.row.region || ""} | ${item.block} | ${item.line} | số=${nums} | xét=${item.zone} | lượt khớp=${item.hit} | n=${fmtN(item.n)} | hệ số quy đổi=${item.coef} | giá trị=${money(item.amount)}`);
       if(item.note) out.push(`   note=${item.note}`);
       out.push(`   vùng=${traceJoin(item.values || [])}`);
     });
   }
   out.push("");
-  out.push(buildResultZoneBlock(results));
+  out.push(buildResultZoneBlock(references));
   return out.join("\n").trim();
 }
 
 
-/* V0.5.73b - GENERIC 2DMN/2DMT RESULT HINT
-   Khi input dùng 2dmn/3dmn/2dmt/3dmt và vùng kết quả đã dán có tên vùng,
-   ưu tiên suy ra ngày/vùng theo vùng kết quả đó trước khi rơi về ngày hiện tại.
+/* V0.5.73b - GENERIC MÃ VÙNG TỔNG QUÁT — GỢI Ý THAM CHIẾU
+   Khi input dùng 2dmn/3dmn/2dmt/3dmt và vùng tham chiếu đã dán có tên nguồn,
+   ưu tiên suy ra ngày/vùng theo vùng tham chiếu đó trước khi rơi về ngày hiện tại.
 */
-function collectResultHintDaisForRegion(region){
+function collectReferenceSourceHintsForRegion(region){
   const ids = regionRelatedIds(region);
   const texts = [];
-  const saved = val(ids.result || "");
+  const saved = val(ids.reference || "");
   if(saved && saved.trim()) texts.push(saved);
-  const active = val("activeResultData");
+  const active = val("activeReferenceData");
   if(active && active.trim() && activeWorkspace === region) texts.push(active);
   const seen = new Set();
   const out = [];
   for(const text of texts){
     const lines = String(text || "").split(/\n+/).map(x=>x.trim()).filter(Boolean);
     for(const line of lines){
-      const dai = findDaiInLine(line);
-      if(dai && !seen.has(dai)){
-        seen.add(dai);
-        out.push(dai);
+      const source = findSourceInLine(line);
+      if(source && !seen.has(source)){
+        seen.add(source);
+        out.push(source);
       }
     }
   }
   return out;
 }
 
-function genericHintDaisForHeader(raw, lastExplicit){
+function genericSourceHintsForHeader(raw, lastExplicit){
   const l = normalizeLine(raw).toLowerCase();
   if(lastExplicit && lastExplicit.length) return lastExplicit;
-  if(/^[234]dmn$/.test(l)) return collectResultHintDaisForRegion("MN");
-  if(/^[23]dmt$/.test(l)) return collectResultHintDaisForRegion("MT");
+  if(/^[234]dmn$/.test(l)) return collectReferenceSourceHintsForRegion("MN");
+  if(/^[23]dmt$/.test(l)) return collectReferenceSourceHintsForRegion("MT");
   return lastExplicit || [];
 }
 
@@ -3910,13 +4011,13 @@ function splitBlocks(text){
   const blocks=[]; let cur=null; let lastExplicit=[];
   for(const raw of lines){
     if(isHeader(raw)){
-      const hints = genericHintDaisForHeader(raw, lastExplicit);
+      const hints = genericSourceHintsForHeader(raw, lastExplicit);
       cur = resolveHeader(raw, hints);
       blocks.push(cur);
-      if(!cur.generic) lastExplicit = cur.dais;
+      if(!cur.generic) lastExplicit = cur.sources;
     }else{
       if(!cur){
-        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", dais:["Không rõ vùng"], region:"MN", mainDais:["Không rõ vùng"], generic:false, lines:[]};
+        cur = {raw:"Không rõ vùng", name:"Không rõ vùng", sources:["Không rõ vùng"], region:"MN", primarySources:["Không rõ vùng"], generic:false, lines:[]};
         blocks.push(cur);
       }
       cur.lines.push(normalizeLine(raw));
@@ -3928,27 +4029,27 @@ function splitBlocks(text){
 
 /* V0.5.75 - PRESERVE FULL MULTI-STATION NAME IN PRINT OUTPUT
    Lỗi đã khóa:
-   - Header explicit ghép nhiều vùng như LanBphuoc không được rơi mất vùng khi tạo copyFast/In.
+   - Header explicit ghép nhiều vùng như LanBphuoc không được rơi mất vùng khi tạo printOutput/In.
    - Tên in phải lấy đủ danh sách vùng từ header gốc, rồi sắp theo thứ tự lịch chuẩn.
    - Giữ nguyên fix v0.5.74: tên block sau atomic cũng theo thứ tự lịch chuẩn.
 */
-const PX_PRINT_MULTI_DAI_BUILD = "Phân tích số v0.5.75 — giữ đủ tên vùng ghép khi in — bộ nhớ đệm 5652";
+const SEQ_PRINT_MULTI_SOURCE_BUILD = "Xử lý dữ liệu chuỗi v0.5.75 — giữ đủ tên nguồn ghép khi in — bộ nhớ đệm 5652";
 
-function scanCanonicalDaisLeftToRight(name){
+function scanCanonicalSourcesLeftToRight(name){
   const compact = cleanName(name).replace(/\s+/g, "");
   if(!compact) return [];
-  const tokens = KNOWN_DAI
-    .filter(dai => dai !== "HN")
+  const tokens = KNOWN_SOURCE_CODES
+    .filter(source => source !== "HN")
     .slice()
     .sort((a,b)=>b.length - a.length);
   const out = [];
   let pos = 0;
   while(pos < compact.length){
     let matched = "";
-    for(const dai of tokens){
-      const key = dai.toLowerCase();
+    for(const source of tokens){
+      const key = source.toLowerCase();
       if(compact.startsWith(key, pos)){
-        matched = dai;
+        matched = source;
         break;
       }
     }
@@ -3956,23 +4057,23 @@ function scanCanonicalDaisLeftToRight(name){
     out.push(matched);
     pos += matched.length;
   }
-  return orderDaisBySchedule(Array.from(new Set(out)));
+  return orderSourcesBySchedule(Array.from(new Set(out)));
 }
 
-function getDaisFromName(name){
+function getSourcesFromName(name){
   if(!name) return [];
   const raw = String(name).trim();
   const lower = raw.toLowerCase();
   if(lower === "hn" || lower === "mb") return ["HN"];
 
-  const mapped = mapDaiName(raw);
+  const mapped = mapSourceName(raw);
   if(mapped) return [mapped];
 
-  const exact = scanCanonicalDaisLeftToRight(raw);
+  const exact = scanCanonicalSourcesLeftToRight(raw);
   if(exact.length) return exact;
 
   const found = [];
-  for(const d of KNOWN_DAI){
+  for(const d of KNOWN_SOURCE_CODES){
     if(d === "HN") continue;
     const idx = lower.indexOf(d.toLowerCase());
     if(idx >= 0) found.push({d, idx});
@@ -3982,17 +4083,17 @@ function getDaisFromName(name){
     return b.d.length - a.d.length;
   });
   return found.length
-    ? orderDaisBySchedule(Array.from(new Set(found.map(item => item.d))))
+    ? orderSourcesBySchedule(Array.from(new Set(found.map(item => item.d))))
     : [raw];
 }
 
 function canonicalPrintBlockName(block){
   if(!block) return "";
-  const rawDais = scanCanonicalDaisLeftToRight(block.raw || "");
-  const dais = rawDais.length
-    ? rawDais
-    : orderDaisBySchedule((block.dais || getDaisFromName(block.name || "")).filter(Boolean));
-  return dais.length ? dais.join("") : (block.name || block.raw || "");
+  const rawSources = scanCanonicalSourcesLeftToRight(block.raw || "");
+  const sources = rawSources.length
+    ? rawSources
+    : orderSourcesBySchedule((block.sources || getSourcesFromName(block.name || "")).filter(Boolean));
+  return sources.length ? sources.join("") : (block.name || block.raw || "");
 }
 
 function buildCopyFast(blocks, total){
@@ -4010,32 +4111,32 @@ function buildCopyFast(blocks, total){
 /* V0.5.76 - GENERIC HEADER USES CURRENT-DAY SCHEDULE ONLY
    Lỗi đã khóa:
    - 2dmn/3dmn/4dmn và 2dmt/3dmt không được kế thừa vùng explicit đứng trước.
-   - Không dùng dữ liệu kết quả cũ để suy ra ngày cho header generic.
+   - Không dùng dữ liệu tham chiếu cũ để suy ra ngày cho header generic.
    - Mapping generic luôn lấy đúng lịch của ngày hiện tại trên thiết bị.
    Ví dụ thứ Bảy: 2dmn = TphoLan, dù block trước là Tpho.
 */
-const PX_GENERIC_TODAY_BUILD = "Phân tích số v0.5.76 — ánh xạ theo lịch ngày hiện tại — bộ nhớ đệm 5653";
+const SEQ_GENERIC_TODAY_BUILD = "Xử lý dữ liệu chuỗi v0.5.76 — ánh xạ theo lịch ngày hiện tại — bộ nhớ đệm 5653";
 
-function resolveHeader(raw, hintDais=[]){
+function resolveHeader(raw, sourceHints=[]){
   const l = normalizeLine(raw).toLowerCase();
-  let dais;
+  let sources;
   const today = dayIndex();
 
-  if(l === "hn" || l === "mb") dais = ["HN"];
-  else if(l === "2dmn") dais = (MN_MAP[today] || []).slice(0,2);
-  else if(l === "3dmn") dais = (MN_MAP[today] || []).slice(0,3);
-  else if(l === "4dmn") dais = (MN_MAP[today] || []).slice(0,4);
-  else if(l === "2dmt") dais = (MT_MAP[today] || []).slice(0,2);
-  else if(l === "3dmt") dais = (MT_MAP[today] || []).slice(0,3);
-  else dais = getDaisFromName(raw.trim());
+  if(l === "hn" || l === "mb") sources = ["HN"];
+  else if(l === "2dmn") sources = (REGION_A_SCHEDULE[today] || []).slice(0,2);
+  else if(l === "3dmn") sources = (REGION_A_SCHEDULE[today] || []).slice(0,3);
+  else if(l === "4dmn") sources = (REGION_A_SCHEDULE[today] || []).slice(0,4);
+  else if(l === "2dmt") sources = (REGION_B_SCHEDULE[today] || []).slice(0,2);
+  else if(l === "3dmt") sources = (REGION_B_SCHEDULE[today] || []).slice(0,3);
+  else sources = getSourcesFromName(raw.trim());
 
   const generic = /^(2dmn|3dmn|4dmn|2dmt|3dmt)$/i.test(l);
   return {
     raw: raw.trim(),
-    name: dais.join(""),
-    dais,
-    region: detectRegionByDais(dais),
-    mainDais: dais.slice(0,2),
+    name: sources.join(""),
+    sources,
+    region: detectRegionBySources(sources),
+    primarySources: sources.slice(0,2),
     generic,
     lines: []
   };
@@ -4044,33 +4145,34 @@ function resolveHeader(raw, hintDais=[]){
 
 /* V0.5.77 - COMPACT EXACT FOUR-STATION MN BLOCK
    Lỗi đã khóa:
-   - Khi atomic regroup tạo đúng block đủ 4 vùng MN theo lịch, tiêu đề Số tách/Không tách phải rút thành 4dmn.
+   - Khi atomic regroup tạo đúng block đủ 4 vùng MN theo lịch, tiêu đề Dữ liệu đã xử lý/Không tách phải rút thành 4dmn.
    - Ví dụ thứ Bảy: TphoLanBphuocHgiang -> 4dmn.
    - Không đổi các block ghép không đúng đủ lịch chuẩn.
 */
-const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
+const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.91: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.92: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
 
-/* v0.5.91 / cache5668 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.92 / cache5669 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Phân tích số v0.5.91 / cache5668
+  Xử lý dữ liệu chuỗi v0.5.92 / cache5669
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
   3) Xét từng atomic với đúng dữ liệu tham chiếu của vùng tương ứng.
-  4) Tách thành nhóm ĐẠT ĐIỀU KIỆN / KHÔNG ĐẠT ĐIỀU KIỆN.
+  4) Tách thành nhóm PHÙ HỢP / KHÔNG PHÙ HỢP.
   5) Chỉ gom lại dd hoặc xc khi hai atomic cùng trạng thái, cùng số, cùng mức và cùng vùng.
   6) Sau khi gom mới tách dòng tại ranh giới hậu tố hoàn chỉnh, tối đa 20 ký tự.
 */
 (function installAtomicZonePatch(global){
   "use strict";
 
-  const VERSION = "0.5.91";
-  const CACHE = "5668";
+  const VERSION = "0.5.92";
+  const CACHE = "5669";
   const MAX_LINE_LENGTH = 20;
-  const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
+  // Các mã ngắn dưới đây chỉ được giữ để đọc dữ liệu cũ; logic nội bộ và giao diện dùng thuật ngữ trung tính.
+const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 
   function atomicChildren(type){
     if(type === "dd") return ["dau", "duoi"];
@@ -4079,9 +4181,10 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
   }
 
   function atomicWeight(type, region){
-    const isHN = String(region || "MN") === "HN";
-    if(type === "xcdau" || type === "xcduoi") return isHN ? 2 : 1;
-    if(type === "xc") return isHN ? 4 : 2;
+    const isRegionC = String(region || "MN") === "HN";
+    if(type === "xcdau") return isRegionC ? 3 : 1;
+    if(type === "xcduoi") return 1;
+    if(type === "xc") return isRegionC ? 4 : 2;
     return null;
   }
 
@@ -4189,12 +4292,12 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
 
   function parseCompositeLine(line){
     const source = String(line || "").trim();
-    const firstType = new RegExp("^([0-9.]+?)(" + TYPE_RE.slice(1,-1) + ")", "i");
+    const firstType = new RegExp("^([0-9.]+?)(" + LEGACY_TYPE_TOKEN_RE.slice(1,-1) + ")", "i");
     const head = source.match(firstType);
     if(!head) return null;
     const numberPrefix = head[1].replace(/\.$/, "");
     const suffixPart = source.slice(head[1].length);
-    const tokenRe = new RegExp("\\.?(" + TYPE_RE.slice(1,-1) + ")([\\d,.]+)n", "gi");
+    const tokenRe = new RegExp("\\.?(" + LEGACY_TYPE_TOKEN_RE.slice(1,-1) + ")([\\d,.]+)n", "gi");
     const tokens = [];
     let match, consumed = "";
     while((match = tokenRe.exec(suffixPart))){
@@ -4266,16 +4369,16 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
     global.calcRow = function(row){
       const weight = row && row.calc ? atomicWeight(row.type,row.region) : null;
       if(weight != null){
-        const rate = typeof global.getRate === "function" ? Number(global.getRate()) : 0.8;
-        return weight * Number(row.n || 0) * rate;
+        const scaleFactor = typeof global.getRate === "function" ? Number(global.getRate()) : 0.8;
+        return weight * Number(row.n || 0) * scaleFactor;
       }
       return baseCalcRow.apply(this,arguments);
     };
   }
 
-  const baseCalcWinners = global.calcWinners;
-  if(typeof baseCalcWinners === "function"){
-    global.calcWinners = function(){ return compactPack(baseCalcWinners.apply(this,arguments)); };
+  const baseEvaluateMatches = global.evaluateMatches;
+  if(typeof baseEvaluateMatches === "function"){
+    global.evaluateMatches = function(){ return compactPack(baseEvaluateMatches.apply(this,arguments)); };
   }
 
   const baseBuildTach = global.buildTach;
@@ -4286,8 +4389,8 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
     };
   }
 
-  global.PX_ATOMIC_ZONE_V0590 = {
-    version:VERSION, cache:CACHE, status:"ỨNG VIÊN ĐÃ KIỂM THỬ",
+  global.SEQUENCE_NEUTRAL_ENGINE_V0592 = {
+    version:VERSION, cache:CACHE, status:"BẢN TRUNG TÍNH ĐÃ KIỂM THỬ",
     atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };

@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.92 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.93 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -4152,11 +4152,11 @@ function resolveHeader(raw, sourceHints=[]){
 const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.92: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.93: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
 
-/* v0.5.92 / cache5669 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.93 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Xử lý dữ liệu chuỗi v0.5.92 / cache5669
+  Xử lý dữ liệu chuỗi v0.5.93 / cache5670
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
@@ -4168,8 +4168,8 @@ const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút 
 (function installAtomicZonePatch(global){
   "use strict";
 
-  const VERSION = "0.5.92";
-  const CACHE = "5669";
+  const VERSION = "0.5.93";
+  const CACHE = "5670";
   const MAX_LINE_LENGTH = 20;
   // Các mã ngắn dưới đây chỉ được giữ để đọc dữ liệu cũ; logic nội bộ và giao diện dùng thuật ngữ trung tính.
 const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
@@ -4395,3 +4395,7 @@ const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };
 })(typeof window !== "undefined" ? window : globalThis);
+
+
+// Dấu xác nhận dùng cho kiểm tra tải mã trên trình duyệt.
+window.SEQUENCE_APP_LOADED = true;

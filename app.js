@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.93 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.94 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -4152,11 +4152,11 @@ function resolveHeader(raw, sourceHints=[]){
 const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.93: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.94: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
 
-/* v0.5.93 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.94 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Xử lý dữ liệu chuỗi v0.5.93 / cache5670
+  Xử lý dữ liệu chuỗi v0.5.94 / cache5670
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
@@ -4168,8 +4168,8 @@ const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút 
 (function installAtomicZonePatch(global){
   "use strict";
 
-  const VERSION = "0.5.93";
-  const CACHE = "5670";
+  const VERSION = "0.5.94";
+  const CACHE = "5671";
   const MAX_LINE_LENGTH = 20;
   // Các mã ngắn dưới đây chỉ được giữ để đọc dữ liệu cũ; logic nội bộ và giao diện dùng thuật ngữ trung tính.
 const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
@@ -4389,12 +4389,62 @@ const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
     };
   }
 
-  global.SEQUENCE_NEUTRAL_ENGINE_V0592 = {
-    version:VERSION, cache:CACHE, status:"BẢN TRUNG TÍNH ĐÃ KIỂM THỬ",
+  global.SEQUENCE_NEUTRAL_ENGINE_V0594 = {
+    version:VERSION, cache:CACHE, status:"BẢN LƯU KẾT QUẢ TÁCH ĐÃ KIỂM THỬ",
     atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };
 })(typeof window !== "undefined" ? window : globalThis);
+
+
+
+
+/* v0.5.94 - LƯU PHẦN ĐÃ XỬ LÝ KHI BẤM TÁCH
+   - Bấm Tách: chạy lại dữ liệu hiện tại, lưu phần bị tách vào ô Đã xử lý rồi mở bảng.
+   - Phần Đã xử lý được lưu riêng trong trình duyệt và có nút Xóa.
+*/
+const PROCESSED_SPLIT_STORAGE_KEY = "sequence.v1.saved.processedSplit";
+
+function saveProcessedSplitOutput(){
+  const text = val("processedOutput");
+  try{
+    localStorage.setItem(PROCESSED_SPLIT_STORAGE_KEY, text);
+    return true;
+  }catch(e){
+    console.error(e);
+    return false;
+  }
+}
+
+function loadProcessedSplitOutput(){
+  try{
+    const saved = localStorage.getItem(PROCESSED_SPLIT_STORAGE_KEY);
+    if(saved !== null) setVal("processedOutput", saved);
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function openSplitPanelAndSave(){
+  // Luôn chạy lại để phần lưu khớp chính xác dữ liệu đang nằm trong ô đầu vào.
+  if(val("inputData").trim()) runAll();
+  saveProcessedSplitOutput();
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+function clearProcessedSplitOutput(btn){
+  setVal("processedOutput", "");
+  try{
+    localStorage.removeItem(PROCESSED_SPLIT_STORAGE_KEY);
+  }catch(e){
+    console.error(e);
+  }
+  if(btn) flashActionButton(btn, "Đã xóa", "Xóa");
+}
+
+window.addEventListener("DOMContentLoaded", loadProcessedSplitOutput);
 
 
 // Dấu xác nhận dùng cho kiểm tra tải mã trên trình duyệt.

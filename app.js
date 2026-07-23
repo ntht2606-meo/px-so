@@ -1,6 +1,6 @@
-// Phân tích số v0.5.91 — tách theo vùng, gom sau khi xét điều kiện
+// Phân tích số v0.5.92 — tách theo vùng, gom sau khi xét điều kiện
 // Input -> Bảng trung gian -> Tính giá trị
-// In: chuẩn tên vùng, gom đồng giá, xuống dòng <=20 ký tự
+// In: chuẩn tên vùng, gom đồng giá, xuống dòng <=22 ký tự
 
 const MN_MAP = {
   1:["Tpho","Dthap","Cmau"],
@@ -742,9 +742,19 @@ function roundedMoney(n){
 
 // COPY NHANH: giữ cấu trúc tin gốc, KHÔNG bung dữ liệu trung gian.
 // Chỉ đổi header tổng quát thành tên vùng thật và chỉ ngắt dòng khi dãy số gốc quá dài.
-function splitCopyLineOriginal(rawLine, maxLen=20){
+function splitCopyLineOriginal(rawLine, maxLen=22){
   const s = normalizeLine(rawLine);
   if(!s || s.length <= maxLen) return s ? [s] : [];
+
+  // Với dòng nhiều hậu tố, phải tách theo cụm ý nghĩa và lặp lại đầy đủ tập số.
+  // Ví dụ: 10.50.90dv1n.dau10n.duoi5n
+  //       -> 10.50.90dv1n
+  //       -> 10.50.90dau10n.duoi5n
+  const semanticSplitter = globalThis.PX_ATOMIC_ZONE_V0590 && globalThis.PX_ATOMIC_ZONE_V0590.splitCompositeLine;
+  if(typeof semanticSplitter === "function" && /\.[a-z]+[\d,.]+n/i.test(s.slice(s.search(/[a-z]/i)))){
+    const semanticLines = semanticSplitter(s, maxLen);
+    if(semanticLines.length > 1 || semanticLines[0] !== s) return semanticLines;
+  }
 
   // Chỉ tách các dòng có sẵn danh sách số bằng dấu chấm.
   // Không bung keo/kéo, không gom dòng, không mở parseNums.
@@ -833,7 +843,7 @@ function buildCopyFast(blocks, total){
   for(const block of blocks){
     out.push(block.name);
     for(const rawLine of groupDuplicateSuffixLines(block.lines)){
-      out.push(...splitCopyLineOriginal(rawLine, 20));
+      out.push(...splitCopyLineOriginal(rawLine, 22));
     }
     out.push("");
   }
@@ -846,14 +856,14 @@ function renderObj(obj){
     if(!lines.length) continue;
     out.push(block);
     for(const line of groupDuplicateSuffixLines(lines)){
-      out.push(...splitTachDisplayLine(line, 20));
+      out.push(...splitTachDisplayLine(line, 22));
     }
     out.push("");
   }
   return out.join("\n").trim();
 }
 
-function splitTachDisplayLine(line, maxLen=20){
+function splitTachDisplayLine(line, maxLen=22){
   const m = String(line||"").match(/^([0-9.]+)(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|b|xc)([\d,.]+)n$/i);
   if(!m) return line ? [line] : [];
 
@@ -1539,7 +1549,7 @@ function buildTach(blocks){
 
       if(!lines.length) continue;
       out.push(compactThreeDaiLabel(block));
-      mergeDaWithSameNumLines(groupDuplicateSuffixLines(lines)).forEach(line => out.push(...splitTachDisplayLine(line, 20)));
+      mergeDaWithSameNumLines(groupDuplicateSuffixLines(lines)).forEach(line => out.push(...splitTachDisplayLine(line, 22)));
       out.push("");
     }
     return out.join("\n").trim();
@@ -4000,7 +4010,7 @@ function buildCopyFast(blocks, total){
   for(const block of (blocks || [])){
     out.push(canonicalPrintBlockName(block));
     for(const rawLine of groupDuplicateSuffixLines(block.lines || [])){
-      out.push(...splitCopyLineOriginal(rawLine, 20));
+      out.push(...splitCopyLineOriginal(rawLine, 22));
     }
     out.push("");
   }
@@ -4051,25 +4061,25 @@ function resolveHeader(raw, hintDais=[]){
 const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.91: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.92: tăng giới hạn 22 ký tự và tách dòng theo cụm ý nghĩa; giữ nguyên logic xử lý theo vùng.
 
-/* v0.5.91 / cache5668 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.92 / cache5669 — giới hạn 22 ký tự; tách dòng theo cụm ý nghĩa; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Phân tích số v0.5.91 / cache5668
+  Phân tích số v0.5.92 / cache5669
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
   3) Xét từng atomic với đúng dữ liệu tham chiếu của vùng tương ứng.
   4) Tách thành nhóm ĐẠT ĐIỀU KIỆN / KHÔNG ĐẠT ĐIỀU KIỆN.
   5) Chỉ gom lại dd hoặc xc khi hai atomic cùng trạng thái, cùng số, cùng mức và cùng vùng.
-  6) Sau khi gom mới tách dòng tại ranh giới hậu tố hoàn chỉnh, tối đa 20 ký tự.
+  6) Sau khi gom mới tách dòng tại ranh giới hậu tố hoàn chỉnh, tối đa 22 ký tự.
 */
 (function installAtomicZonePatch(global){
   "use strict";
 
-  const VERSION = "0.5.91";
-  const CACHE = "5668";
-  const MAX_LINE_LENGTH = 20;
+  const VERSION = "0.5.92";
+  const CACHE = "5669";
+  const MAX_LINE_LENGTH = 22;
   const TYPE_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 
   function atomicChildren(type){
@@ -4211,15 +4221,41 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
 
   function preferredSegments(tokens){
     const used = new Set(), segments = [];
-    const take = types => {
+    const takeExactTypes = types => {
       const items=[];
-      tokens.forEach((t,i)=>{ if(!used.has(i) && types.includes(t.type)){ used.add(i); items.push(t); } });
+      tokens.forEach((t,i)=>{
+        if(!used.has(i) && types.includes(t.type)){
+          used.add(i);
+          items.push(t);
+        }
+      });
       if(items.length) segments.push(items);
     };
-    take(["b","bdao"]);
-    take(["xc","xcdao"]);
+    const takeSemanticPair = (aType, bType) => {
+      const aIndex = tokens.findIndex((t,i)=>!used.has(i) && t.type === aType);
+      const bIndex = tokens.findIndex((t,i)=>!used.has(i) && t.type === bType);
+      if(aIndex >= 0 && bIndex >= 0){
+        used.add(aIndex);
+        used.add(bIndex);
+        const pair = [
+          {index:aIndex, token:tokens[aIndex]},
+          {index:bIndex, token:tokens[bIndex]}
+        ].sort((a,b)=>a.index-b.index).map(x=>x.token);
+        segments.push(pair);
+      }
+    };
+
+    // Các cặp này cùng mô tả một ý nghĩa trên cùng tập số nên không được tách rời.
+    takeSemanticPair("dau", "duoi");
+    takeSemanticPair("xcdau", "xcduoi");
+
+    // Các cụm độc lập còn lại được giữ theo nhóm nghĩa.
+    takeExactTypes(["b","bdao"]);
+    takeExactTypes(["xc","xcdao"]);
     tokens.forEach((t,i)=>{ if(!used.has(i)) segments.push([t]); });
-    return segments;
+
+    // Khôi phục đúng thứ tự xuất hiện của cụm trong dữ liệu gốc.
+    return segments.sort((a,b)=>tokens.indexOf(a[0]) - tokens.indexOf(b[0]));
   }
 
   function splitCompositeLine(line, maxLen=MAX_LINE_LENGTH){
@@ -4287,7 +4323,7 @@ const PX_COMPACT_PREFIX_BUILD = "Phân tích số v0.5.78 — rút gọn tiền 
   }
 
   global.PX_ATOMIC_ZONE_V0590 = {
-    version:VERSION, cache:CACHE, status:"ỨNG VIÊN ĐÃ KIỂM THỬ",
+    version:VERSION, cache:CACHE, status:"ỨNG VIÊN ĐANG KIỂM THỬ",
     atomicChildren, atomicWeight, expandRowsByZone, compactConditionItems, compactPack,
     splitCompositeLine, splitCompositeText, maxLineLength:MAX_LINE_LENGTH
   };

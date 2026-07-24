@@ -169,6 +169,8 @@ function syncRegionRelatedPanel(){
   if(title) title.textContent = "Dữ liệu liên quan " + uiName;
   if(exclusionLabel) exclusionLabel.textContent = "Loại trừ " + shortName;
   if(referenceLabel) referenceLabel.textContent = "Tham chiếu " + shortName;
+  const dailyShortcut = el("dailyRegionShortcutBtn");
+  if(dailyShortcut) dailyShortcut.textContent = "Ngày " + shortName;
   setVal("activeExclusionData", val(ids.exclusion));
   setVal("activeReferenceData", val(ids.reference));
 }
@@ -4743,6 +4745,20 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0597 = Object.assign(
 
 window.SEQUENCE_APP_LOADED = true;
 
+/* v0.5.99 / cache5674 — MỘT NÚT NGÀY THEO VÙNG ĐANG CHỌN
+   - Vùng A chỉ hiện Ngày A; Vùng B chỉ hiện Ngày B; Vùng C chỉ hiện Ngày C.
+   - Ba kho dữ liệu ngày vẫn độc lập; chỉ thay cách hiển thị nút.
+*/
+window.SEQUENCE_NEUTRAL_ENGINE_V0599 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0598 || window.SEQUENCE_NEUTRAL_ENGINE_V0596 || {},
+  {
+    version:"0.5.99",
+    cache:"5674",
+    status:"MỘT NÚT NGÀY ĐỘNG THEO VÙNG ĐANG CHỌN"
+  }
+);
+
 /* v0.5.98 / cache5673 — DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A / B / C
    - Mỗi vùng ghi vào một khóa riêng theo ngày.
    - Bấm Tách ở vùng nào chỉ lưu dữ liệu mới vào nhật ký ngày của vùng đó.
@@ -4918,8 +4934,8 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0598 = Object.assign(
   {},
   window.SEQUENCE_NEUTRAL_ENGINE_V0597 || {},
   {
-    version:"0.5.98",
-    cache:"5673",
+    version:"0.5.99",
+    cache:"5674",
     status:"DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A/B/C; DỮ LIỆU CŨ GIỮ CHƯA PHÂN VÙNG",
     dailyRegionInputKey:dailyRegionInputKeyV0598,
     readDailyRegionInput:readDailyRegionInputV0598,

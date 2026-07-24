@@ -573,18 +573,17 @@ footer{
   }
 }
 
-/* v0.5.98 — nút dữ liệu ngày theo vùng và panel quản lý riêng */
+/* v0.5.99 — chỉ hiển thị nút dữ liệu ngày của vùng đang chọn */
 .daily-region-shortcuts{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4px;
+  grid-template-columns:1fr;
 }
 .daily-region-shortcuts button{
   min-width:0;
   min-height:44px;
   margin:0;
-  padding:5px 2px;
-  font-size:12px;
+  padding:7px 5px;
+  font-size:15px;
   line-height:1.05;
 }
 .daily-region-panel textarea{
@@ -600,11 +599,10 @@ footer{
   min-height:150px;
 }
 @media(max-width:760px){
-  .daily-region-shortcuts{gap:3px}
   .daily-region-shortcuts button{
     min-height:42px;
-    padding:4px 1px;
-    font-size:10px;
+    padding:6px 4px;
+    font-size:14px;
   }
   .daily-region-panel textarea{
     min-height:calc(100vh - 190px);

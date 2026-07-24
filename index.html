@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Xử lý dữ liệu chuỗi v0.5.98</title>
+  <title>Xử lý dữ liệu chuỗi v0.5.99</title>
 
   <style data-source="style.css">
 *{box-sizing:border-box}
@@ -581,18 +581,17 @@ footer{
   }
 }
 
-/* v0.5.98 — nút dữ liệu ngày theo vùng và panel quản lý riêng */
+/* v0.5.99 — chỉ hiển thị nút dữ liệu ngày của vùng đang chọn */
 .daily-region-shortcuts{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4px;
+  grid-template-columns:1fr;
 }
 .daily-region-shortcuts button{
   min-width:0;
   min-height:44px;
   margin:0;
-  padding:5px 2px;
-  font-size:12px;
+  padding:7px 5px;
+  font-size:15px;
   line-height:1.05;
 }
 .daily-region-panel textarea{
@@ -608,11 +607,10 @@ footer{
   min-height:150px;
 }
 @media(max-width:760px){
-  .daily-region-shortcuts{gap:3px}
   .daily-region-shortcuts button{
     min-height:42px;
-    padding:4px 1px;
-    font-size:10px;
+    padding:6px 4px;
+    font-size:14px;
   }
   .daily-region-panel textarea{
     min-height:calc(100vh - 190px);
@@ -667,10 +665,8 @@ footer{
             <button type="button" onclick="toggleActionPanel('matches')">Đối chiếu</button>
             <button type="button" onclick="openRegionDataPanel('exclusion')">Loại trừ</button>
             <button type="button" onclick="openRegionDataPanel('reference')">Tham chiếu</button>
-            <div class="daily-region-shortcuts" aria-label="Dữ liệu trong ngày theo vùng">
-              <button type="button" onclick="openDailyRegionPanel('MN')">Ngày A</button>
-              <button type="button" onclick="openDailyRegionPanel('MT')">Ngày B</button>
-              <button type="button" onclick="openDailyRegionPanel('HN')">Ngày C</button>
+            <div class="daily-region-shortcuts" aria-label="Dữ liệu trong ngày của vùng đang chọn">
+              <button id="dailyRegionShortcutBtn" type="button" onclick="openDailyRegionPanel(activeWorkspace)">Ngày A</button>
             </div>
             <button type="button" class="gray" onclick="clearRun()">Xóa</button>
           </div>
@@ -875,7 +871,7 @@ footer{
       <textarea id="auditDetail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Xử lý dữ liệu chuỗi v0.5.98 — dữ liệu trong ngày độc lập theo Vùng A / B / C</footer>
+    <footer>Xử lý dữ liệu chuỗi v0.5.99 — dữ liệu trong ngày độc lập theo Vùng A / B / C</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -1063,6 +1059,8 @@ function syncRegionRelatedPanel(){
   if(title) title.textContent = "Dữ liệu liên quan " + uiName;
   if(exclusionLabel) exclusionLabel.textContent = "Loại trừ " + shortName;
   if(referenceLabel) referenceLabel.textContent = "Tham chiếu " + shortName;
+  const dailyShortcut = el("dailyRegionShortcutBtn");
+  if(dailyShortcut) dailyShortcut.textContent = "Ngày " + shortName;
   setVal("activeExclusionData", val(ids.exclusion));
   setVal("activeReferenceData", val(ids.reference));
 }
@@ -5637,6 +5635,20 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0597 = Object.assign(
 
 window.SEQUENCE_APP_LOADED = true;
 
+/* v0.5.99 / cache5674 — MỘT NÚT NGÀY THEO VÙNG ĐANG CHỌN
+   - Vùng A chỉ hiện Ngày A; Vùng B chỉ hiện Ngày B; Vùng C chỉ hiện Ngày C.
+   - Ba kho dữ liệu ngày vẫn độc lập; chỉ thay cách hiển thị nút.
+*/
+window.SEQUENCE_NEUTRAL_ENGINE_V0599 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0598 || window.SEQUENCE_NEUTRAL_ENGINE_V0596 || {},
+  {
+    version:"0.5.99",
+    cache:"5674",
+    status:"MỘT NÚT NGÀY ĐỘNG THEO VÙNG ĐANG CHỌN"
+  }
+);
+
 /* v0.5.98 / cache5673 — DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A / B / C
    - Mỗi vùng ghi vào một khóa riêng theo ngày.
    - Bấm Tách ở vùng nào chỉ lưu dữ liệu mới vào nhật ký ngày của vùng đó.
@@ -5812,8 +5824,8 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0598 = Object.assign(
   {},
   window.SEQUENCE_NEUTRAL_ENGINE_V0597 || {},
   {
-    version:"0.5.98",
-    cache:"5673",
+    version:"0.5.99",
+    cache:"5674",
     status:"DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A/B/C; DỮ LIỆU CŨ GIỮ CHƯA PHÂN VÙNG",
     dailyRegionInputKey:dailyRegionInputKeyV0598,
     readDailyRegionInput:readDailyRegionInputV0598,

@@ -5212,15 +5212,15 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
 );
 
 window.SEQUENCE_APP_LOADED = true;
-/* v0.6.05 / cache5680 — GỠ GIAO DIỆN ĐỐI CHIẾU; GIỮ MÁY XÉT NGẦM CHO NGÀY A
+/* v0.6.06 / cache5681 — ÁP MÁY XÉT NGẦM CHO NGÀY A/B/C
    - Đã xóa nút và panel Đối chiếu khỏi giao diện.
-   - Chỉ Ngày A: dùng trực tiếp dữ liệu đã lưu; không đưa lại vào input.
+   - Ngày A/B/C dùng trực tiếp dữ liệu đã lưu của chính vùng; không đưa lại vào input.
    - Máy Đối chiếu chạy ngầm theo từng dòng trong đúng ngữ cảnh tiêu đề vùng/đài.
    - Một dòng sinh nhiều phần tử phù hợp thì cộng thành một tổng duy nhất ở cuối dòng nguồn.
    - Dòng không phù hợp giữ nguyên; không tạo vùng kết quả phụ; dữ liệu localStorage gốc không đổi.
-   - Ngày B/C giữ nguyên hành vi v0.6.01.
+   - Mỗi ngày dùng đúng dữ liệu vùng và bộ Tham chiếu tương ứng; không lẫn A/B/C.
 */
-const DAILY_A_INLINE_MATCH_BUILD_V0604 = "Xử lý dữ liệu chuỗi v0.6.05 — gỡ giao diện Đối chiếu, giữ máy xét ngầm — bộ nhớ đệm 5680";
+const DAILY_A_INLINE_MATCH_BUILD_V0604 = "Xử lý dữ liệu chuỗi v0.6.06 — áp máy xét ngầm cho Ngày A/B/C — bộ nhớ đệm 5681";
 
 function dailyAInlineRowsV0604(headerLine, dataLine){
   const source = [String(headerLine || "").trim(), String(dataLine || "").trim()]
@@ -5301,7 +5301,7 @@ function refreshDailyRegionPanelV0598(){
   const title = el("dailyRegionPanelTitle");
   if(title) title.textContent = "Dữ liệu trong ngày — " + regionUiName(region);
   const raw = readDailyRegionInputV0598(region);
-  setVal("dailyRegionOutput", region === "MN" ? buildDailyAInlineDisplayV0604(raw) : raw);
+  setVal("dailyRegionOutput", buildDailyAInlineDisplayV0604(raw));
   scrollTextTop("dailyRegionOutput");
 }
 
@@ -5327,4 +5327,14 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0605 = Object.assign(
     status:"ĐÃ GỠ NÚT VÀ PANEL ĐỐI CHIẾU; GIỮ MÁY XÉT NGẦM PHỤC VỤ GIÁ TRỊ PHÙ HỢP VÀ NGÀY A"
   }
 );
-
+window.SEQUENCE_APP_LOADED = true;
+window.SEQUENCE_NEUTRAL_ENGINE_V0606 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0605 || window.SEQUENCE_NEUTRAL_ENGINE_V0604 || {},
+  {
+    version:"0.6.06",
+    cache:"5681",
+    status:"NGÀY A/B/C ĐỀU CHẠY MÁY XÉT NGẦM VÀ GẮN TIỀN CUỐI DÒNG THEO DỮ LIỆU/THAM CHIẾU CỦA CHÍNH VÙNG",
+    buildDailyRegionInlineDisplay:buildDailyAInlineDisplayV0604
+  }
+);

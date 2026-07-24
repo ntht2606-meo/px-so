@@ -4947,3 +4947,261 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0598 = Object.assign(
 
 window.SEQUENCE_APP_LOADED = true;
 
+/* v0.6.00 / cache5675 — TRẠNG THÁI ĐÃ XỬ LÝ RIÊNG THEO VÙNG + RESET INPUT SẠCH
+   1) Kho Đã xử lý tách độc lập cho Vùng A / B / C.
+   2) Dữ liệu Đã xử lý dùng chung từ bản cũ được chuyển sang Vùng A đúng một lần.
+   3) Dữ liệu cũ chưa phân vùng bị xóa hẳn sau khi người dùng đã sao lưu.
+   4) Bấm Làm việc mới sẽ xóa input A/B/C và dữ liệu thử; không xóa dữ liệu ngày, Đã xử lý hoặc Cài đặt.
+*/
+const PROCESSED_SPLIT_REGION_PREFIX_V0600 = "sequence.v1.saved.processedSplit.region.";
+const PROCESSED_SPLIT_MIGRATION_MARKER_V0600 = "sequence.v1.migration.processedSplit.region.v0600";
+
+function normalizeProcessedRegionV0600(region=activeWorkspace){
+  return ["MN","MT","HN"].includes(region) ? region : "MN";
+}
+
+function processedSplitRegionKeyV0600(region=activeWorkspace){
+  return PROCESSED_SPLIT_REGION_PREFIX_V0600 + normalizeProcessedRegionV0600(region);
+}
+
+function migrateSharedProcessedToRegionAV0600(){
+  try{
+    if(localStorage.getItem(PROCESSED_SPLIT_MIGRATION_MARKER_V0600) === "done"){
+      localStorage.removeItem(PROCESSED_SPLIT_STORAGE_KEY);
+      return;
+    }
+
+    const shared = normalizeStoredDataText(localStorage.getItem(PROCESSED_SPLIT_STORAGE_KEY) || "");
+    const keyA = processedSplitRegionKeyV0600("MN");
+    const currentA = normalizeStoredDataText(localStorage.getItem(keyA) || "");
+
+    const mergedA = !currentA
+      ? shared
+      : (!shared || currentA === shared ? currentA : joinProcessedAndCurrentInput(currentA, shared));
+    if(mergedA) localStorage.setItem(keyA, mergedA);
+    localStorage.removeItem(PROCESSED_SPLIT_STORAGE_KEY);
+    localStorage.setItem(PROCESSED_SPLIT_MIGRATION_MARKER_V0600, "done");
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function readProcessedSplitStorage(region=activeWorkspace){
+  try{
+    return normalizeStoredDataText(
+      localStorage.getItem(processedSplitRegionKeyV0600(region)) || ""
+    );
+  }catch(e){
+    console.error(e);
+    return "";
+  }
+}
+
+function writeProcessedSplitStorage(text, region=activeWorkspace){
+  const targetRegion = normalizeProcessedRegionV0600(region);
+  const normalized = normalizeStoredDataText(text);
+  try{
+    const key = processedSplitRegionKeyV0600(targetRegion);
+    if(normalized) localStorage.setItem(key, normalized);
+    else localStorage.removeItem(key);
+  }catch(e){
+    console.error(e);
+  }
+  if(targetRegion === activeWorkspace) setVal("processedOutput", normalized);
+  return normalized;
+}
+
+function loadProcessedSplitOutput(){
+  setVal("processedOutput", readProcessedSplitStorage(activeWorkspace));
+}
+
+function effectiveInputData(){
+  return joinProcessedAndCurrentInput(readProcessedSplitStorage(activeWorkspace), val("inputData"));
+}
+
+function splitConditionInputData(){
+  return joinProcessedAndCurrentInput(readProcessedSplitStorage(activeWorkspace), currentInputData());
+}
+
+function clearCalculatedViewsKeepProcessed(){
+  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  const tbody = document.querySelector("#intermediateTable tbody");
+  if(tbody) tbody.innerHTML = "";
+  setVal("matchedValue", "0");
+  setVal("processedOutput", readProcessedSplitStorage(activeWorkspace));
+}
+
+function saveProcessedSplitOutput(){
+  return !!writeProcessedSplitStorage(val("processedOutput"), activeWorkspace);
+}
+
+function clearProcessedSplitOutput(btn){
+  writeProcessedSplitStorage("", activeWorkspace);
+  runAll();
+  if(btn) flashActionButton(btn, "Đã xóa", "Xóa");
+}
+
+function refreshDailyRegionPanelV0598(){
+  const region = normalizeDailyRegionV0598(selectedDailyRegionV0598);
+  const title = el("dailyRegionPanelTitle");
+  if(title) title.textContent = "Dữ liệu trong ngày — " + regionUiName(region);
+  setVal("dailyRegionOutput", readDailyRegionInputV0598(region));
+  scrollTextTop("dailyRegionOutput");
+}
+
+function removeLegacyUnassignedDailyDataV0600(){
+  try{
+    const keys = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(key) keys.push(key);
+    }
+    keys.forEach(key=>{
+      const isCurrentShared = key.startsWith(STORAGE_KEYS.dailyInputPrefix)
+        && !key.startsWith(DAILY_REGION_STORAGE_PREFIX_V0598);
+      const isLegacyShared = key.startsWith(LEGACY_STORAGE_KEYS.dailyInputPrefix);
+      if(isCurrentShared || isLegacyShared) localStorage.removeItem(key);
+    });
+  }catch(e){
+    console.error(e);
+  }
+  const legacySection = el("legacy-daily-unassigned");
+  if(legacySection) legacySection.remove();
+}
+
+function clearWorkspaceInputStorageV0600(region){
+  const targetRegion = normalizeProcessedRegionV0600(region);
+  try{
+    localStorage.removeItem(workspaceKey(targetRegion));
+    localStorage.removeItem(LEGACY_STORAGE_KEYS.workspacePrefix + targetRegion);
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function resetSequenceInputsV0600(){
+  ["MN","MT","HN"].forEach(clearWorkspaceInputStorageV0600);
+  try{
+    localStorage.removeItem(STORAGE_KEYS.newWorkData);
+    localStorage.removeItem(LEGACY_STORAGE_KEYS.newWorkData);
+  }catch(e){
+    console.error(e);
+  }
+
+  setVal("inputData", "");
+  setVal("newWorkData", "");
+  setVal("newWorkProcess", "");
+  setVal("newWorkReport", "");
+  clearCalculatedViewsKeepProcessed();
+}
+
+function showMainWorkspace(name){
+  const isNew = name === "newwork";
+  if(isNew) resetSequenceInputsV0600();
+
+  const sequenceWorkspace = el("main-sequence");
+  const newwork = el("main-newwork");
+  if(sequenceWorkspace) sequenceWorkspace.hidden = isNew;
+  if(newwork) newwork.hidden = !isNew;
+  document.querySelectorAll(".main-tab").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.main === (isNew ? "newwork" : "sequence"));
+  });
+}
+
+function selectWorkspace(tab){
+  saveActiveWorkspaceInput();
+  const workScreen = el("workScreen");
+  const settingsScreen = el("settingsScreen");
+  activeWorkspace = tab === "SETTINGS" ? activeWorkspace : tab;
+
+  try{
+    localStorage.setItem(STORAGE_KEYS.activeWorkspace, tab);
+    if(tab !== "SETTINGS") localStorage.setItem(STORAGE_KEYS.lastWorkRegion, tab);
+  }catch(e){
+    console.error(e);
+  }
+
+  setActiveTab(tab);
+  if(tab === "SETTINGS"){
+    if(workScreen) workScreen.hidden = true;
+    if(settingsScreen) settingsScreen.hidden = false;
+    closeActionPanels();
+    return;
+  }
+
+  if(workScreen) workScreen.hidden = false;
+  if(settingsScreen) settingsScreen.hidden = true;
+  closeSettingsPanels();
+  loadWorkspaceInput(tab);
+  syncRegionRelatedPanel();
+  loadProcessedSplitOutput();
+  if(val("inputData").trim()) runAll();
+  else clearCalculatedViewsKeepProcessed();
+}
+
+function openSplitPanelAndSave(){
+  try{
+    const region = normalizeProcessedRegionV0600(activeWorkspace);
+    const currentText = currentInputData();
+    const conditionText = splitConditionInputData();
+
+    if(conditionText){
+      const blocks = splitBlocks(conditionText);
+      const tk = buildTach(blocks);
+
+      lastSplitDailySaveStatus = currentText
+        ? saveDailyRegionInputBackupV0598(region, currentText)
+        : "empty";
+
+      const processed = writeProcessedSplitStorage(tk.tach, region);
+      const unchanged = normalizeStoredDataText(tk.khong);
+
+      setVal("inputData", unchanged);
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+      saveActiveWorkspaceInput();
+      runAll();
+
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+    }else{
+      lastSplitDailySaveStatus = "empty";
+      writeProcessedSplitStorage("", region);
+      setVal("unchangedOutput", "");
+      clearCalculatedViewsKeepProcessed();
+    }
+  }catch(err){
+    console.error(err);
+    lastSplitDailySaveStatus = "error";
+    setVal("inputValue", "Lỗi tách: " + (err && err.message ? err.message : err));
+  }
+
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  migrateSharedProcessedToRegionAV0600();
+  removeLegacyUnassignedDailyDataV0600();
+  loadProcessedSplitOutput();
+  if(val("inputData").trim()) runAll();
+  else clearCalculatedViewsKeepProcessed();
+});
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0600 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0599 || window.SEQUENCE_NEUTRAL_ENGINE_V0598 || {},
+  {
+    version:"0.6.00",
+    cache:"5675",
+    status:"ĐÃ XỬ LÝ RIÊNG THEO VÙNG A/B/C; RESET INPUT SẠCH; ĐÃ XÓA DỮ LIỆU CŨ CHƯA PHÂN VÙNG",
+    processedSplitRegionKey:processedSplitRegionKeyV0600,
+    readProcessedSplitStorage,
+    writeProcessedSplitStorage,
+    resetSequenceInputs:resetSequenceInputsV0600
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
+

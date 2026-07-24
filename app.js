@@ -5223,3 +5223,90 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
 
 window.SEQUENCE_APP_LOADED = true;
 
+/* v0.6.02 / cache5677 — ĐỐI CHIẾU TỰ ĐỘNG TRONG DỮ LIỆU TRONG NGÀY
+   - Bỏ nút Đối chiếu khỏi thanh thao tác.
+   - Khi mở Ngày A/B/C, dùng đúng Tham chiếu của vùng đó để xét từng dòng nguồn.
+   - Dòng phù hợp được gắn tổng giá trị ở cuối dòng; dòng không phù hợp giữ nguyên.
+   - Giá trị chỉ sinh khi hiển thị, không ghi ngược vào localStorage dữ liệu ngày.
+*/
+function dailyReferencePackV0602(region){
+  const target = normalizeDailyRegionV0598(region);
+  const all = parseAllReferences([]);
+  return {
+    MN: target === "MN" ? (all.MN || {}) : {},
+    MT: target === "MT" ? (all.MT || {}) : {},
+    HN: target === "HN" ? (all.HN || {}) : {}
+  };
+}
+
+function dailyLineMatchAmountV0602(headerLine, dataLine, references){
+  const header = String(headerLine || "").trim();
+  const line = String(dataLine || "").trim();
+  if(!header || !line) return 0;
+  try{
+    const blocks = splitBlocks(header + "\n" + line);
+    const rows = buildIntermediate(blocks);
+    const pack = evaluateMatches(rows, references);
+    return Number(pack && pack.total || 0);
+  }catch(e){
+    console.error(e);
+    return 0;
+  }
+}
+
+function annotateDailyEntryV0602(entryText, region, references){
+  const lines = String(entryText || "").replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n");
+  const out = [];
+  let currentHeader = "";
+
+  for(const originalLine of lines){
+    const line = String(originalLine || "").trim();
+    if(!line || /^#\d+$/.test(line) || line === "---"){
+      out.push(originalLine);
+      continue;
+    }
+    if(isHeader(line)){
+      currentHeader = line;
+      out.push(originalLine);
+      continue;
+    }
+
+    const amount = dailyLineMatchAmountV0602(currentHeader, line, references);
+    out.push(amount > 0 ? `${line}   ${money(amount)}` : originalLine);
+  }
+  return out.join("\n");
+}
+
+function buildDailyRegionDisplayV0602(region, storedText){
+  const raw = normalizeStoredDataText(storedText);
+  if(!raw) return "";
+  const references = dailyReferencePackV0602(region);
+  return raw
+    .split(/\n\n---\n\n/)
+    .map(entry => annotateDailyEntryV0602(entry, region, references))
+    .join("\n\n---\n\n");
+}
+
+refreshDailyRegionPanelV0598 = function(){
+  const region = normalizeDailyRegionV0598(selectedDailyRegionV0598);
+  const title = el("dailyRegionPanelTitle");
+  if(title) title.textContent = "Dữ liệu trong ngày — " + regionUiName(region);
+  const storedText = readDailyRegionInputV0598(region);
+  setVal("dailyRegionOutput", buildDailyRegionDisplayV0602(region, storedText));
+  scrollTextTop("dailyRegionOutput");
+};
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0602 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0601 || window.SEQUENCE_NEUTRAL_ENGINE_V0600 || {},
+  {
+    version:"0.6.02",
+    cache:"5677",
+    status:"ĐỐI CHIẾU TỰ ĐỘNG TRONG DỮ LIỆU NGÀY; KHÔNG GHI TIỀN VÀO DỮ LIỆU GỐC",
+    buildDailyRegionDisplay:buildDailyRegionDisplayV0602,
+    dailyLineMatchAmount:dailyLineMatchAmountV0602
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
+

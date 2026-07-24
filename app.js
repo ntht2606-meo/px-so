@@ -292,7 +292,7 @@ function loadNewWorkData(){
   updateNewWorkPreview();
 }
 function closeActionPanels(){
-  ["panel-copy","panel-split","panel-matches","panel-region-exclusion","panel-region-reference","panel-daily-region"].forEach(id=>{
+  ["panel-copy","panel-split","panel-region-exclusion","panel-region-reference","panel-daily-region"].forEach(id=>{
     const panel = el(id);
     if(panel) panel.hidden = true;
   });
@@ -2460,16 +2460,15 @@ function runAll(){
     const matchPack = evaluateMatches(rows, referencePack);
     setVal("matchedValue", matchPack.total ? money(matchPack.total) : "0");
     setVal("remainingValue", money(total - matchPack.total));
-    setVal("matchedOutput", buildMatchReport(matchPack));
+    setVal( buildMatchReport(matchPack));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, matchPack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
   }
 }
 function clearRun(){
-  ["inputData","printOutput","inputValue","remainingValue","matchedValue","processedOutput","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  ["inputData","printOutput","inputValue","remainingValue","matchedValue","processedOutput","unchangedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
   const tbody = document.querySelector("#intermediateTable tbody");
   if(tbody) tbody.innerHTML = "";
   setVal("matchedValue","0");
@@ -2852,7 +2851,7 @@ function saveReferenceData(){
   }
 }
 function clearReferenceData(){
-  ["referenceA","referenceB","referenceC","parsedReference","matchedOutput"].forEach(id=>setVal(id,""));
+  ["referenceA","referenceB","referenceC","parsedReference"].forEach(id=>setVal(id,""));
   syncRegionRelatedPanel();
   try{
     localStorage.removeItem(STORAGE_KEYS.references);
@@ -3228,12 +3227,10 @@ function runAll(){
     const pack = evaluateMatches(rows, referencePack);
 
     // Chế độ trace: không dùng ô Phù hợp tổng để đếm hit nữa, tránh hiểu nhầm 1 con/2 con.
-    // Nguồn kiểm đúng là bảng matchedOutput bên dưới: vùng tham chiếu + atomic + phù hợp/không phù hợp.
     setVal("matchedValue", "Xem bảng");
     setVal("remainingValue", money(total));
-    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal( buildMatchReport(pack, referencePack, rows));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -3438,9 +3435,8 @@ function runAll(){
 
     setVal("matchedValue", money(pack.total || 0));
     setVal("remainingValue", money(total - (pack.total || 0)));
-    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal( buildMatchReport(pack, referencePack, rows));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -3564,12 +3560,10 @@ function runAll(){
     const referencePack = parseAllReferences(rows);
     const pack = evaluateMatches(rows, referencePack);
 
-    // Không hiển thị giá trị phù hợp ở bước kiểm vùng xét. Nguồn kiểm là DỮ LIỆU PHÙ HỢP trong matchedOutput.
     setVal("matchedValue", "Xem dữ liệu");
     setVal("remainingValue", money(total));
-    setVal("matchedOutput", buildMatchReport(pack, referencePack, rows));
+    setVal( buildMatchReport(pack, referencePack, rows));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -3652,9 +3646,8 @@ function runAll(){
 
     setVal("matchedValue", "Xem dữ liệu");
     setVal("remainingValue", money(total));
-    setVal("matchedOutput", buildMatchReport(pack));
+    setVal( buildMatchReport(pack));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -3801,9 +3794,8 @@ function runAll(){
 
     setVal("matchedValue", money(pack.total || 0));
     setVal("remainingValue", money(total - (pack.total || 0)));
-    setVal("matchedOutput", buildMatchReport(pack));
+    setVal( buildMatchReport(pack));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -4501,7 +4493,7 @@ function effectiveInputData(){
 }
 
 function clearCalculatedViewsKeepProcessed(){
-  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
   const tbody = document.querySelector("#intermediateTable tbody");
   if(tbody) tbody.innerHTML = "";
   setVal("matchedValue", "0");
@@ -4543,9 +4535,8 @@ function runAll(){
     const pack = evaluateMatches(rows, referencePack);
     setVal("matchedValue", money(pack.total || 0));
     setVal("remainingValue", money(total - (pack.total || 0)));
-    setVal("matchedOutput", buildMatchReport(pack));
+    setVal( buildMatchReport(pack));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -4661,9 +4652,8 @@ function runAll(){
     const pack = evaluateMatches(rows, referencePack);
     setVal("matchedValue", money(pack.total || 0));
     setVal("remainingValue", money(total - (pack.total || 0)));
-    setVal("matchedOutput", buildMatchReport(pack));
+    setVal( buildMatchReport(pack));
     setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
-    scrollTextTop("matchedOutput");
   }catch(err){
     console.error(err);
     setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
@@ -5029,7 +5019,7 @@ function splitConditionInputData(){
 }
 
 function clearCalculatedViewsKeepProcessed(){
-  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","matchedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
+  ["printOutput","inputValue","remainingValue","matchedValue","unchangedOutput","parsedReference","auditDetail"].forEach(id=>setVal(id,""));
   const tbody = document.querySelector("#intermediateTable tbody");
   if(tbody) tbody.innerHTML = "";
   setVal("matchedValue", "0");
@@ -5222,15 +5212,15 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
 );
 
 window.SEQUENCE_APP_LOADED = true;
-/* v0.6.04 / cache5679 — TEST NGÀY A GẮN GIÁ TRỊ PHÙ HỢP NGAY CUỐI DÒNG NGUỒN
-   - Giữ nguyên nút và vùng Đối chiếu làm đáp án kiểm chứng.
+/* v0.6.05 / cache5680 — GỠ GIAO DIỆN ĐỐI CHIẾU; GIỮ MÁY XÉT NGẦM CHO NGÀY A
+   - Đã xóa nút và panel Đối chiếu khỏi giao diện.
    - Chỉ Ngày A: dùng trực tiếp dữ liệu đã lưu; không đưa lại vào input.
    - Máy Đối chiếu chạy ngầm theo từng dòng trong đúng ngữ cảnh tiêu đề vùng/đài.
    - Một dòng sinh nhiều phần tử phù hợp thì cộng thành một tổng duy nhất ở cuối dòng nguồn.
    - Dòng không phù hợp giữ nguyên; không tạo vùng kết quả phụ; dữ liệu localStorage gốc không đổi.
    - Ngày B/C giữ nguyên hành vi v0.6.01.
 */
-const DAILY_A_INLINE_MATCH_BUILD_V0604 = "Xử lý dữ liệu chuỗi v0.6.04 — Ngày A gắn giá trị phù hợp cuối dòng — bộ nhớ đệm 5679";
+const DAILY_A_INLINE_MATCH_BUILD_V0604 = "Xử lý dữ liệu chuỗi v0.6.05 — gỡ giao diện Đối chiếu, giữ máy xét ngầm — bộ nhớ đệm 5680";
 
 function dailyAInlineRowsV0604(headerLine, dataLine){
   const source = [String(headerLine || "").trim(), String(dataLine || "").trim()]
@@ -5328,3 +5318,13 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0604 = Object.assign(
 );
 
 window.SEQUENCE_APP_LOADED = true;
+window.SEQUENCE_NEUTRAL_ENGINE_V0605 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0604 || window.SEQUENCE_NEUTRAL_ENGINE_V0601 || {},
+  {
+    version:"0.6.05",
+    cache:"5680",
+    status:"ĐÃ GỠ NÚT VÀ PANEL ĐỐI CHIẾU; GIỮ MÁY XÉT NGẦM PHỤC VỤ GIÁ TRỊ PHÙ HỢP VÀ NGÀY A"
+  }
+);
+

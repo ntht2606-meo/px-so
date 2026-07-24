@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Xử lý dữ liệu chuỗi v0.5.96</title>
+  <title>Xử lý dữ liệu chuỗi v0.5.97</title>
 
   <style data-source="style.css">
 *{box-sizing:border-box}
@@ -580,8 +580,6 @@ footer{
     min-height:40px;
   }
 }
-
-
   </style>
 </head>
 <body>
@@ -626,7 +624,6 @@ footer{
           <textarea id="inputData" placeholder="Dán dữ liệu vào đây..."></textarea>
           <div class="action-rail">
             <button type="button" onclick="openPrintOverlay(this)">In</button>
-            <button type="button" onclick="saveDayAndRun(this)">Lưu</button>
             <button type="button" onclick="openSplitPanelAndSave()">Tách</button>
             <button type="button" onclick="toggleActionPanel('matches')">Đối chiếu</button>
             <button type="button" onclick="openRegionDataPanel('exclusion')">Loại trừ</button>
@@ -822,7 +819,7 @@ footer{
       <textarea id="auditDetail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Xử lý dữ liệu chuỗi v0.5.96 — phân vùng, đối chiếu và tổng hợp theo quy tắc</footer>
+    <footer>Xử lý dữ liệu chuỗi v0.5.97 — phân vùng, đối chiếu và tổng hợp theo quy tắc</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -839,7 +836,7 @@ footer{
   </section>
 
   <script data-source="app.js">
-// Xử lý dữ liệu chuỗi v0.5.96 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.97 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -5521,10 +5518,68 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0596 = Object.assign(
 
 window.SEQUENCE_APP_LOADED = true;
 
+/* v0.5.97 / cache5672 — BẤM TÁCH ĐỒNG THỜI LƯU DỮ LIỆU MỚI TRONG NGÀY
+   - Bỏ nút Lưu ở thanh thao tác chính.
+   - Khi bấm Tách, chỉ phần dữ liệu mới đang có trong ô đầu vào được lưu vào Dữ liệu trong ngày.
+   - Vùng Đã xử lý chỉ tham gia xét điều kiện; không được ghi lặp vào Dữ liệu trong ngày.
+   - Việc lưu diễn ra sau khi buildTach thành công và trước khi ô đầu vào bị thay bằng phần Giữ nguyên.
+*/
+let lastSplitDailySaveStatus = "not-run";
 
+function openSplitPanelAndSave(){
+  try{
+    const currentText = currentInputData();
+    const conditionText = splitConditionInputData();
 
-  
+    if(conditionText){
+      const blocks = splitBlocks(conditionText);
+      const tk = buildTach(blocks);
 
+      // Gọi đúng nhiệm vụ của nút Lưu cũ khi dữ liệu đầu vào mới còn nguyên vẹn.
+      // saveDailyInputBackup() chỉ đọc inputData, vì vậy vùng Đã xử lý không bị lưu kèm.
+      lastSplitDailySaveStatus = currentText ? saveDailyInputBackup() : "empty";
+
+      const processed = writeProcessedSplitStorage(tk.tach);
+      const unchanged = normalizeStoredDataText(tk.khong);
+
+      setVal("inputData", unchanged);
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+      saveActiveWorkspaceInput();
+      runAll();
+
+      // Giữ đúng kết quả của lần bấm Tách trong bảng vừa mở.
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+    }else{
+      lastSplitDailySaveStatus = "empty";
+      writeProcessedSplitStorage("");
+      setVal("unchangedOutput", "");
+      clearCalculatedViewsKeepProcessed();
+    }
+  }catch(err){
+    console.error(err);
+    lastSplitDailySaveStatus = "error";
+    setVal("inputValue", "Lỗi tách: " + (err && err.message ? err.message : err));
+  }
+
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0597 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0596 || {},
+  {
+    version:"0.5.97",
+    cache:"5672",
+    status:"BẤM TÁCH LƯU DỮ LIỆU MỚI TRONG NGÀY; KHÔNG LƯU LẶP VÙNG ĐÃ XỬ LÝ",
+    getLastSplitDailySaveStatus:()=>lastSplitDailySaveStatus
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
   </script>
 </body>
 </html>

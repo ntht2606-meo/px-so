@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.96 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.97 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -4675,6 +4675,69 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0596 = Object.assign(
     effectiveInputData:splitConditionInputData,
     readProcessedSplitStorage,
     writeProcessedSplitStorage
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
+
+/* v0.5.97 / cache5672 — BẤM TÁCH ĐỒNG THỜI LƯU DỮ LIỆU MỚI TRONG NGÀY
+   - Bỏ nút Lưu ở thanh thao tác chính.
+   - Khi bấm Tách, chỉ phần dữ liệu mới đang có trong ô đầu vào được lưu vào Dữ liệu trong ngày.
+   - Vùng Đã xử lý chỉ tham gia xét điều kiện; không được ghi lặp vào Dữ liệu trong ngày.
+   - Việc lưu diễn ra sau khi buildTach thành công và trước khi ô đầu vào bị thay bằng phần Giữ nguyên.
+*/
+let lastSplitDailySaveStatus = "not-run";
+
+function openSplitPanelAndSave(){
+  try{
+    const currentText = currentInputData();
+    const conditionText = splitConditionInputData();
+
+    if(conditionText){
+      const blocks = splitBlocks(conditionText);
+      const tk = buildTach(blocks);
+
+      // Gọi đúng nhiệm vụ của nút Lưu cũ khi dữ liệu đầu vào mới còn nguyên vẹn.
+      // saveDailyInputBackup() chỉ đọc inputData, vì vậy vùng Đã xử lý không bị lưu kèm.
+      lastSplitDailySaveStatus = currentText ? saveDailyInputBackup() : "empty";
+
+      const processed = writeProcessedSplitStorage(tk.tach);
+      const unchanged = normalizeStoredDataText(tk.khong);
+
+      setVal("inputData", unchanged);
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+      saveActiveWorkspaceInput();
+      runAll();
+
+      // Giữ đúng kết quả của lần bấm Tách trong bảng vừa mở.
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+    }else{
+      lastSplitDailySaveStatus = "empty";
+      writeProcessedSplitStorage("");
+      setVal("unchangedOutput", "");
+      clearCalculatedViewsKeepProcessed();
+    }
+  }catch(err){
+    console.error(err);
+    lastSplitDailySaveStatus = "error";
+    setVal("inputValue", "Lỗi tách: " + (err && err.message ? err.message : err));
+  }
+
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0597 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0596 || {},
+  {
+    version:"0.5.97",
+    cache:"5672",
+    status:"BẤM TÁCH LƯU DỮ LIỆU MỚI TRONG NGÀY; KHÔNG LƯU LẶP VÙNG ĐÃ XỬ LÝ",
+    getLastSplitDailySaveStatus:()=>lastSplitDailySaveStatus
   }
 );
 

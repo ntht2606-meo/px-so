@@ -572,3 +572,43 @@ footer{
     min-height:40px;
   }
 }
+
+/* v0.5.98 — nút dữ liệu ngày theo vùng và panel quản lý riêng */
+.daily-region-shortcuts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+}
+.daily-region-shortcuts button{
+  min-width:0;
+  min-height:44px;
+  margin:0;
+  padding:5px 2px;
+  font-size:12px;
+  line-height:1.05;
+}
+.daily-region-panel textarea{
+  min-height:calc(100vh - 210px);
+  min-height:calc(100dvh - 210px);
+}
+.legacy-daily-box{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:2px dashed #999;
+}
+.legacy-daily-box textarea{
+  min-height:150px;
+}
+@media(max-width:760px){
+  .daily-region-shortcuts{gap:3px}
+  .daily-region-shortcuts button{
+    min-height:42px;
+    padding:4px 1px;
+    font-size:10px;
+  }
+  .daily-region-panel textarea{
+    min-height:calc(100vh - 190px);
+    min-height:calc(100dvh - 190px);
+  }
+}
+

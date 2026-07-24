@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.97 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.98 — dữ liệu trong ngày độc lập theo Vùng A / B / C
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -285,7 +285,7 @@ function loadNewWorkData(){
   updateNewWorkPreview();
 }
 function closeActionPanels(){
-  ["panel-copy","panel-split","panel-matches","panel-region-exclusion","panel-region-reference"].forEach(id=>{
+  ["panel-copy","panel-split","panel-matches","panel-region-exclusion","panel-region-reference","panel-daily-region"].forEach(id=>{
     const panel = el(id);
     if(panel) panel.hidden = true;
   });
@@ -4738,6 +4738,194 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0597 = Object.assign(
     cache:"5672",
     status:"BẤM TÁCH LƯU DỮ LIỆU MỚI TRONG NGÀY; KHÔNG LƯU LẶP VÙNG ĐÃ XỬ LÝ",
     getLastSplitDailySaveStatus:()=>lastSplitDailySaveStatus
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
+
+/* v0.5.98 / cache5673 — DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A / B / C
+   - Mỗi vùng ghi vào một khóa riêng theo ngày.
+   - Bấm Tách ở vùng nào chỉ lưu dữ liệu mới vào nhật ký ngày của vùng đó.
+   - Cửa sổ Ngày A / B / C có Sao chép và Xóa riêng; xóa một vùng không ảnh hưởng vùng khác.
+   - Dữ liệu chung của v0.5.97 trở về trước được giữ ở mục Chưa phân vùng; không tự gán sai vùng.
+   - Mục Dữ liệu trong ngày đã được loại khỏi Cài đặt.
+*/
+const DAILY_REGION_STORAGE_PREFIX_V0598 = "sequence.v1.dailyInput.region.";
+let selectedDailyRegionV0598 = "MN";
+
+function normalizeDailyRegionV0598(region){
+  return ["MN","MT","HN"].includes(region) ? region : "MN";
+}
+
+function dailyRegionInputKeyV0598(region=activeWorkspace){
+  return DAILY_REGION_STORAGE_PREFIX_V0598 + normalizeDailyRegionV0598(region) + "." + dateKey();
+}
+
+function readDailyRegionInputV0598(region=activeWorkspace){
+  try{
+    return normalizeStoredDataText(localStorage.getItem(dailyRegionInputKeyV0598(region)) || "");
+  }catch(e){
+    console.error(e);
+    return "";
+  }
+}
+
+function readLegacyUnassignedDailyInputV0598(){
+  try{
+    // Khóa sequence.v1.dailyInput.<ngày> là kho dùng chung của v0.5.97 trở về trước.
+    return normalizeStoredDataText(
+      readTextWithLegacy(dailyInputKey(), LEGACY_STORAGE_KEYS.dailyInputPrefix + dateKey()) || ""
+    );
+  }catch(e){
+    console.error(e);
+    return "";
+  }
+}
+
+function appendDailyEntryV0598(oldText, newText){
+  const old = normalizeStoredDataText(oldText);
+  const text = normalizeStoredDataText(newText);
+  if(!text) return {status:"empty", text:old};
+
+  const entries = old ? old.split(/\n\n---\n\n/) : [];
+  const last = entries.length ? entries[entries.length - 1].replace(/^#\d+\n/, "").trim() : "";
+  if(last === text) return {status:"duplicate", text:old};
+
+  const entry = `#${entries.length + 1}\n${text}`;
+  return {status:"saved", text:old ? old + "\n\n---\n\n" + entry : entry};
+}
+
+function saveDailyRegionInputBackupV0598(region=activeWorkspace, text=currentInputData()){
+  const targetRegion = normalizeDailyRegionV0598(region);
+  const result = appendDailyEntryV0598(readDailyRegionInputV0598(targetRegion), text);
+  if(result.status === "empty" || result.status === "duplicate"){
+    if(selectedDailyRegionV0598 === targetRegion) setVal("dailyRegionOutput", result.text);
+    return result.status;
+  }
+  try{
+    localStorage.setItem(dailyRegionInputKeyV0598(targetRegion), result.text);
+    if(selectedDailyRegionV0598 === targetRegion) setVal("dailyRegionOutput", result.text);
+    return "saved";
+  }catch(e){
+    console.error(e);
+    return "error";
+  }
+}
+
+// Ghi đè nhiệm vụ Lưu cũ: từ v0.5.98 chỉ lưu vào vùng đang làm việc.
+function saveDailyInputBackup(){
+  return saveDailyRegionInputBackupV0598(activeWorkspace, currentInputData());
+}
+
+function updateLegacyDailySectionV0598(){
+  const legacyText = readLegacyUnassignedDailyInputV0598();
+  setVal("legacyDailyUnassignedOutput", legacyText);
+  const section = el("legacy-daily-unassigned");
+  if(section) section.hidden = !legacyText;
+}
+
+function refreshDailyRegionPanelV0598(){
+  const region = normalizeDailyRegionV0598(selectedDailyRegionV0598);
+  const title = el("dailyRegionPanelTitle");
+  if(title) title.textContent = "Dữ liệu trong ngày — " + regionUiName(region);
+  setVal("dailyRegionOutput", readDailyRegionInputV0598(region));
+  updateLegacyDailySectionV0598();
+  scrollTextTop("dailyRegionOutput");
+}
+
+function openDailyRegionPanel(region){
+  selectedDailyRegionV0598 = normalizeDailyRegionV0598(region);
+  closeActionPanels();
+  refreshDailyRegionPanelV0598();
+  const panel = el("panel-daily-region");
+  if(panel) panel.hidden = false;
+}
+
+function clearSelectedDailyRegionV0598(btn){
+  const region = normalizeDailyRegionV0598(selectedDailyRegionV0598);
+  try{
+    localStorage.removeItem(dailyRegionInputKeyV0598(region));
+  }catch(e){
+    console.error(e);
+  }
+  setVal("dailyRegionOutput", "");
+  if(btn) flashActionButton(btn, "Đã xóa", "Xóa");
+}
+
+function clearLegacyUnassignedDailyInputV0598(btn){
+  try{
+    localStorage.removeItem(dailyInputKey());
+    localStorage.removeItem(LEGACY_STORAGE_KEYS.dailyInputPrefix + dateKey());
+  }catch(e){
+    console.error(e);
+  }
+  updateLegacyDailySectionV0598();
+  if(btn) flashActionButton(btn, "Đã xóa", "Xóa");
+}
+
+// Không còn ô dữ liệu ngày chung trong Cài đặt; hàm load cũ chỉ đồng bộ panel nếu đang tồn tại.
+function loadDailyInputBackup(){
+  if(el("panel-daily-region")) refreshDailyRegionPanelV0598();
+}
+
+function clearDailyInputBackup(){
+  clearSelectedDailyRegionV0598();
+}
+
+// Giữ toàn bộ logic Tách v0.5.97, chỉ đổi đích lưu dữ liệu mới sang vùng đang hoạt động.
+function openSplitPanelAndSave(){
+  try{
+    const currentText = currentInputData();
+    const conditionText = splitConditionInputData();
+
+    if(conditionText){
+      const blocks = splitBlocks(conditionText);
+      const tk = buildTach(blocks);
+
+      lastSplitDailySaveStatus = currentText
+        ? saveDailyRegionInputBackupV0598(activeWorkspace, currentText)
+        : "empty";
+
+      const processed = writeProcessedSplitStorage(tk.tach);
+      const unchanged = normalizeStoredDataText(tk.khong);
+
+      setVal("inputData", unchanged);
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+      saveActiveWorkspaceInput();
+      runAll();
+
+      setVal("processedOutput", processed);
+      setVal("unchangedOutput", unchanged);
+    }else{
+      lastSplitDailySaveStatus = "empty";
+      writeProcessedSplitStorage("");
+      setVal("unchangedOutput", "");
+      clearCalculatedViewsKeepProcessed();
+    }
+  }catch(err){
+    console.error(err);
+    lastSplitDailySaveStatus = "error";
+    setVal("inputValue", "Lỗi tách: " + (err && err.message ? err.message : err));
+  }
+
+  toggleActionPanel("split");
+  scrollTextTop("processedOutput");
+  scrollTextTop("unchangedOutput");
+}
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0598 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0597 || {},
+  {
+    version:"0.5.98",
+    cache:"5673",
+    status:"DỮ LIỆU TRONG NGÀY ĐỘC LẬP THEO VÙNG A/B/C; DỮ LIỆU CŨ GIỮ CHƯA PHÂN VÙNG",
+    dailyRegionInputKey:dailyRegionInputKeyV0598,
+    readDailyRegionInput:readDailyRegionInputV0598,
+    saveDailyRegionInput:saveDailyRegionInputBackupV0598,
+    readLegacyUnassignedDailyInput:readLegacyUnassignedDailyInputV0598,
+    openDailyRegionPanel
   }
 );
 

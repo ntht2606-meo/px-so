@@ -1,4 +1,4 @@
-// Xử lý dữ liệu chuỗi v0.5.95 — tách theo vùng, gom sau khi xét điều kiện
+// Xử lý dữ liệu chuỗi v0.5.96 — tách theo vùng, gom sau khi xét điều kiện
 // Đầu vào -> bảng trung gian -> quy đổi theo cấu hình
 // Xuất: chuẩn tên nguồn, nhóm cùng cấu trúc, xuống dòng tối đa 20 ký tự
 
@@ -4152,11 +4152,11 @@ function resolveHeader(raw, sourceHints=[]){
 const SEQ_COMPACT_PREFIX_BUILD = "Xử lý dữ liệu chuỗi v0.5.78 — rút gọn tiền tố vùng theo lịch ngày — bộ nhớ đệm 5655";
 
 
-// v0.5.95: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
+// v0.5.96: giữ nguyên logic xử lý theo vùng; chỉ chuẩn hóa toàn bộ nhãn hiển thị.
 
-/* v0.5.95 / cache5670 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
+/* v0.5.96 / cache5671 — chuẩn hóa nhãn giao diện; giữ nguyên logic xử lý đã kiểm thử. */
 /*
-  Xử lý dữ liệu chuỗi v0.5.95 / cache5670
+  Xử lý dữ liệu chuỗi v0.5.96 / cache5671
   Quy trình khóa:
   1) Tách mỗi block input thành từng atomic theo vùng.
   2) Bung dd -> dau + duoi; xc -> xcdau + xcduoi.
@@ -4399,7 +4399,7 @@ const LEGACY_TYPE_TOKEN_RE = "(bdao|xcdao|xcdau|xcduoi|duoi|dau|dd|dv|da|b|xc)";
 
 
 
-/* v0.5.95 - LƯU PHẦN ĐÃ XỬ LÝ KHI BẤM TÁCH
+/* v0.5.96 - LƯU PHẦN ĐÃ XỬ LÝ KHI BẤM TÁCH
    - Bấm Tách: chạy lại dữ liệu hiện tại, lưu phần bị tách vào ô Đã xử lý rồi mở bảng.
    - Phần Đã xử lý được lưu riêng trong trình duyệt và có nút Xóa.
 */
@@ -4449,7 +4449,7 @@ window.addEventListener("DOMContentLoaded", loadProcessedSplitOutput);
 
 
 
-/* v0.5.95 - VÙNG ĐÃ XỬ LÝ ĐỘC LẬP VÀ GHÉP VỚI DỮ LIỆU MỚI
+/* v0.5.96 - VÙNG ĐÃ XỬ LÝ ĐỘC LẬP VÀ GHÉP VỚI DỮ LIỆU MỚI
    Quy tắc trạng thái:
    1) Dữ liệu xét = vùng đã xử lý đã lưu + dữ liệu hiện có trong ô đầu vào.
    2) Bấm Tách: xét trên dữ liệu ghép, lưu phần Đã xử lý và đưa phần Giữ nguyên về ô đầu vào.
@@ -4610,3 +4610,73 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0595 = Object.assign(
 
 // Dấu xác nhận dùng cho kiểm tra tải mã trên trình duyệt.
 window.SEQUENCE_APP_LOADED = true;
+
+/* v0.5.96 / cache5671 — TÁCH NGUỒN TÍNH TOÁN VÀ NGUỒN XÉT ĐIỀU KIỆN
+   - currentInputData(): chỉ dữ liệu mới trong ô đầu vào; dùng cho bảng và mọi giá trị tính toán.
+   - splitConditionInputData(): vùng Đã xử lý + dữ liệu mới; chỉ dùng cho buildTach/xét điều kiện.
+   - Không đưa vùng Đã xử lý vào inputValue, printOutput, matchedValue hoặc remainingValue.
+*/
+function currentInputData(){
+  return normalizeStoredDataText(val("inputData"));
+}
+
+function splitConditionInputData(){
+  return joinProcessedAndCurrentInput(readProcessedSplitStorage(), currentInputData());
+}
+
+function runAll(){
+  try{
+    const currentText = currentInputData();
+    if(!currentText){
+      clearCalculatedViewsKeepProcessed();
+      return;
+    }
+
+    // Mọi phép tính chỉ dùng dữ liệu mới trong ô đầu vào.
+    const currentBlocks = splitBlocks(currentText);
+    const rows = buildIntermediate(currentBlocks);
+    renderIntermediate(rows);
+
+    const total = totalMoney(rows);
+    setVal("printOutput", buildCopyFast(currentBlocks, total));
+    setVal("inputValue", money(total));
+
+    // Chỉ riêng việc xét Tách mới dùng dữ liệu đã xử lý + dữ liệu mới.
+    const conditionText = splitConditionInputData();
+    const conditionBlocks = conditionText ? splitBlocks(conditionText) : [];
+    const tk = buildTach(conditionBlocks);
+    setVal("processedOutput", readProcessedSplitStorage());
+    setVal("unchangedOutput", tk.khong);
+    scrollTextTop("processedOutput");
+    scrollTextTop("unchangedOutput");
+
+    const referencePack = parseAllReferences(rows);
+    const pack = evaluateMatches(rows, referencePack);
+    setVal("matchedValue", money(pack.total || 0));
+    setVal("remainingValue", money(total - (pack.total || 0)));
+    setVal("matchedOutput", buildMatchReport(pack));
+    setVal("auditDetail", buildMatchStepTrace(rows, referencePack, pack));
+    scrollTextTop("matchedOutput");
+  }catch(err){
+    console.error(err);
+    setVal("inputValue", "Lỗi chạy: " + (err && err.message ? err.message : err));
+  }
+}
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0596 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0595 || {},
+  {
+    version:"0.5.96",
+    cache:"5671",
+    status:"TÍNH TOÁN CHỈ DÙNG DỮ LIỆU MỚI; XÉT TÁCH DÙNG ĐÃ XỬ LÝ + DỮ LIỆU MỚI",
+    currentInputData,
+    splitConditionInputData,
+    effectiveInputData:splitConditionInputData,
+    readProcessedSplitStorage,
+    writeProcessedSplitStorage
+  }
+);
+
+window.SEQUENCE_APP_LOADED = true;
+

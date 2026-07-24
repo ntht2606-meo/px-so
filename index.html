@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Xử lý dữ liệu chuỗi v0.6.03</title>
+  <title>Xử lý dữ liệu chuỗi v0.6.04</title>
 
   <style data-source="style.css">
 *{box-sizing:border-box}
@@ -862,7 +862,7 @@ footer{
       <textarea id="auditDetail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Xử lý dữ liệu chuỗi v0.6.03 — thử nghiệm đối chiếu trực tiếp trên Dữ liệu Ngày A; vùng Đối chiếu và Ngày B/C giữ nguyên</footer>
+    <footer>Xử lý dữ liệu chuỗi v0.6.04 — test Ngày A gắn giá trị phù hợp ngay cuối dòng; Đối chiếu và Ngày B / C giữ nguyên</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -6103,65 +6103,88 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
 );
 
 window.SEQUENCE_APP_LOADED = true;
-
-
-/* v0.6.03 / cache5678 — THỬ NGHIỆM ĐỐI CHIẾU TRỰC TIẾP TRÊN DỮ LIỆU NGÀY A
-   - Giữ nguyên nút và vùng Đối chiếu hiện hành làm đáp án chuẩn.
-   - Không đưa dữ liệu ngày trở lại ô input.
-   - Chỉ Ngày A: đọc trực tiếp từng mục đã lưu, xét bằng Tham chiếu A và máy evaluateMatches/buildMatchReport hiện hành.
-   - Kết quả được nối vào báo cáo hiển thị; dữ liệu localStorage gốc không đổi.
+/* v0.6.04 / cache5679 — TEST NGÀY A GẮN GIÁ TRỊ PHÙ HỢP NGAY CUỐI DÒNG NGUỒN
+   - Giữ nguyên nút và vùng Đối chiếu làm đáp án kiểm chứng.
+   - Chỉ Ngày A: dùng trực tiếp dữ liệu đã lưu; không đưa lại vào input.
+   - Máy Đối chiếu chạy ngầm theo từng dòng trong đúng ngữ cảnh tiêu đề vùng/đài.
+   - Một dòng sinh nhiều phần tử phù hợp thì cộng thành một tổng duy nhất ở cuối dòng nguồn.
+   - Dòng không phù hợp giữ nguyên; không tạo vùng kết quả phụ; dữ liệu localStorage gốc không đổi.
    - Ngày B/C giữ nguyên hành vi v0.6.01.
 */
-const DAILY_A_MATCH_BUILD_V0603 = "Xử lý dữ liệu chuỗi v0.6.03 — test đối chiếu trực tiếp Ngày A — bộ nhớ đệm 5678";
+const DAILY_A_INLINE_MATCH_BUILD_V0604 = "Xử lý dữ liệu chuỗi v0.6.04 — Ngày A gắn giá trị phù hợp cuối dòng — bộ nhớ đệm 5679";
 
-function dailyAReferencePackV0603(){
-  syncActiveRegionDataBuffer();
-  return {
-    MN: parseReferenceText(val("referenceA"), "", "MN"),
-    MT: {},
-    HN: {}
-  };
-}
-
-function splitDailyStoredEntriesV0603(rawText){
-  const raw = normalizeStoredDataText(rawText);
-  if(!raw) return [];
-  return raw.split(/\n\n---\n\n/).map((entry, index)=>{
-    const text = String(entry || "").trim();
-    const match = text.match(/^(#\d+)\n([\s\S]*)$/);
-    return {
-      marker: match ? match[1] : `#${index + 1}`,
-      body: normalizeStoredDataText(match ? match[2] : text)
-    };
-  });
-}
-
-function buildDailyAMatchReportForEntryV0603(body, references){
-  const source = normalizeStoredDataText(body);
-  if(!source) return "";
+function dailyAInlineRowsV0604(headerLine, dataLine){
+  const source = [String(headerLine || "").trim(), String(dataLine || "").trim()]
+    .filter(Boolean)
+    .join("\n");
+  if(!source) return [];
   try{
-    const blocks = splitBlocks(source);
-    const rows = buildIntermediate(blocks);
-    const pack = evaluateMatches(rows, references);
-    if(!pack || !Array.isArray(pack.items) || !pack.items.length) return "";
-    return buildMatchReport(pack).trim();
+    return buildIntermediate(splitBlocks(source));
   }catch(err){
     console.error(err);
-    return "";
+    return [];
   }
 }
 
-function buildDailyADisplayV0603(rawText){
+function dailyAInlineAmountV0604(headerLine, dataLine, references){
+  const rows = dailyAInlineRowsV0604(headerLine, dataLine);
+  if(!rows.length || !rows.some(row => row && row.calc)) return 0;
+  try{
+    const pack = evaluateMatches(rows, references);
+    return Number(pack && pack.total || 0);
+  }catch(err){
+    console.error(err);
+    return 0;
+  }
+}
+
+function dailyAAllRowsForReferenceV0604(rawText){
+  const lines = String(rawText || "").replace(/\r/g, "").split("\n");
+  const rows = [];
+  let currentHeader = "";
+  for(const rawLine of lines){
+    const line = String(rawLine || "").trim();
+    if(!line) continue;
+    if(/^#\d+$/.test(line) || line === "---"){
+      currentHeader = "";
+      continue;
+    }
+    if(isHeader(line)){
+      currentHeader = line;
+      continue;
+    }
+    rows.push(...dailyAInlineRowsV0604(currentHeader, line));
+  }
+  return rows;
+}
+
+function buildDailyAInlineDisplayV0604(rawText){
   const raw = normalizeStoredDataText(rawText);
   if(!raw) return "";
-  const references = dailyAReferencePackV0603();
-  const entries = splitDailyStoredEntriesV0603(raw);
-  return entries.map(entry=>{
-    const original = [entry.marker, entry.body].filter(Boolean).join("\n");
-    const answer = buildDailyAMatchReportForEntryV0603(entry.body, references);
-    if(!answer) return original;
-    return `${original}\n\nKẾT QUẢ ĐỐI CHIẾU — NGÀY A\n${answer}`;
-  }).join("\n\n---\n\n").trim();
+
+  // Dùng cùng bộ đọc Tham chiếu và cùng máy evaluateMatches của vùng Đối chiếu.
+  const references = parseAllReferences(dailyAAllRowsForReferenceV0604(raw));
+  const lines = raw.replace(/\r/g, "").split("\n");
+  let currentHeader = "";
+
+  return lines.map(rawLine => {
+    const line = String(rawLine || "").trim();
+    if(!line) return rawLine;
+
+    if(/^#\d+$/.test(line) || line === "---"){
+      currentHeader = "";
+      return rawLine;
+    }
+
+    if(isHeader(line)){
+      currentHeader = line;
+      return rawLine;
+    }
+
+    const amount = dailyAInlineAmountV0604(currentHeader, line, references);
+    if(!(amount > 0)) return rawLine;
+    return `${rawLine.replace(/\s+$/, "")}   ${money(amount)}`;
+  }).join("\n").trim();
 }
 
 function refreshDailyRegionPanelV0598(){
@@ -6169,24 +6192,23 @@ function refreshDailyRegionPanelV0598(){
   const title = el("dailyRegionPanelTitle");
   if(title) title.textContent = "Dữ liệu trong ngày — " + regionUiName(region);
   const raw = readDailyRegionInputV0598(region);
-  setVal("dailyRegionOutput", region === "MN" ? buildDailyADisplayV0603(raw) : raw);
+  setVal("dailyRegionOutput", region === "MN" ? buildDailyAInlineDisplayV0604(raw) : raw);
   scrollTextTop("dailyRegionOutput");
 }
 
-window.SEQUENCE_NEUTRAL_ENGINE_V0603 = Object.assign(
+window.SEQUENCE_NEUTRAL_ENGINE_V0604 = Object.assign(
   {},
   window.SEQUENCE_NEUTRAL_ENGINE_V0601 || window.SEQUENCE_NEUTRAL_ENGINE_V0600 || {},
   {
-    version:"0.6.03",
-    cache:"5678",
-    status:"TEST NGÀY A ĐỌC TRỰC TIẾP DỮ LIỆU ĐÃ LƯU VÀ DÙNG NGUYÊN MÁY ĐỐI CHIẾU; B/C VÀ PANEL ĐỐI CHIẾU GIỮ NGUYÊN",
-    buildDailyADisplay:buildDailyADisplayV0603,
-    buildDailyAMatchReportForEntry:buildDailyAMatchReportForEntryV0603
+    version:"0.6.04",
+    cache:"5679",
+    status:"TEST NGÀY A: ĐỐI CHIẾU CHẠY NGẦM VÀ GẮN TỔNG GIÁ TRỊ PHÙ HỢP NGAY CUỐI DÒNG NGUỒN; KHÔNG TẠO VÙNG KẾT QUẢ PHỤ",
+    buildDailyAInlineDisplay:buildDailyAInlineDisplayV0604,
+    dailyAInlineAmount:dailyAInlineAmountV0604
   }
 );
 
 window.SEQUENCE_APP_LOADED = true;
-
   </script>
 </body>
 </html>

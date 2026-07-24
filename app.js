@@ -95,6 +95,8 @@ const LEGACY_STORAGE_KEYS = {
 };
 const WEIGHT_SETTING_IDS = ["scaleFactor","weightPair2Sources","weightPair1Source","weightPairRegionC","weightLength2","weightLength3","weightLength4","limitLength2","limitPair"];
 let activeWorkspace = "MN";
+// Dữ liệu nhập A/B/C chỉ tồn tại trong phiên trang hiện tại; không lưu lâu dài trong localStorage.
+const SESSION_WORKSPACE_INPUTS = { MN:"", MT:"", HN:"" };
 
 function dayIndex(){ return new Date().getDay(); }
 function dateKey(){
@@ -126,18 +128,21 @@ function workspaceKey(region=activeWorkspace){
 }
 function saveActiveWorkspaceInput(){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
-  try{
-    localStorage.setItem(workspaceKey(activeWorkspace), val("inputData"));
-  }catch(e){
-    console.error(e);
-  }
+  SESSION_WORKSPACE_INPUTS[activeWorkspace] = val("inputData");
 }
 function loadWorkspaceInput(region){
-  try{
-    setVal("inputData", readTextWithLegacy(workspaceKey(region), LEGACY_STORAGE_KEYS.workspacePrefix + region));
-  }catch(e){
-    setVal("inputData", "");
-  }
+  const targetRegion = ["MN","MT","HN"].includes(region) ? region : "MN";
+  setVal("inputData", SESSION_WORKSPACE_INPUTS[targetRegion] || "");
+}
+function purgePersistentWorkspaceInputsV0601(){
+  ["MN","MT","HN"].forEach(region=>{
+    try{
+      localStorage.removeItem(workspaceKey(region));
+      localStorage.removeItem(LEGACY_STORAGE_KEYS.workspacePrefix + region);
+    }catch(e){
+      console.error(e);
+    }
+  });
 }
 function regionUiName(region=activeWorkspace){
   if(region === "MT") return "Vùng B";
@@ -5071,6 +5076,7 @@ function removeLegacyUnassignedDailyDataV0600(){
 
 function clearWorkspaceInputStorageV0600(region){
   const targetRegion = normalizeProcessedRegionV0600(region);
+  SESSION_WORKSPACE_INPUTS[targetRegion] = "";
   try{
     localStorage.removeItem(workspaceKey(targetRegion));
     localStorage.removeItem(LEGACY_STORAGE_KEYS.workspacePrefix + targetRegion);
@@ -5182,6 +5188,7 @@ function openSplitPanelAndSave(){
 }
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  purgePersistentWorkspaceInputsV0601();
   migrateSharedProcessedToRegionAV0600();
   removeLegacyUnassignedDailyDataV0600();
   loadProcessedSplitOutput();
@@ -5200,6 +5207,17 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0600 = Object.assign(
     readProcessedSplitStorage,
     writeProcessedSplitStorage,
     resetSequenceInputs:resetSequenceInputsV0600
+  }
+);
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0600 || {},
+  {
+    version:"0.6.01",
+    cache:"5676",
+    status:"INPUT A/B/C CHỈ GIỮ TRONG PHIÊN; TỰ XÓA WORKSPACE LOCALSTORAGE CŨ",
+    purgePersistentWorkspaceInputs:purgePersistentWorkspaceInputsV0601
   }
 );
 

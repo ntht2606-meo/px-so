@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Xử lý dữ liệu chuỗi v0.6.00</title>
+  <title>Xử lý dữ liệu chuỗi v0.6.01</title>
 
   <style data-source="style.css">
 *{box-sizing:border-box}
@@ -671,7 +671,7 @@ footer{
             <button type="button" class="gray" onclick="clearRun()">Xóa</button>
           </div>
         </div>
-        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng vùng A / B / C được lưu riêng trong trình duyệt.</p>
+        <p class="hint auto-run-hint">Tự chạy khi anh nhập hoặc dán dữ liệu. Dữ liệu từng Vùng A / B / C chỉ được giữ riêng trong phiên hiện tại; tải lại trang sẽ để trống.</p>
       </section>
 
       <section id="panel-region-exclusion" class="panel action-panel region-overlay-panel" hidden>
@@ -862,7 +862,7 @@ footer{
       <textarea id="auditDetail" readonly placeholder="Dạng chữ của bảng trung gian..."></textarea>
     </section>
 
-    <footer>Xử lý dữ liệu chuỗi v0.6.00 — dữ liệu ngày và Đã xử lý độc lập theo Vùng A / B / C</footer>
+    <footer>Xử lý dữ liệu chuỗi v0.6.01 — dữ liệu nhập chỉ giữ trong phiên; dữ liệu ngày và Đã xử lý vẫn độc lập theo Vùng A / B / C</footer>
   </div>
   <section id="printOverlay" class="print-overlay" hidden>
     <div class="print-overlay-bar">
@@ -976,6 +976,8 @@ const LEGACY_STORAGE_KEYS = {
 };
 const WEIGHT_SETTING_IDS = ["scaleFactor","weightPair2Sources","weightPair1Source","weightPairRegionC","weightLength2","weightLength3","weightLength4","limitLength2","limitPair"];
 let activeWorkspace = "MN";
+// Dữ liệu nhập A/B/C chỉ tồn tại trong phiên trang hiện tại; không lưu lâu dài trong localStorage.
+const SESSION_WORKSPACE_INPUTS = { MN:"", MT:"", HN:"" };
 
 function dayIndex(){ return new Date().getDay(); }
 function dateKey(){
@@ -1007,18 +1009,21 @@ function workspaceKey(region=activeWorkspace){
 }
 function saveActiveWorkspaceInput(){
   if(!["MN","MT","HN"].includes(activeWorkspace)) return;
-  try{
-    localStorage.setItem(workspaceKey(activeWorkspace), val("inputData"));
-  }catch(e){
-    console.error(e);
-  }
+  SESSION_WORKSPACE_INPUTS[activeWorkspace] = val("inputData");
 }
 function loadWorkspaceInput(region){
-  try{
-    setVal("inputData", readTextWithLegacy(workspaceKey(region), LEGACY_STORAGE_KEYS.workspacePrefix + region));
-  }catch(e){
-    setVal("inputData", "");
-  }
+  const targetRegion = ["MN","MT","HN"].includes(region) ? region : "MN";
+  setVal("inputData", SESSION_WORKSPACE_INPUTS[targetRegion] || "");
+}
+function purgePersistentWorkspaceInputsV0601(){
+  ["MN","MT","HN"].forEach(region=>{
+    try{
+      localStorage.removeItem(workspaceKey(region));
+      localStorage.removeItem(LEGACY_STORAGE_KEYS.workspacePrefix + region);
+    }catch(e){
+      console.error(e);
+    }
+  });
 }
 function regionUiName(region=activeWorkspace){
   if(region === "MT") return "Vùng B";
@@ -5952,6 +5957,7 @@ function removeLegacyUnassignedDailyDataV0600(){
 
 function clearWorkspaceInputStorageV0600(region){
   const targetRegion = normalizeProcessedRegionV0600(region);
+  SESSION_WORKSPACE_INPUTS[targetRegion] = "";
   try{
     localStorage.removeItem(workspaceKey(targetRegion));
     localStorage.removeItem(LEGACY_STORAGE_KEYS.workspacePrefix + targetRegion);
@@ -6063,6 +6069,7 @@ function openSplitPanelAndSave(){
 }
 
 window.addEventListener("DOMContentLoaded", ()=>{
+  purgePersistentWorkspaceInputsV0601();
   migrateSharedProcessedToRegionAV0600();
   removeLegacyUnassignedDailyDataV0600();
   loadProcessedSplitOutput();
@@ -6081,6 +6088,17 @@ window.SEQUENCE_NEUTRAL_ENGINE_V0600 = Object.assign(
     readProcessedSplitStorage,
     writeProcessedSplitStorage,
     resetSequenceInputs:resetSequenceInputsV0600
+  }
+);
+
+window.SEQUENCE_NEUTRAL_ENGINE_V0601 = Object.assign(
+  {},
+  window.SEQUENCE_NEUTRAL_ENGINE_V0600 || {},
+  {
+    version:"0.6.01",
+    cache:"5676",
+    status:"INPUT A/B/C CHỈ GIỮ TRONG PHIÊN; TỰ XÓA WORKSPACE LOCALSTORAGE CŨ",
+    purgePersistentWorkspaceInputs:purgePersistentWorkspaceInputsV0601
   }
 );
 
